@@ -143,7 +143,9 @@ test.describe('Phase 1 end-to-end journeys', () => {
     await page.getByLabel('Effective from').fill('2026-01-01');
     await page.getByRole('button', { name: 'Add rate' }).click();
     await expect(
-      page.getByRole('table', { name: 'E2E-VAT rate history' }).getByRole('cell', { name: '15.5%' }),
+      page
+        .getByRole('table', { name: 'E2E-VAT rate history' })
+        .getByRole('cell', { name: '15.5%' }),
     ).toBeVisible();
 
     await page.getByLabel('Base amount').fill('100.00');

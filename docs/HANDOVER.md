@@ -95,7 +95,7 @@ testing — can genuinely wait for the verification pass, same as Phase 1 did.
   service/API → contracts schema → UI screen → tests, rather than building a whole layer across all
   modules first.
 - **Update the checklist as you go**: check off `- [ ]` → `- [x]` in `docs/BUILD_ROADMAP.md` only once
-  a task is implemented *and verified* (tests passing per §5's rules), not just coded. For Phase 1
+  a task is implemented _and verified_ (tests passing per §5's rules), not just coded. For Phase 1
   items, update `docs/PHASE1_TODO.md` first (it's the detailed record) and keep BUILD_ROADMAP.md's
   rolled-up summary in sync.
 - Once a new phase starts in earnest, consider creating a `docs/PHASE<N>_TODO.md` in the same style as
