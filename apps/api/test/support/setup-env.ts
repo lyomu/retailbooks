@@ -7,3 +7,5 @@ import { testDatabaseUrl } from './database.js';
 process.env.DATABASE_URL = testDatabaseUrl();
 process.env.NODE_ENV = 'test';
 process.env.SECURITY_PEPPER ??= 'integration-test-pepper';
+// Keep request logging out of the test reporter's output.
+process.env.LOG_LEVEL ??= 'silent';

@@ -3,14 +3,21 @@ import {
   Catch,
   HttpException,
   HttpStatus,
-  Logger,
+  Inject,
   type ExceptionFilter,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
+import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
+
+import { ERROR_REPORTER, type ErrorReporter } from './logging/error-reporter.js';
+import { redactUrl } from './logging/redact.js';
 
 @Catch()
 export class ApiExceptionFilter implements ExceptionFilter {
-  private readonly logger = new Logger(ApiExceptionFilter.name);
+  constructor(
+    @InjectPinoLogger(ApiExceptionFilter.name) private readonly logger: PinoLogger,
+    @Inject(ERROR_REPORTER) private readonly errorReporter: ErrorReporter,
+  ) {}
 
   catch(exception: unknown, host: ArgumentsHost): void {
     const context = host.switchToHttp();
@@ -40,10 +47,19 @@ export class ApiExceptionFilter implements ExceptionFilter {
               : 'Request could not be completed.';
 
     if (status >= 500) {
+      const correlationId = correlationIdOf(request);
+      const detail = {
+        correlationId,
+        method: request.method,
+        url: redactUrl(request.originalUrl),
+        statusCode: status,
+      };
+
       this.logger.error(
-        `${request.method} ${request.originalUrl}`,
-        exception instanceof Error ? exception.stack : String(exception),
+        { ...detail, err: exception instanceof Error ? exception : new Error(String(exception)) },
+        'Unhandled request failure',
       );
+      this.errorReporter.captureException(exception, detail);
     }
 
     response.status(status).json({
@@ -54,6 +70,11 @@ export class ApiExceptionFilter implements ExceptionFilter {
       },
     });
   }
+}
+
+function correlationIdOf(request: Request): string | undefined {
+  const id = (request as Request & { id?: unknown }).id;
+  return typeof id === 'string' ? id : undefined;
 }
 
 function errorCode(status: number, validation: boolean): string {
