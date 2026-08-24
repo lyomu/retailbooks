@@ -55,6 +55,9 @@ export const PERMISSION_KEYS = [
   'security.view',
   'security.sessions.manage',
   'security.mfa.manage',
+  'customers.view',
+  'customers.manage',
+  'customers.currency_override',
 ] as const;
 
 export type PermissionKey = (typeof PERMISSION_KEYS)[number];
@@ -76,7 +79,8 @@ export interface PermissionDefinition {
     | 'Reports'
     | 'Tax'
     | 'Audit'
-    | 'Security';
+    | 'Security'
+    | 'Sales';
   /**
    * Permanently OWNER-only. No role -- system or custom -- can hold a protected key; there is no
    * grant path for it anywhere, which is the entire privilege-escalation defence.
@@ -420,6 +424,28 @@ export const PERMISSION_CATALOG: readonly PermissionDefinition[] = Object.freeze
     label: 'Manage MFA policy',
     description: 'Change multi-factor authentication requirements for this organization.',
     group: 'Security',
+    protected: false,
+  },
+  {
+    key: 'customers.view',
+    label: 'View customers',
+    description: 'See customer records and their contact and billing details.',
+    group: 'Sales',
+    protected: false,
+  },
+  {
+    key: 'customers.manage',
+    label: 'Manage customers',
+    description: 'Create, edit, and deactivate customer records.',
+    group: 'Sales',
+    protected: false,
+  },
+  {
+    key: 'customers.currency_override',
+    label: 'Override customer currency',
+    description:
+      "Set a customer's currency to something other than the organization's base currency.",
+    group: 'Sales',
     protected: false,
   },
 ]);

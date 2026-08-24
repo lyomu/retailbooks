@@ -121,6 +121,9 @@ export const permissionKeySchema = z.enum([
   'security.view',
   'security.sessions.manage',
   'security.mfa.manage',
+  'customers.view',
+  'customers.manage',
+  'customers.currency_override',
 ]);
 
 export const organizationSummarySchema = z.object({
@@ -544,6 +547,85 @@ export const auditLogResponseSchema = z.object({
   }),
 });
 
+// --- Sales: Customers ---
+
+export const contactTypeSchema = z.enum(['CUSTOMER', 'VENDOR']);
+export const contactStatusSchema = z.enum(['ACTIVE', 'INACTIVE']);
+export const contactAddressKindSchema = z.enum(['BILLING', 'SHIPPING']);
+
+export const contactAddressSchema = z.object({
+  id: z.uuid(),
+  kind: contactAddressKindSchema,
+  line1: z.string().min(1),
+  line2: z.string().nullable(),
+  city: z.string().nullable(),
+  region: z.string().nullable(),
+  postalCode: z.string().nullable(),
+  countryCode: z.string().length(2),
+  isDefault: z.boolean(),
+});
+
+export const contactTaxIdSchema = z.object({
+  id: z.uuid(),
+  label: z.string().min(1),
+  value: z.string().min(1),
+  countryCode: z.string().length(2).nullable(),
+});
+
+export const contactSchema = z.object({
+  id: z.uuid(),
+  type: contactTypeSchema,
+  displayName: z.string().min(1),
+  legalName: z.string().nullable(),
+  email: z.email().nullable(),
+  phone: z.string().nullable(),
+  currency: z.string().length(3),
+  paymentTermsDays: z.number().int().nullable(),
+  receivableAccountId: z.uuid().nullable(),
+  status: contactStatusSchema,
+  tags: z.array(z.string()),
+  addresses: z.array(contactAddressSchema),
+  taxIds: z.array(contactTaxIdSchema),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+});
+
+export const contactListResponseSchema = z.object({ data: z.array(contactSchema) });
+export const contactResponseSchema = z.object({ data: contactSchema });
+
+export const createContactAddressDto = z.object({
+  kind: contactAddressKindSchema,
+  line1: z.string().min(1).max(200),
+  line2: z.string().max(200).optional(),
+  city: z.string().max(120).optional(),
+  region: z.string().max(120).optional(),
+  postalCode: z.string().max(32).optional(),
+  countryCode: z.string().length(2),
+  isDefault: z.boolean().optional(),
+});
+
+export const createContactTaxIdDto = z.object({
+  label: z.string().min(1).max(24),
+  value: z.string().min(1).max(60),
+  countryCode: z.string().length(2).optional(),
+});
+
+export const createContactDto = z.object({
+  type: contactTypeSchema.optional(),
+  displayName: z.string().min(1).max(160),
+  legalName: z.string().max(200).optional(),
+  email: z.email().optional(),
+  phone: z.string().max(40).optional(),
+  currency: z.string().length(3).optional(),
+  paymentTermsDays: z.number().int().min(0).max(365).optional(),
+  receivableAccountId: z.uuid().optional(),
+  tags: z.array(z.string().max(40)).max(20).optional(),
+  addresses: z.array(createContactAddressDto).max(10).optional(),
+  taxIds: z.array(createContactTaxIdDto).max(10).optional(),
+});
+
+export const updateContactDto = createContactDto.partial().omit({ type: true });
+
 export const apiErrorSchema = z.object({
   error: z.object({
     code: z.string().min(1),
@@ -597,6 +679,17 @@ export type TaxRate = z.infer<typeof taxRateSchema>;
 export type TaxCalculationResult = z.infer<typeof taxCalculationResultSchema>;
 export type SecurityEvent = z.infer<typeof securityEventSchema>;
 export type AuditLogResponse = z.infer<typeof auditLogResponseSchema>;
+
+export type ContactType = z.infer<typeof contactTypeSchema>;
+export type ContactStatus = z.infer<typeof contactStatusSchema>;
+export type ContactAddressKind = z.infer<typeof contactAddressKindSchema>;
+export type ContactAddress = z.infer<typeof contactAddressSchema>;
+export type ContactTaxId = z.infer<typeof contactTaxIdSchema>;
+export type Contact = z.infer<typeof contactSchema>;
+export type ContactListResponse = z.infer<typeof contactListResponseSchema>;
+export type ContactResponse = z.infer<typeof contactResponseSchema>;
+export type CreateContactDto = z.infer<typeof createContactDto>;
+export type UpdateContactDto = z.infer<typeof updateContactDto>;
 
 /** Shape of `GET /organizations/reference-data`. Values stay configurable per organization. */
 export interface OrganizationReferenceData {

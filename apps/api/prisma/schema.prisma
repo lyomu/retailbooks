@@ -125,6 +125,21 @@ enum TaxCodeStatus {
   ARCHIVED
 }
 
+enum ContactType {
+  CUSTOMER
+  VENDOR
+}
+
+enum ContactStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum ContactAddressKind {
+  BILLING
+  SHIPPING
+}
+
 model User {
   id                   String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   email                String                   @unique @db.Citext
@@ -282,6 +297,9 @@ model Organization {
   exchangeRates            ExchangeRate[]
   taxCodes                 TaxCode[]
   taxRates                 TaxRate[]
+  contacts                 Contact[]
+  contactAddresses         ContactAddress[]
+  contactTaxIds            ContactTaxId[]
 
   @@index([createdByUserId])
   @@index([status])
@@ -546,24 +564,25 @@ model RolePermission {
 /// Editable organization-scoped chart of accounts. Accounts are archived rather than hard-deleted
 /// once they have journal history.
 model LedgerAccount {
-  id                        String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  organizationId            String              @map("organization_id") @db.Uuid
-  code                      String              @db.VarChar(24)
-  name                      String              @db.VarChar(120)
-  type                      LedgerAccountType
-  normalBalance             LedgerNormalBalance @map("normal_balance")
-  status                    LedgerAccountStatus @default(ACTIVE)
-  description               String?             @db.VarChar(240)
-  systemSeed                Boolean             @default(false) @map("system_seed")
-  systemKey                 String?             @map("system_key") @db.VarChar(40)
-  isControl                 Boolean             @default(false) @map("is_control")
-  archivedAt                DateTime?           @map("archived_at") @db.Timestamptz(6)
-  createdAt                 DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt                 DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  organization              Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  journalLines              JournalLine[]
-  taxCodesAsSalesAccount    TaxCode[]           @relation("TaxCodeSalesAccount")
-  taxCodesAsPurchaseAccount TaxCode[]           @relation("TaxCodePurchaseAccount")
+  id                          String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId              String              @map("organization_id") @db.Uuid
+  code                        String              @db.VarChar(24)
+  name                        String              @db.VarChar(120)
+  type                        LedgerAccountType
+  normalBalance               LedgerNormalBalance @map("normal_balance")
+  status                      LedgerAccountStatus @default(ACTIVE)
+  description                 String?             @db.VarChar(240)
+  systemSeed                  Boolean             @default(false) @map("system_seed")
+  systemKey                   String?             @map("system_key") @db.VarChar(40)
+  isControl                   Boolean             @default(false) @map("is_control")
+  archivedAt                  DateTime?           @map("archived_at") @db.Timestamptz(6)
+  createdAt                   DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                   DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization                Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  journalLines                JournalLine[]
+  taxCodesAsSalesAccount      TaxCode[]           @relation("TaxCodeSalesAccount")
+  taxCodesAsPurchaseAccount   TaxCode[]           @relation("TaxCodePurchaseAccount")
+  contactsAsReceivableAccount Contact[]           @relation("ContactReceivableAccount")
 
   @@unique([organizationId, code])
   @@unique([organizationId, systemKey])
@@ -695,4 +714,68 @@ model TaxRate {
   @@unique([taxCodeId, effectiveFrom])
   @@index([organizationId, taxCodeId, effectiveFrom])
   @@map("tax_rates")
+}
+
+/// Sales customer (and, in a later phase, purchasing vendor) record. `type` distinguishes the two
+/// so the two Sales/Purchases modules can share one contact book without a duplicate table.
+model Contact {
+  id                  String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId      String           @map("organization_id") @db.Uuid
+  type                ContactType      @default(CUSTOMER)
+  displayName         String           @map("display_name") @db.VarChar(160)
+  legalName           String?          @map("legal_name") @db.VarChar(200)
+  email               String?          @db.Citext
+  phone               String?          @db.VarChar(40)
+  currency            String           @db.Char(3)
+  paymentTermsDays    Int?             @map("payment_terms_days") @db.SmallInt
+  receivableAccountId String?          @map("receivable_account_id") @db.Uuid
+  status              ContactStatus    @default(ACTIVE)
+  tags                String[]         @default([])
+  createdAt           DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization        Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  receivableAccount   LedgerAccount?   @relation("ContactReceivableAccount", fields: [receivableAccountId], references: [id], onDelete: SetNull)
+  addresses           ContactAddress[]
+  taxIds              ContactTaxId[]
+
+  @@unique([organizationId, displayName])
+  @@index([organizationId, status])
+  @@index([organizationId, type])
+  @@map("contacts")
+}
+
+model ContactAddress {
+  id             String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String             @map("organization_id") @db.Uuid
+  contactId      String             @map("contact_id") @db.Uuid
+  kind           ContactAddressKind
+  line1          String             @db.VarChar(200)
+  line2          String?            @db.VarChar(200)
+  city           String?            @db.VarChar(120)
+  region         String?            @db.VarChar(120)
+  postalCode     String?            @map("postal_code") @db.VarChar(32)
+  countryCode    String             @map("country_code") @db.Char(2)
+  isDefault      Boolean            @default(false) @map("is_default")
+  createdAt      DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  contact        Contact            @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, contactId])
+  @@map("contact_addresses")
+}
+
+model ContactTaxId {
+  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  contactId      String       @map("contact_id") @db.Uuid
+  label          String       @db.VarChar(24)
+  value          String       @db.VarChar(60)
+  countryCode    String?      @map("country_code") @db.Char(2)
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  contact        Contact      @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, contactId])
+  @@map("contact_tax_ids")
 }

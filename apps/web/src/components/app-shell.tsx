@@ -60,6 +60,10 @@ const navigationGroups: NavigationGroup[] = [
     ],
   },
   {
+    label: 'Sales',
+    items: [{ label: 'Customers', icon: Users, href: '/customers' }],
+  },
+  {
     label: 'General ledger',
     items: [
       { label: 'Chart of accounts', icon: BookOpenText, href: '/accounts' },

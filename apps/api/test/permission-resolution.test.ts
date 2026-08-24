@@ -71,11 +71,21 @@ describe('SYSTEM_ROLE_TEMPLATES', () => {
     expect(viewer?.permissions).toContain('reports.view');
   });
 
-  it('gives the four Phase-1-minimal roles only organization.view', () => {
-    for (const key of ['SALES', 'PURCHASES', 'INVENTORY_MANAGER', 'PROJECT_MANAGER'] as const) {
+  it('gives the still-Phase-1-minimal roles only organization.view', () => {
+    for (const key of ['PURCHASES', 'INVENTORY_MANAGER', 'PROJECT_MANAGER'] as const) {
       const template = SYSTEM_ROLE_TEMPLATES.find((t) => t.key === key);
       expect(template?.permissions).toEqual(['organization.view']);
     }
+  });
+
+  it('gives SALES its real Phase 2 customer permissions', () => {
+    const template = SYSTEM_ROLE_TEMPLATES.find((t) => t.key === 'SALES');
+    expect(template?.permissions).toEqual([
+      'organization.view',
+      'customers.view',
+      'customers.manage',
+      'customers.currency_override',
+    ]);
   });
 });
 

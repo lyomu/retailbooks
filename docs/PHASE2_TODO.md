@@ -44,23 +44,29 @@ depend on Invoices/Payments/CreditNotes. 2K (verification pass) is a hard gate: 
 - [x] Added matching entries to `authorization-boundary.int.test.ts`'s endpoint matrix; full
       integration suite (54 tests) and unit suite (72 tests) green, typecheck/lint/format clean
 
-## Milestone 2B — Customers/Contacts
+## Milestone 2B — Customers/Contacts ✅
 
-- [ ] `Contact` model (type, displayName, legalName, email, phone, currency, paymentTermsDays,
+- [x] `Contact` model (type, displayName, legalName, email, phone, currency, paymentTermsDays,
       receivableAccountId override, status, tags)
-- [ ] `ContactAddress` (billing/shipping) and `ContactTaxId` models
-- [ ] Migration written, applied, and drift-checked in CI
-- [ ] `apps/api/src/sales/customers.{service,controller,dto}.ts`: CRUD, active/inactive toggle,
-      currency default with permission-gated override
-- [ ] New permission keys `customers.view`, `customers.manage`, `customers.currency_override` (new
-      `'Sales'` permission-catalog group); wired into `roles-catalog.ts` (SALES + ADMIN: all three;
-      ACCOUNTANT: view + manage; VIEWER: view)
-- [ ] Zod schemas in `packages/contracts/src/index.ts`; extend `permissionKeySchema`
-- [ ] UI: `apps/web/src/app/customers/**` (list/create-edit/detail) using `DataTable`/`EmptyState`/
-      `ForbiddenState`/`Toast` and the `hasPermission()` gate pattern
-- [ ] Audit events on create/update/deactivate
-- [ ] Tests: duplicate-display-name rejection, currency-override permission boundary, cross-tenant
-      isolation (404, not 403, for another org's customer)
+- [x] `ContactAddress` (billing/shipping) and `ContactTaxId` models
+- [x] Migration `20260824182525_add_customer_contacts` written, applied, and drift-checked
+      (`prisma migrate diff --exit-code`: no difference)
+- [x] `apps/api/src/sales/customers.{service,controller,dto}.ts`: CRUD, active/inactive toggle,
+      currency default with permission-gated override; new `SalesModule` wired into `app.module.ts`
+- [x] New permission keys `customers.view`, `customers.manage`, `customers.currency_override` (new
+      `'Sales'` permission-catalog group); wired into `roles-catalog.ts` (SALES: all three; ADMIN: all
+      three; ACCOUNTANT: view + manage; VIEWER: view via `READ_ONLY_BASELINE`)
+- [x] Zod schemas in `packages/contracts/src/index.ts`; extended `permissionKeySchema`
+- [x] UI: `apps/web/src/components/customers-workbench.tsx` + `apps/web/src/app/customers/page.tsx`
+      (list, inline create/edit form, deactivate/reactivate) using `DataTable`/`EmptyState`/
+      `ForbiddenState` and the `hasPermission()` gate pattern; added to the sidebar nav
+- [x] Audit events (`customers.created`/`customers.updated`/`customers.deactivated`/
+      `customers.reactivated`) written inside the same transaction as each mutation
+- [x] Tests (`apps/api/test/customers.int.test.ts`, 5 tests): duplicate-display-name rejection,
+      currency-override permission boundary (both allow and deny sides), cross-tenant isolation
+      (customer from another org 404s, not 403); added matching entries to
+      `authorization-boundary.int.test.ts`'s endpoint matrix; full suite green (73 unit + 59
+      integration), typecheck/lint/format clean, both API and web production builds succeed
 
 ## Milestone 2C — Catalog
 

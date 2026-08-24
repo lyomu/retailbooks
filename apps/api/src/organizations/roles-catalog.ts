@@ -40,6 +40,7 @@ const READ_ONLY_BASELINE: readonly PermissionKey[] = [
   'accounts.view',
   'journals.view',
   'tax.codes.view',
+  'customers.view',
 ];
 
 export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freeze([
@@ -90,6 +91,9 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
       'tax.codes.manage',
       'audit.view',
       'audit.export',
+      'customers.view',
+      'customers.manage',
+      'customers.currency_override',
     ],
   },
   {
@@ -115,14 +119,21 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
       'tax.codes.manage',
       'audit.view',
       'audit.export',
+      'customers.view',
+      'customers.manage',
     ],
   },
   {
     key: 'SALES',
     name: 'Sales',
-    description: 'Minimal Phase 1 access; organization read only until the Sales module arrives.',
+    description: 'Manages customers and the sales pipeline.',
     isOwnerRole: false,
-    permissions: ['organization.view'],
+    permissions: [
+      'organization.view',
+      'customers.view',
+      'customers.manage',
+      'customers.currency_override',
+    ],
   },
   {
     key: 'PURCHASES',

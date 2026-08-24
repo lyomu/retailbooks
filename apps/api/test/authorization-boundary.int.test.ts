@@ -15,6 +15,7 @@ import { OrganizationsController } from '../src/organizations/organizations.cont
 import type { PermissionKey } from '../src/organizations/permission-catalog.js';
 import { SYSTEM_ROLE_KEYS, type SystemRoleKey } from '../src/organizations/roles-catalog.js';
 import { TaxController } from '../src/organizations/tax.controller.js';
+import { CustomersController } from '../src/sales/customers.controller.js';
 import { API, createTestHarness, type TestHarness } from './support/app.js';
 
 type HttpMethod = 'get' | 'post' | 'patch' | 'delete';
@@ -281,6 +282,38 @@ const ENDPOINTS: readonly EndpointCase[] = [
     path: 'organizations/:organizationId/audit-log/export',
     permission: 'audit.export',
   },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/customers',
+    permission: 'customers.view',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/customers/:contactId',
+    permission: 'customers.view',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/customers',
+    permission: 'customers.manage',
+    body: {},
+  },
+  {
+    method: 'patch',
+    path: 'organizations/:organizationId/customers/:contactId',
+    permission: 'customers.manage',
+    body: {},
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/customers/:contactId/deactivate',
+    permission: 'customers.manage',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/customers/:contactId/reactivate',
+    permission: 'customers.manage',
+  },
 ];
 
 const CONTROLLERS: readonly Type[] = [
@@ -289,6 +322,7 @@ const CONTROLLERS: readonly Type[] = [
   LedgerController,
   TaxController,
   AuditLogController,
+  CustomersController,
 ];
 
 describe('organization authorization boundary over HTTP', () => {
@@ -481,7 +515,8 @@ describe('organization authorization boundary over HTTP', () => {
       .replace(':accountId', ID)
       .replace(':journalId', ID)
       .replace(':taxCodeId', ID)
-      .replace(':documentType', 'INVOICE');
+      .replace(':documentType', 'INVOICE')
+      .replace(':contactId', ID);
     const test = harness.http()[endpoint.method](path).set('Cookie', cookie);
     if (endpoint.body !== undefined) test.send(endpoint.body);
     return test;
