@@ -20,21 +20,21 @@ performance and operational verification, and the final threat-model/readiness r
 
 ## Defect register
 
-| #   | Defect                                                                                       | Status                        |
-| --- | -------------------------------------------------------------------------------------------- | ----------------------------- |
-| D1  | SSR hydration mismatch on the design-system route, failing at all three breakpoints          | Open — stage 6, deferred      |
-| D2  | Reversal journals do not carry a reversed line's tax snapshot forward                        | Open — stage 4                |
-| D3  | CI had no PostgreSQL service, so no DB-backed test could run in CI                           | Resolved — stage 0            |
-| D4  | Checked-in visual baselines are two routes captured before 1C–1I existed                     | Open — stage 6, deferred      |
-| D5  | `postJournal` idempotency check-then-act is non-atomic                                       | Predicted — stage 4 proves it |
-| D6  | Migration SQL had drifted from `schema.prisma` in two ways                                   | Resolved — stage 0            |
-| D7  | Two `.env` files (`.env` and `apps/api/.env`) can drift; the API loads whichever matches cwd | Logged, not fixed             |
+| #   | Defect                                                                                       | Status                   |
+| --- | -------------------------------------------------------------------------------------------- | ------------------------ |
+| D1  | SSR hydration mismatch on the design-system route, failing at all three breakpoints          | Open — stage 6, deferred |
+| D2  | Reversal journals do not carry a reversed line's tax snapshot forward                        | Resolved — stage 4       |
+| D3  | CI had no PostgreSQL service, so no DB-backed test could run in CI                           | Resolved — stage 0       |
+| D4  | Checked-in visual baselines are two routes captured before 1C–1I existed                     | Open — stage 6, deferred |
+| D5  | `postJournal` idempotency check-then-act is non-atomic                                       | Resolved — stage 4       |
+| D6  | Migration SQL had drifted from `schema.prisma` in two ways                                   | Resolved — stage 0       |
+| D7  | Two `.env` files (`.env` and `apps/api/.env`) can drift; the API loads whichever matches cwd | Logged, not fixed        |
 
-D5 detail: `findIdempotentResult` queries via `this.prisma`, outside the transaction, while
-`recordIdempotency` inserts inside it against the `@@unique([organizationId, operation, key])`
-constraint. Two concurrent posts sharing a key should both pass the pre-check, both allocate a
-journal number, and the loser should fail on the constraint rather than replaying the winner's
-result — burning a document number. Stage 4 proves or disproves this before any fix.
+D5 resolution: posting and reversal now take a transaction-scoped PostgreSQL advisory lock before
+the in-transaction idempotency lookup and record. They also lock the target journal row, covering
+competing requests that use different keys. Parallel HTTP tests prove same-key requests replay one
+result, different-key competitors yield one post and one conflict, and neither path burns a document
+number.
 
 ## Stage 0 — Prove the schema — COMPLETE
 
@@ -140,7 +140,7 @@ route mounts `OrganizationGuard`. The suite executes 384 role/route decisions, 9
 unknown-tenant comparisons, protected-permission escalation attempts, final-owner mutations, and
 the explicit audit-view boundary.
 
-## Stage 4 — Accounting and tax invariants
+## Stage 4 — Accounting and tax invariants — COMPLETE
 
 Closes 1F "boundary, concurrency, and time-zone tests" and 1G "accounting invariant, idempotency,
 concurrency, and reversal tests". Resolves D2 and settles D5.
@@ -154,6 +154,12 @@ concurrency, and reversal tests". Resolves D2 and settles D5.
 - Posting concurrency corrupts neither numbering nor balances.
 - Reversal reverses exactly, links to source, is immutable, and carries the tax snapshot forward.
 - Tax snapshots: mutating the catalog after posting leaves posted lines unchanged.
+
+Verified by `test/accounting-invariants.int.test.ts` (7 tests) and the existing time-zone case in
+`test/fiscal-periods-calendar.test.ts`. The integration suite sends genuinely parallel HTTP posts,
+checks the persisted numbering sequence and idempotency rows, exercises closed/locked/reopened
+periods, and proves exact reversal linkage and tax-snapshot preservation after a catalog mutation.
+D2 and D5 are resolved in the production ledger service, not masked in the tests.
 
 ## Verification gate
 

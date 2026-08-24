@@ -375,10 +375,22 @@ export class LedgerService {
     metadata: RequestMetadata,
     idempotencyKey?: string,
   ) {
-    const existing = await this.findIdempotentResult(context.id, 'JOURNAL_POST', idempotencyKey);
-    if (existing) return this.getJournal(context.id, existing.resourceId);
-
     const posted = await this.prisma.$transaction(async (tx) => {
+      await this.lockIdempotency(tx, context.id, 'JOURNAL_POST', idempotencyKey);
+      const existing = await this.findIdempotentResult(
+        context.id,
+        'JOURNAL_POST',
+        idempotencyKey,
+        tx,
+      );
+      if (existing) {
+        return tx.journal.findFirstOrThrow({
+          where: { id: existing.resourceId, organizationId: context.id },
+          include: journalDetailInclude,
+        });
+      }
+
+      await this.lockJournal(tx, context.id, journalId);
       const journal = await tx.journal.findFirst({
         where: { id: journalId, organizationId: context.id },
         include: journalDetailInclude,
@@ -467,10 +479,17 @@ export class LedgerService {
     idempotencyKey?: string,
   ) {
     const key = input.idempotencyKey ?? idempotencyKey;
-    const existing = await this.findIdempotentResult(context.id, 'JOURNAL_REVERSE', key);
-    if (existing) return this.getJournal(context.id, existing.resourceId);
-
     const reversal = await this.prisma.$transaction(async (tx) => {
+      await this.lockIdempotency(tx, context.id, 'JOURNAL_REVERSE', key);
+      const existing = await this.findIdempotentResult(context.id, 'JOURNAL_REVERSE', key, tx);
+      if (existing) {
+        return tx.journal.findFirstOrThrow({
+          where: { id: existing.resourceId, organizationId: context.id },
+          include: journalDetailInclude,
+        });
+      }
+
+      await this.lockJournal(tx, context.id, journalId);
       const original = await tx.journal.findFirst({
         where: { id: journalId, organizationId: context.id },
         include: journalDetailInclude,
@@ -516,6 +535,13 @@ export class LedgerService {
               creditMinor: line.debitMinor,
               foreignAmountMinor: line.foreignAmountMinor,
               exchangeRate: line.exchangeRate,
+              taxCodeId: line.taxCodeId,
+              taxCodeSnapshot: line.taxCodeSnapshot,
+              taxTreatmentSnapshot: line.taxTreatmentSnapshot,
+              taxRecoverableSnapshot: line.taxRecoverableSnapshot,
+              taxRatePercentSnapshot: line.taxRatePercentSnapshot,
+              taxableAmountMinor: line.taxableAmountMinor,
+              taxAmountMinor: line.taxAmountMinor,
             })),
           },
         },
@@ -895,12 +921,45 @@ export class LedgerService {
     organizationId: string,
     operation: string,
     key?: string,
+    client: Prisma.TransactionClient | PrismaService = this.prisma,
   ): Promise<{ resourceId: string } | null> {
     if (!key) return null;
-    return this.prisma.ledgerIdempotencyKey.findUnique({
+    return client.ledgerIdempotencyKey.findUnique({
       where: { organizationId_operation_key: { organizationId, operation, key } },
       select: { resourceId: true },
     });
+  }
+
+  /**
+   * Serializes the check-and-record sequence for one idempotency key. PostgreSQL releases this lock
+   * automatically with the transaction, including on rollback, so no cleanup row or expiry policy
+   * is needed. Hash collisions only serialize unrelated requests; they cannot corrupt results.
+   */
+  private async lockIdempotency(
+    tx: Prisma.TransactionClient,
+    organizationId: string,
+    operation: string,
+    key?: string,
+  ): Promise<void> {
+    if (!key) return;
+    const lockKey = `${organizationId}:${operation}:${key}`;
+    await tx.$queryRaw`
+      SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))::text AS locked
+    `;
+  }
+
+  /** Prevents two different idempotency keys from acting on the same journal concurrently. */
+  private async lockJournal(
+    tx: Prisma.TransactionClient,
+    organizationId: string,
+    journalId: string,
+  ): Promise<void> {
+    await tx.$queryRaw`
+      SELECT id
+      FROM journals
+      WHERE id = ${journalId}::uuid AND organization_id = ${organizationId}::uuid
+      FOR UPDATE
+    `;
   }
 
   private recordIdempotency(

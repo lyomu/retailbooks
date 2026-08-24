@@ -114,7 +114,8 @@ negative-authorization integration tests exist yet.
 - [x] Model fiscal years and periods with open, closed, and locked states
 - [x] Implement controlled period close/reopen/lock operations with audit evidence
 - [x] Implement configurable, concurrency-safe document numbering
-- [ ] Add boundary, concurrency, and time-zone tests
+- [x] Add boundary, concurrency, and time-zone tests — proven by
+      `fiscal-periods-calendar.test.ts` and `accounting-invariants.int.test.ts`
 
 Implementation note: API, web, contracts, and localization TypeScript compilation passed on
 2026-08-17. DB-free tests passed for localization formatting and country-pack fallback
@@ -140,7 +141,8 @@ transaction behavior.
 - [x] Implement posting and explicit reversal as atomic transactions
 - [x] Preserve source linkage and append-only audit evidence
 - [x] Add trial balance, account ledger, and journal inquiry queries
-- [ ] Add accounting invariant, idempotency, concurrency, and reversal tests
+- [x] Add accounting invariant, idempotency, concurrency, and reversal tests — proven by
+      `apps/api/test/accounting-invariants.int.test.ts`
 
 Implementation note: API, web, contracts, and accounting-core TypeScript compilation passed on
 2026-08-17. DB-free tests passed for accounting-core ledger invariants and the API helper suite,
@@ -297,6 +299,15 @@ entry. The HTTP suite exercises all eight system roles across every endpoint (38
 proves all 48 routes return identical not-found envelopes for another tenant and a nonexistent
 tenant (96 comparisons). Protected-permission escalation, final-owner protection, and the exact
 four-role `audit.view` boundary are also proven over HTTP.
+
+**Stage 4 — accounting and tax invariants (2026-08-24).** Seven PostgreSQL-backed tests prove
+unbalanced-entry rejection, the period transition and posting boundary, gap-free numbering under
+parallel posting, atomic same-key replay, safe competing posts with different keys, posted-record
+immutability, equal trial-balance totals, frozen tax snapshots, and exact linked reversal. D2 was
+fixed by copying every tax snapshot field to reversal lines. D5 was fixed with transaction-scoped
+idempotency locks plus journal row locks, so concurrent requests neither double-post nor burn a
+document number. Time-zone fiscal-boundary behavior remains proven by
+`fiscal-periods-calendar.test.ts`.
 
 ## Milestone 1J — Hardening and Phase 1 acceptance
 
