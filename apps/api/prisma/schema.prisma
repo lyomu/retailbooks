@@ -134,7 +134,7 @@ model User {
   emailVerifiedAt       DateTime?                    @map("email_verified_at") @db.Timestamptz(6)
   status                UserStatus                   @default(PENDING_VERIFICATION)
   createdAt             DateTime                     @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt             DateTime                     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedAt             DateTime                     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   authMethods           AuthMethod[]
   sessions              Session[]
   actionTokens          ActionToken[]
@@ -157,7 +157,7 @@ model AuthMethod {
   providerKey  String?      @map("provider_key") @db.VarChar(255)
   passwordHash String?      @map("password_hash") @db.Text
   createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt    DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedAt    DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, provider])
@@ -234,7 +234,7 @@ model Organization {
   onboardingCompletedAt DateTime?                    @map("onboarding_completed_at") @db.Timestamptz(6)
   createdByUserId       String                       @map("created_by_user_id") @db.Uuid
   createdAt             DateTime                     @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt             DateTime                     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedAt             DateTime                     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   createdBy             User                         @relation("OrganizationCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
   preferences           OrganizationPreference?
   members               OrganizationMember[]
@@ -265,7 +265,7 @@ model FiscalYear {
   endsOn         DateTime           @map("ends_on") @db.Date
   status         FiscalPeriodStatus @default(OPEN)
   createdAt      DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt      DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedAt      DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   periods        FiscalPeriod[]
 
@@ -290,7 +290,7 @@ model FiscalPeriod {
   lockedAt       DateTime?          @map("locked_at") @db.Timestamptz(6)
   reopenedAt     DateTime?          @map("reopened_at") @db.Timestamptz(6)
   createdAt      DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt      DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedAt      DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   fiscalYear     FiscalYear         @relation(fields: [fiscalYearId], references: [id], onDelete: Cascade)
 
@@ -315,10 +315,10 @@ model DocumentNumberSequence {
   lastAllocatedNumber Int?           @map("last_allocated_number")
   lastAllocatedAt     DateTime?      @map("last_allocated_at") @db.Timestamptz(6)
   createdAt           DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt           DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedAt           DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   organization        Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  @@unique([organizationId, documentType, scopeKey])
+  @@unique([organizationId, documentType, scopeKey], map: "document_number_sequences_org_type_scope_key")
   @@index([organizationId, documentType])
   @@map("document_number_sequences")
 }
@@ -342,7 +342,7 @@ model OrganizationPreference {
   countryPackCode     String          @map("country_pack_code") @db.VarChar(8)
   countryPackVersion  String          @map("country_pack_version") @db.VarChar(24)
   createdAt           DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt           DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedAt           DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   organization        Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@map("organization_preferences")
@@ -356,7 +356,7 @@ model OrganizationMember {
   status         MembershipStatus @default(ACTIVE)
   joinedAt       DateTime         @default(now()) @map("joined_at") @db.Timestamptz(6)
   createdAt      DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt      DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedAt      DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -380,7 +380,7 @@ model OrganizationInvitation {
   acceptedAt       DateTime?        @map("accepted_at") @db.Timestamptz(6)
   revokedAt        DateTime?        @map("revoked_at") @db.Timestamptz(6)
   createdAt        DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt        DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedAt        DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   organization     Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   invitedBy        User             @relation("InvitationInvitedBy", fields: [invitedByUserId], references: [id], onDelete: Cascade)
   acceptedBy       User?            @relation("InvitationAcceptedBy", fields: [acceptedByUserId], references: [id], onDelete: SetNull)
@@ -402,11 +402,11 @@ model OrganizationRolePermission {
   granted         Boolean
   updatedByUserId String           @map("updated_by_user_id") @db.Uuid
   createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedAt       DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   organization    Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   updatedBy       User             @relation("RolePermissionUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: Restrict)
 
-  @@unique([organizationId, role, permissionKey])
+  @@unique([organizationId, role, permissionKey], map: "organization_role_permissions_org_role_key_key")
   @@index([organizationId, role])
   @@map("organization_role_permissions")
 }
@@ -425,7 +425,7 @@ model LedgerAccount {
   systemSeed     Boolean             @default(false) @map("system_seed")
   archivedAt     DateTime?           @map("archived_at") @db.Timestamptz(6)
   createdAt      DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt      DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedAt      DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   organization   Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   journalLines   JournalLine[]
   taxCodesAsSalesAccount    TaxCode[] @relation("TaxCodeSalesAccount")
@@ -453,7 +453,7 @@ model Journal {
   createdByUserId     String        @map("created_by_user_id") @db.Uuid
   reversalOfJournalId String?       @unique @map("reversal_of_journal_id") @db.Uuid
   createdAt           DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt           DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedAt           DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   organization        Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   createdBy           User          @relation("JournalCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
   postedBy            User?         @relation("JournalPostedBy", fields: [postedByUserId], references: [id], onDelete: Restrict)
@@ -508,7 +508,7 @@ model LedgerIdempotencyKey {
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@unique([organizationId, operation, key])
-  @@index([organizationId, resourceType, resourceId])
+  @@index([organizationId, resourceType, resourceId], map: "ledger_idempotency_keys_organization_id_resource_type_resource_")
   @@map("ledger_idempotency_keys")
 }
 
@@ -528,7 +528,7 @@ model TaxCode {
   systemSeed           Boolean        @default(false) @map("system_seed")
   archivedAt           DateTime?      @map("archived_at") @db.Timestamptz(6)
   createdAt            DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt            DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedAt            DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   organization         Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   salesTaxAccount      LedgerAccount? @relation("TaxCodeSalesAccount", fields: [salesTaxAccountId], references: [id], onDelete: SetNull)
   purchaseTaxAccount   LedgerAccount? @relation("TaxCodePurchaseAccount", fields: [purchaseTaxAccountId], references: [id], onDelete: SetNull)
@@ -550,7 +550,7 @@ model TaxRate {
   effectiveFrom  DateTime     @map("effective_from") @db.Date
   effectiveTo    DateTime?    @map("effective_to") @db.Date
   createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedAt      DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   taxCode        TaxCode      @relation(fields: [taxCodeId], references: [id], onDelete: Cascade)
 

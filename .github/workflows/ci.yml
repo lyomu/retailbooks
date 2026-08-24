@@ -13,6 +13,21 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: retailbooks
+          POSTGRES_USER: retailbooks
+          POSTGRES_PASSWORD: retailbooks
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -34,6 +49,15 @@ jobs:
 
       - name: Typecheck
         run: npm run typecheck
+
+      - name: Check migration drift
+        working-directory: apps/api
+        env:
+          DATABASE_URL: postgresql://retailbooks:retailbooks@localhost:5432/retailbooks
+          SHADOW_DATABASE_URL: postgresql://retailbooks:retailbooks@localhost:5432/retailbooks_shadow
+        run: |
+          psql "$DATABASE_URL" -c 'CREATE DATABASE retailbooks_shadow'
+          npx prisma migrate diff --from-migrations prisma/migrations --to-schema-datamodel prisma/schema.prisma --shadow-database-url "$SHADOW_DATABASE_URL" --exit-code
 
       - name: Test
         run: npm test

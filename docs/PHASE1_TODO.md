@@ -240,6 +240,30 @@ HTTP-level tenant/permission integration tests for the new audit-log endpoint ha
 browser/visual QA for the new settings/dashboard screens remains deferred. No migration was needed
 this milestone — the audit log reads the existing `SecurityEvent` table without schema changes.
 
+## Verification pass — progress
+
+The verification pass that milestones 1C–1I each deferred work into is planned in
+`docs/PHASE1_VERIFICATION_PLAN.md`, scoped to stages 0–4 (schema, integration harness, identity and
+tenancy, authorization, accounting and tax invariants). Stages 5–8 are deliberately deferred and
+reassessed once those land.
+
+**Stage 0 — schema proven (2026-08-24).** All six migrations
+(`202608160001` through `202608180001`) were applied to PostgreSQL for the first time and applied
+cleanly. This supersedes the "migration has not been executed against PostgreSQL" caveat recorded in
+the 1C, 1D, 1E, 1F, 1G, and 1H implementation notes above.
+
+The drift check found and fixed a real divergence between the migration SQL and `schema.prisma`:
+fourteen `updated_at` columns carry a `DEFAULT CURRENT_TIMESTAMP` the datamodel did not declare — a
+load-bearing default, since `DocumentNumberingService.allocateJournalNumberWithClient` inserts
+without supplying `updated_at` — and three index names differed, one of them because PostgreSQL
+silently truncated a 69-character identifier to its 63-byte limit. `schema.prisma` was corrected to
+describe the deployed database rather than issuing DDL against it.
+
+`prisma migrate diff` now reports no difference in both directions: live database against datamodel,
+and the migration files replayed from scratch into a shadow database against datamodel. The API
+boots on freshly built code with postgres, redis, and minio all reporting up. A `services: postgres`
+block and the shadow-database drift check are wired into `.github/workflows/ci.yml`.
+
 ## Milestone 1J — Hardening and Phase 1 acceptance
 
 - [ ] Complete end-to-end journeys for identity, onboarding, teams, periods, journals, and tax
