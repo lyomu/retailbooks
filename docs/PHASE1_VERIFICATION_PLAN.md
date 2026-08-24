@@ -124,13 +124,14 @@ Closes 1C "identity unit and integration tests" and 1D "tenant-isolation integra
 Closes 1J "cross-tenant and permission-boundary security tests". `permission-resolution.test.ts`
 covers the resolution logic, but nothing proves `OrganizationGuard` is mounted on the routes.
 
-- A matrix over the four baseline roles against every organization-scoped endpoint, asserting allow
-  and deny at the HTTP layer, driven from `permission-catalog.ts` so new endpoints cannot escape
-  coverage.
+- A matrix over all eight organization-scoped system roles against every organization-scoped
+  endpoint, asserting allow and deny at the HTTP layer, driven from `permission-catalog.ts` so new
+  endpoints cannot escape coverage.
 - Privilege escalation: `organization.finalize` and `roles.manage` cannot be granted via a custom
   role override.
 - Final-owner protection over HTTP.
-- `audit.view` denied to STAFF, granted to the other three roles.
+- `audit.view` granted to OWNER, ADMIN, ACCOUNTANT, and VIEWER and denied to the four
+  module-placeholder roles.
 
 ## Stage 4 — Accounting and tax invariants
 

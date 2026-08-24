@@ -77,7 +77,7 @@ onboarding tests exist yet.
 
 ## Milestone 1E — Roles, permissions, and audit authorization
 
-- [x] Define owner, admin, accountant, and staff permission baselines
+- [x] Define the eight organization-scoped system role baselines
 - [x] Implement organization-scoped custom role overrides
 - [x] Enforce authorization centrally in the API and reflect it safely in the UI
 - [x] Prevent removal of the final owner and unsafe privilege escalation
@@ -218,7 +218,8 @@ hardcoded placeholder), and root-level Next.js `loading.tsx`/`error.tsx`/`global
 `not-found.tsx`. The audit log is the only genuinely new backend surface: a new `AuditLogService`/
 `AuditLogController` pair reads the existing `SecurityEvent` table (written by 28 event keys across
 every prior milestone, previously never read back) through a new `audit.view` permission (granted to
-OWNER/ADMIN/ACCOUNTANT by default, not STAFF) and a keyset-cursor-paginated endpoint — the API's first
+OWNER/ADMIN/ACCOUNTANT/VIEWER by default, not the four module-placeholder roles) and a
+keyset-cursor-paginated endpoint — the API's first
 real pagination pattern, chosen because the table is append-only and unbounded and the existing
 `[organizationId, occurredAt]` index supports keyset paging in O(limit) regardless of depth. The
 organization-profile page submits one `PATCH /organizations/:id` per section
@@ -282,21 +283,34 @@ checkbox closes here; stages 2–4 consume it.
 
 ## Milestone 1J — Hardening and Phase 1 acceptance
 
-- [ ] Complete end-to-end journeys for identity, onboarding, teams, periods, journals, and tax
-- [ ] Complete cross-tenant and permission-boundary security tests
-- [ ] Complete visual regression at desktop, tablet, and mobile breakpoints
-- [ ] Complete WCAG 2.2 AA keyboard, screen-reader, contrast, and focus review
-- [ ] Complete performance budgets and query/index review
-- [ ] Complete audit-log coverage and immutable-posting review
-- [ ] Complete backup/restore, migration, seed, and operational runbooks
-- [ ] Complete threat model, dependency review, secret handling, and production-readiness checklist
-- [ ] Update `DESIGN.md` from the implemented system and close all Phase 1 acceptance gaps
+- [ ] Complete end-to-end journeys for identity, onboarding, teams, periods, journals, and tax —
+      verification stage 5, deferred
+- [ ] Complete cross-tenant and permission-boundary security tests — verification stage 3,
+      explicitly deferred after stages 0–1
+- [ ] Complete visual regression at desktop, tablet, and mobile breakpoints — verification stage 6,
+      deferred and blocked on D1
+- [ ] Complete WCAG 2.2 AA keyboard, screen-reader, contrast, and focus review — verification stage 6,
+      deferred
+- [ ] Complete performance budgets and query/index review — verification stage 7, deferred
+- [ ] Complete audit-log coverage and immutable-posting review — audit events partly delivered by
+      foundation step 3; invariant verification remains deferred to stage 4
+- [ ] Complete backup/restore, migration, seed, and operational runbooks — service-driven demo seed
+      delivered by foundation step 7; backup/restore and runbooks remain deferred
+- [ ] Complete threat model, dependency review, secret handling, and production-readiness checklist —
+      verification stages 7–8, deferred
+- [ ] Update `DESIGN.md` from the implemented system and close all Phase 1 acceptance gaps —
+      verification stage 8, deferred
+- [x] Add structured observability, request correlation, redaction, and an error-reporting seam —
+      foundation step 1
+- [x] Add Redis/BullMQ job infrastructure with a separate worker, retries, retained failed jobs, and
+      queue health — foundation step 6
 
 ## Deferred beyond Phase 1
 
 - Inventory and cost accounting
 - Banking feeds and reconciliation automation
-- Online payment collection and live payment integrations
+- Payment gateway integrations are excluded from all of V1, not merely deferred beyond Phase 1;
+  revisit them only in post-V1 planning
 - Payroll, fixed assets, budgeting, consolidation, and advanced reporting
 - Functional MFA
 - Native mobile applications
