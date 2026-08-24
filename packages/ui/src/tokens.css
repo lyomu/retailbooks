@@ -1,0 +1,92 @@
+:root {
+  color-scheme: light;
+
+  --rb-background: 210 20% 98%;
+  --rb-foreground: 217 82% 13%;
+  --rb-card: 0 0% 100%;
+  --rb-card-foreground: 217 82% 13%;
+  --rb-popover: 0 0% 100%;
+  --rb-popover-foreground: 217 82% 13%;
+
+  --rb-brand-navy: 217 82% 13%;
+  --rb-primary: 194 82% 50%;
+  --rb-primary-mid: 207 82% 48%;
+  --rb-primary-glow: 228 73% 48%;
+  --rb-primary-foreground: 0 0% 100%;
+
+  --rb-secondary: 210 40% 96%;
+  --rb-secondary-foreground: 217 82% 13%;
+  --rb-muted: 210 40% 96%;
+  --rb-muted-foreground: 215 16% 47%;
+  --rb-accent: 207 100% 96%;
+  --rb-accent-foreground: 217 82% 13%;
+
+  --rb-success: 153 66% 38%;
+  --rb-success-surface: 149 62% 94%;
+  --rb-warning: 38 92% 45%;
+  --rb-warning-surface: 40 92% 95%;
+  --rb-danger: 0 72% 51%;
+  --rb-danger-surface: 0 78% 95%;
+  --rb-info: 217 91% 60%;
+  --rb-info-surface: 214 94% 95%;
+
+  --rb-border: 214 28% 91%;
+  --rb-input: 214 28% 91%;
+  --rb-ring: 207 82% 48%;
+
+  --rb-sidebar-background: 217 82% 13%;
+  --rb-sidebar-foreground: 214 28% 82%;
+  --rb-sidebar-muted: 215 21% 60%;
+  --rb-sidebar-accent: 218 75% 18%;
+  --rb-sidebar-border: 218 70% 20%;
+
+  --rb-space-1: 0.25rem;
+  --rb-space-2: 0.5rem;
+  --rb-space-3: 0.75rem;
+  --rb-space-4: 1rem;
+  --rb-space-5: 1.25rem;
+  --rb-space-6: 1.5rem;
+  --rb-space-8: 2rem;
+  --rb-space-10: 2.5rem;
+
+  --rb-radius-sm: 0.375rem;
+  --rb-radius: 0.625rem;
+  --rb-radius-lg: 0.75rem;
+  --rb-radius-full: 999px;
+
+  --rb-shadow-sm: 0 2px 3px hsl(217 82% 13% / 0.04);
+  --rb-shadow-md: 0 10px 30px hsl(217 82% 13% / 0.12);
+  --rb-shadow-action: 0 6px 16px hsl(207 82% 48% / 0.2);
+
+  --rb-duration-fast: 140ms;
+  --rb-duration-normal: 220ms;
+  --rb-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
+  --rb-sidebar-width: 16rem;
+  --rb-sidebar-collapsed-width: 4rem;
+  --rb-topbar-height: 3.5rem;
+  --rb-content-max: 100rem;
+}
+
+.rb-num {
+  font-variant-numeric: tabular-nums;
+}
+
+.rb-visually-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --rb-duration-fast: 0.01ms;
+    --rb-duration-normal: 0.01ms;
+  }
+}

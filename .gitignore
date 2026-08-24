@@ -12,3 +12,5 @@ coverage/
 .vscode/
 apps/api/prisma/dev.db
 infrastructure/data/
+apps/web/test-results/
+apps/web/playwright-report/

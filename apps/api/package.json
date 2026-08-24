@@ -6,6 +6,9 @@
     "dev": "nest start --watch",
     "build": "nest build",
     "start": "node dist/src/main.js",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
@@ -14,16 +17,22 @@
     "@nestjs/config": "^4.0.2",
     "@nestjs/core": "^11.1.6",
     "@nestjs/platform-express": "^11.1.6",
+    "@node-rs/argon2": "^2.1.0",
+    "@prisma/client": "^6.19.3",
     "@retailbooks/contracts": "*",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.2",
+    "nodemailer": "^9.0.5",
     "pg": "^8.16.3",
+    "prisma": "^6.19.3",
     "redis": "^5.8.2",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2"
   },
   "devDependencies": {
     "@nestjs/cli": "^11.0.10",
+    "@types/express": "^5.0.6",
+    "@types/nodemailer": "^8.0.1",
     "@types/pg": "^8.15.5"
   }
 }

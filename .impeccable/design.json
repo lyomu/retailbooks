@@ -1,0 +1,286 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-16T19:37:18.4717671Z",
+  "title": "Design System: RetailBooks Web Application",
+  "extensions": {
+    "colorMeta": {
+      "brand-navy": {
+        "role": "primary",
+        "displayName": "Ledger Navy",
+        "canonical": "hsl(217 82% 13%)",
+        "tonalRamp": [
+          "hsl(217 82% 13%)",
+          "hsl(217 76% 22%)",
+          "hsl(217 68% 34%)",
+          "hsl(217 60% 46%)",
+          "hsl(217 54% 58%)",
+          "hsl(217 48% 70%)",
+          "hsl(217 42% 83%)",
+          "hsl(217 36% 95%)"
+        ]
+      },
+      "primary-cyan": {
+        "role": "primary",
+        "displayName": "Action Cyan",
+        "canonical": "hsl(194 82% 50%)",
+        "tonalRamp": [
+          "hsl(194 82% 15%)",
+          "hsl(194 82% 26%)",
+          "hsl(194 82% 38%)",
+          "hsl(194 82% 50%)",
+          "hsl(194 76% 61%)",
+          "hsl(194 68% 72%)",
+          "hsl(194 58% 84%)",
+          "hsl(194 48% 95%)"
+        ]
+      },
+      "primary-blue": {
+        "role": "secondary",
+        "displayName": "Action Blue",
+        "canonical": "hsl(207 82% 48%)",
+        "tonalRamp": [
+          "hsl(207 82% 15%)",
+          "hsl(207 82% 26%)",
+          "hsl(207 82% 37%)",
+          "hsl(207 82% 48%)",
+          "hsl(207 74% 60%)",
+          "hsl(207 66% 72%)",
+          "hsl(207 56% 84%)",
+          "hsl(207 46% 95%)"
+        ]
+      },
+      "workspace": {
+        "role": "neutral",
+        "displayName": "Cool Workspace",
+        "canonical": "hsl(210 20% 98%)",
+        "tonalRamp": [
+          "hsl(210 20% 15%)",
+          "hsl(210 20% 28%)",
+          "hsl(210 20% 42%)",
+          "hsl(210 20% 56%)",
+          "hsl(210 20% 70%)",
+          "hsl(210 20% 82%)",
+          "hsl(210 20% 91%)",
+          "hsl(210 20% 98%)"
+        ]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "White Surface",
+        "canonical": "hsl(0 0% 100%)",
+        "tonalRamp": [
+          "hsl(0 0% 15%)",
+          "hsl(0 0% 28%)",
+          "hsl(0 0% 42%)",
+          "hsl(0 0% 56%)",
+          "hsl(0 0% 70%)",
+          "hsl(0 0% 82%)",
+          "hsl(0 0% 92%)",
+          "hsl(0 0% 100%)"
+        ]
+      },
+      "success": {
+        "role": "tertiary",
+        "displayName": "Control Green",
+        "canonical": "hsl(153 66% 38%)",
+        "tonalRamp": [
+          "hsl(153 66% 15%)",
+          "hsl(153 66% 24%)",
+          "hsl(153 66% 32%)",
+          "hsl(153 66% 38%)",
+          "hsl(153 58% 51%)",
+          "hsl(153 50% 65%)",
+          "hsl(153 42% 80%)",
+          "hsl(153 34% 94%)"
+        ]
+      },
+      "warning": {
+        "role": "tertiary",
+        "displayName": "Review Amber",
+        "canonical": "hsl(38 92% 45%)",
+        "tonalRamp": [
+          "hsl(38 92% 15%)",
+          "hsl(38 92% 25%)",
+          "hsl(38 92% 35%)",
+          "hsl(38 92% 45%)",
+          "hsl(38 86% 57%)",
+          "hsl(38 76% 69%)",
+          "hsl(38 66% 82%)",
+          "hsl(38 56% 95%)"
+        ]
+      },
+      "danger": {
+        "role": "tertiary",
+        "displayName": "Risk Red",
+        "canonical": "hsl(0 72% 51%)",
+        "tonalRamp": [
+          "hsl(0 72% 15%)",
+          "hsl(0 72% 27%)",
+          "hsl(0 72% 39%)",
+          "hsl(0 72% 51%)",
+          "hsl(0 66% 62%)",
+          "hsl(0 58% 73%)",
+          "hsl(0 50% 85%)",
+          "hsl(0 42% 95%)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "headline": {
+        "displayName": "Workspace Headline",
+        "purpose": "Page titles and the strongest workspace label."
+      },
+      "title": {
+        "displayName": "Operational Title",
+        "purpose": "Panels, sections, dialogs, and compact hierarchy."
+      },
+      "body": {
+        "displayName": "Operational Body",
+        "purpose": "Plain-language product content and explanations."
+      },
+      "label": {
+        "displayName": "Accounting Label",
+        "purpose": "Fields, metadata, badges, and table headings."
+      }
+    },
+    "shadows": [
+      {
+        "name": "surface-low",
+        "value": "0 2px 3px hsl(217 82% 13% / 0.04)",
+        "purpose": "Low ambient depth on resting operational surfaces."
+      },
+      {
+        "name": "overlay",
+        "value": "0 10px 30px hsl(217 82% 13% / 0.12)",
+        "purpose": "Menus, dialogs, drawers, and toasts that cross layers."
+      },
+      {
+        "name": "action-lift",
+        "value": "0 6px 16px hsl(207 82% 48% / 0.2)",
+        "purpose": "Established lift under primary actions."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-out",
+        "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "Drawers, dialogs, toasts, and the single page-entry moment."
+      },
+      {
+        "name": "fast",
+        "value": "140ms",
+        "purpose": "Hover, focus, and compact control state changes."
+      },
+      {
+        "name": "normal",
+        "value": "220ms",
+        "purpose": "Protected-focus overlays and larger state transitions."
+      }
+    ],
+    "breakpoints": [
+      { "name": "mobile", "value": "576px" },
+      { "name": "drawer", "value": "768px" },
+      { "name": "sidebar-collapse", "value": "1024px" },
+      { "name": "dashboard-compress", "value": "1184px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The single highest-priority action in an operational group.",
+      "html": "<button class=\"ds-button-primary\">Save journal</button>",
+      "css": ".ds-button-primary { min-height: 40px; padding: 0 16px; color: white; background: linear-gradient(115deg, hsl(194 82% 50%), hsl(207 82% 48%) 58%, hsl(228 73% 48%)); border: 0; border-radius: 10px; font: 600 14px Urbanist, sans-serif; box-shadow: 0 6px 16px hsl(207 82% 48% / .2); cursor: pointer; } .ds-button-primary:hover { filter: brightness(.97); } .ds-button-primary:focus-visible { outline: 3px solid hsl(207 82% 48% / .3); outline-offset: 2px; }"
+    },
+    {
+      "name": "Outline Button",
+      "kind": "button",
+      "refersTo": "button-outline",
+      "description": "A secondary action that stays visible without competing with primary action.",
+      "html": "<button class=\"ds-button-outline\">Review period</button>",
+      "css": ".ds-button-outline { min-height: 40px; padding: 0 16px; color: hsl(217 82% 13%); background: white; border: 1px solid hsl(214 28% 91%); border-radius: 10px; font: 600 14px Urbanist, sans-serif; cursor: pointer; } .ds-button-outline:hover { background: hsl(210 40% 96%); } .ds-button-outline:focus-visible { outline: 3px solid hsl(207 82% 48% / .3); outline-offset: 2px; }"
+    },
+    {
+      "name": "Input Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "A labelled accounting field with quiet structure and explicit focus.",
+      "html": "<label class=\"ds-field\">Account name<input class=\"ds-input\" placeholder=\"e.g. Office expenses\"></label>",
+      "css": ".ds-field { display: grid; gap: 6px; color: hsl(217 82% 13%); font: 600 13px Urbanist, sans-serif; } .ds-input { height: 40px; padding: 0 12px; color: hsl(217 82% 13%); background: white; border: 1px solid hsl(214 28% 91%); border-radius: 10px; font: 400 14px Urbanist, sans-serif; } .ds-input:focus-visible { border-color: hsl(207 82% 48%); outline: 3px solid hsl(207 82% 48% / .16); outline-offset: 0; }"
+    },
+    {
+      "name": "Status Badge",
+      "kind": "chip",
+      "refersTo": "status-badge",
+      "description": "Compact semantic state with text, tone, border, and a redundant dot.",
+      "html": "<span class=\"ds-status\"><i></i>Posted</span>",
+      "css": ".ds-status { display: inline-flex; min-height: 24px; align-items: center; gap: 6px; padding: 2px 8px; color: hsl(153 66% 38%); background: hsl(149 62% 94%); border: 1px solid hsl(153 52% 78%); border-radius: 6px; font: 600 12px Urbanist, sans-serif; } .ds-status i { width: 6px; height: 6px; background: currentColor; border-radius: 50%; opacity: .75; }"
+    },
+    {
+      "name": "Operational Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "The standard container for a coherent accounting task or data group.",
+      "html": "<section class=\"ds-card\"><h3>Control status</h3><p>Foundation checks for this workspace</p></section>",
+      "css": ".ds-card { padding: 24px; color: hsl(217 82% 13%); background: white; border: 1px solid hsl(214 28% 91%); border-radius: 12px; box-shadow: 0 2px 3px hsl(217 82% 13% / .04); font-family: Urbanist, sans-serif; } .ds-card h3 { margin: 0; font-size: 16px; } .ds-card p { margin: 5px 0 0; color: hsl(215 16% 47%); font-size: 13px; }"
+    },
+    {
+      "name": "Sidebar Navigation Item",
+      "kind": "nav",
+      "description": "A compact operational destination inside the navy frame.",
+      "html": "<a class=\"ds-nav-item\" href=\"#\">Dashboard</a>",
+      "css": ".ds-nav-item { display: flex; min-height: 38px; align-items: center; padding: 0 12px; color: hsl(214 28% 82%); background: hsl(218 75% 18%); border-radius: 6px; font: 600 14px Urbanist, sans-serif; text-decoration: none; } .ds-nav-item:hover { color: white; background: hsl(218 75% 20%); } .ds-nav-item:focus-visible { outline: 3px solid hsl(194 82% 50% / .35); outline-offset: 1px; }"
+    },
+    {
+      "name": "Metric Card",
+      "kind": "custom",
+      "description": "A scannable accounting measure with honest supporting context.",
+      "html": "<section class=\"ds-metric\"><span>Cash balance</span><strong>KES 0.00</strong><small>across cash accounts</small></section>",
+      "css": ".ds-metric { display: flex; min-height: 148px; flex-direction: column; justify-content: center; padding: 24px; color: hsl(217 82% 13%); background: white; border: 1px solid hsl(214 28% 91%); border-radius: 12px; font-family: Urbanist, sans-serif; } .ds-metric span, .ds-metric small { color: hsl(215 16% 47%); } .ds-metric span { font-size: 15px; font-weight: 500; } .ds-metric strong { margin-top: 12px; font-size: 28px; letter-spacing: -.02em; font-variant-numeric: tabular-nums; } .ds-metric small { margin-top: 8px; font-size: 13px; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Accounting Workbench",
+    "overview": "RetailBooks feels like the RetailFlow operating desk evolved for careful financial work: fast to scan, calm under dense information, and explicit about state. A deep navy navigation frame holds a bright, cool workspace where cyan action signals, precise tables, and tabular figures guide the eye. The system is operational rather than promotional. Brand character appears through exact geometry, compact rhythm, crisp status treatment, and disciplined action color.",
+    "keyCharacteristics": [
+      "Deep navy structural frame with a bright, cool working canvas",
+      "Compact operational density and clear financial-number alignment",
+      "Cyan-to-blue emphasis reserved for primary action",
+      "Restrained bordered surfaces with low ambient depth",
+      "Honest loading, empty, error, disabled, and upcoming states",
+      "Responsive collapse on tablet and a focused navigation drawer on mobile"
+    ],
+    "rules": [
+      {
+        "name": "The One Action Voice Rule",
+        "body": "The cyan-to-blue treatment belongs to primary actions and the provisional mark. It never becomes gradient text or ambient decoration.",
+        "section": "colors"
+      },
+      {
+        "name": "The Financial Alignment Rule",
+        "body": "Amounts and counts align by their least ambiguous reading edge; tables use right-aligned tabular numerals.",
+        "section": "typography"
+      },
+      {
+        "name": "The Quiet Depth Rule",
+        "body": "A stronger shadow must explain a layer change, not decorate a static card.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do preserve the 256/64px sidebar, 56px top bar, and 1600px content cap.",
+      "Do use Urbanist and tabular numerals for financial values.",
+      "Do align amounts consistently and expose accounting status in text as well as color.",
+      "Do provide a useful next action for empty and error states.",
+      "Do preserve visible keyboard focus and semantic table structure at every breakpoint."
+    ],
+    "donts": [
+      "Don't reuse the RetailFlow logo; RetailBooks owns a separate book/ledger mark.",
+      "Don't use gradient text, decorative glass, ornamental glow, or marketing-page scale inside the application.",
+      "Don't imply Kenya defaults are universal or certified.",
+      "Don't create broken navigation to unfinished modules; label upcoming capability honestly.",
+      "Don't use a modal for ordinary navigation or a task that does not require protected focus."
+    ]
+  }
+}

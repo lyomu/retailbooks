@@ -1,0 +1,688 @@
+import { randomBytes } from 'node:crypto';
+
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import {
+  InvitationStatus,
+  MembershipStatus,
+  OnboardingStep,
+  OrganizationRole,
+  OrganizationStatus,
+  type Prisma,
+} from '@prisma/client';
+
+import { AuthMailerService } from '../auth/auth-mailer.service.js';
+import { createOpaqueToken, hashToken } from '../auth/auth.crypto.js';
+import type { PublicUser } from '../auth/auth.service.js';
+import type { RequestMetadata } from '../auth/request-context.js';
+import { PrismaService } from '../database/prisma.service.js';
+import {
+  findCountry,
+  isSupportedChartTemplate,
+  isSupportedCurrency,
+  isSupportedLocale,
+  isSupportedTimeZone,
+  maxFiscalStartDay,
+} from './jurisdiction-catalog.js';
+import { LedgerService } from './ledger.service.js';
+import { OrganizationAccessService } from './organization-access.service.js';
+import type { OrganizationContext } from './organization-context.js';
+import type {
+  CreateOrganizationDto,
+  OrganizationSection,
+  UpdateOrganizationDto,
+} from './organization.dto.js';
+import { PermissionsService } from './permissions.service.js';
+
+/** Wizard order. A saved section advances the draft, never rewinds it. */
+const ONBOARDING_ORDER: readonly OnboardingStep[] = [
+  OnboardingStep.PROFILE,
+  OnboardingStep.JURISDICTION,
+  OnboardingStep.ACCOUNTING,
+  OnboardingStep.TAX,
+  OnboardingStep.NUMBERING,
+  OnboardingStep.TEAM,
+  OnboardingStep.REVIEW,
+  OnboardingStep.COMPLETE,
+];
+
+const STEP_AFTER_SECTION: Record<OrganizationSection, OnboardingStep> = {
+  PROFILE: OnboardingStep.JURISDICTION,
+  JURISDICTION: OnboardingStep.ACCOUNTING,
+  ACCOUNTING: OnboardingStep.TAX,
+  TAX: OnboardingStep.NUMBERING,
+  NUMBERING: OnboardingStep.TEAM,
+  TEAM: OnboardingStep.REVIEW,
+  REVIEW: OnboardingStep.REVIEW,
+};
+
+const organizationDetailSelect = {
+  id: true,
+  legalName: true,
+  tradingName: true,
+  slug: true,
+  businessType: true,
+  countryCode: true,
+  baseCurrency: true,
+  timeZone: true,
+  locale: true,
+  fiscalYearStartMonth: true,
+  fiscalYearStartDay: true,
+  status: true,
+  onboardingStep: true,
+  onboardingCompletedAt: true,
+  createdAt: true,
+  preferences: true,
+} satisfies Prisma.OrganizationSelect;
+
+type OrganizationDetailRow = Prisma.OrganizationGetPayload<{
+  select: typeof organizationDetailSelect;
+}>;
+
+@Injectable()
+export class OrganizationService {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly access: OrganizationAccessService,
+    private readonly mailer: AuthMailerService,
+    private readonly permissions: PermissionsService,
+    private readonly ledger: LedgerService,
+  ) {}
+
+  async listForUser(userId: string, preferredOrganizationId: string | null) {
+    const memberships = await this.prisma.organizationMember.findMany({
+      where: { userId, status: MembershipStatus.ACTIVE },
+      orderBy: { joinedAt: 'asc' },
+      select: {
+        role: true,
+        joinedAt: true,
+        organization: {
+          select: {
+            id: true,
+            legalName: true,
+            tradingName: true,
+            slug: true,
+            status: true,
+            onboardingStep: true,
+            countryCode: true,
+            baseCurrency: true,
+          },
+        },
+      },
+    });
+
+    const permissionsByOrg = await this.permissions.resolveEffectivePermissionsBatch(
+      memberships.map((membership) => ({
+        organizationId: membership.organization.id,
+        role: membership.role,
+      })),
+    );
+
+    const organizations = memberships.map((membership) => ({
+      ...membership.organization,
+      role: membership.role,
+      joinedAt: membership.joinedAt.toISOString(),
+      permissions: Array.from(permissionsByOrg.get(membership.organization.id) ?? []),
+    }));
+
+    return {
+      organizations,
+      activeOrganizationId: await this.access.resolveDefaultOrganizationId(
+        userId,
+        preferredOrganizationId,
+      ),
+    };
+  }
+
+  /**
+   * Creates the draft organization, its owner membership, and its preference defaults in one
+   * transaction. There is no window in which an organization exists without an owner.
+   */
+  async create(user: PublicUser, input: CreateOrganizationDto, metadata: RequestMetadata) {
+    this.requireVerifiedEmail(user);
+
+    const country = findCountry(input.countryCode);
+    if (!country) {
+      throw new BadRequestException('That country is not available yet.');
+    }
+
+    const draftCount = await this.prisma.organization.count({
+      where: {
+        status: OrganizationStatus.DRAFT,
+        members: { some: { userId: user.id, role: OrganizationRole.OWNER } },
+      },
+    });
+    if (draftCount >= 3) {
+      throw new ConflictException(
+        'Finish or remove an unfinished organization setup before starting another.',
+      );
+    }
+
+    const organization = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.organization.create({
+        data: {
+          legalName: input.legalName,
+          ...(input.tradingName ? { tradingName: input.tradingName } : {}),
+          slug: await uniqueSlug(tx, input.legalName),
+          businessType: input.businessType,
+          countryCode: country.code,
+          baseCurrency: country.defaultCurrency,
+          timeZone: country.defaultTimeZone,
+          locale: country.defaultLocale,
+          fiscalYearStartMonth: country.defaultFiscalStartMonth,
+          fiscalYearStartDay: country.defaultFiscalStartDay,
+          status: OrganizationStatus.DRAFT,
+          onboardingStep: OnboardingStep.JURISDICTION,
+          createdByUserId: user.id,
+          members: {
+            create: {
+              userId: user.id,
+              role: OrganizationRole.OWNER,
+              status: MembershipStatus.ACTIVE,
+            },
+          },
+          preferences: {
+            create: {
+              countryPackCode: country.countryPackCode,
+              countryPackVersion: country.countryPackVersion,
+              journalPrefix: 'JRN',
+            },
+          },
+        },
+        select: organizationDetailSelect,
+      });
+
+      await this.event(tx, user.id, created.id, 'organization.created', metadata, {
+        countryCode: country.code,
+      });
+
+      return created;
+    });
+
+    return toOrganizationDetail(organization, OrganizationRole.OWNER);
+  }
+
+  async detail(context: OrganizationContext) {
+    const organization = await this.prisma.organization.findUnique({
+      where: { id: context.id },
+      select: organizationDetailSelect,
+    });
+    if (!organization) throw new NotFoundException('Organization not found.');
+    return toOrganizationDetail(organization, context.role);
+  }
+
+  async updateSection(
+    context: OrganizationContext,
+    user: PublicUser,
+    input: UpdateOrganizationDto,
+    metadata: RequestMetadata,
+  ) {
+    const organizationData: Prisma.OrganizationUpdateInput = {};
+    const preferenceData: Prisma.OrganizationPreferenceUpdateInput = {};
+
+    switch (input.section) {
+      case 'PROFILE': {
+        if (input.legalName !== undefined) organizationData.legalName = input.legalName;
+        if (input.tradingName !== undefined) {
+          organizationData.tradingName = input.tradingName === null ? null : input.tradingName;
+        }
+        if (input.businessType !== undefined) organizationData.businessType = input.businessType;
+        break;
+      }
+      case 'JURISDICTION': {
+        if (input.countryCode !== undefined) {
+          const country = findCountry(input.countryCode);
+          if (!country) throw new BadRequestException('That country is not available yet.');
+          organizationData.countryCode = country.code;
+          preferenceData.countryPackCode = country.countryPackCode;
+          preferenceData.countryPackVersion = country.countryPackVersion;
+        }
+        if (input.baseCurrency !== undefined) {
+          if (!isSupportedCurrency(input.baseCurrency)) {
+            throw new BadRequestException('That base currency is not available yet.');
+          }
+          organizationData.baseCurrency = input.baseCurrency;
+        }
+        if (input.timeZone !== undefined) {
+          if (!isSupportedTimeZone(input.timeZone)) {
+            throw new BadRequestException('That time zone is not available yet.');
+          }
+          organizationData.timeZone = input.timeZone;
+        }
+        if (input.locale !== undefined) {
+          if (!isSupportedLocale(input.locale)) {
+            throw new BadRequestException('That language is not available yet.');
+          }
+          organizationData.locale = input.locale;
+        }
+        if (input.fiscalYearStartMonth !== undefined || input.fiscalYearStartDay !== undefined) {
+          const month = input.fiscalYearStartMonth ?? 1;
+          const day = input.fiscalYearStartDay ?? 1;
+          if (day > maxFiscalStartDay(month)) {
+            throw new BadRequestException('That fiscal-year start date does not exist.');
+          }
+          organizationData.fiscalYearStartMonth = month;
+          organizationData.fiscalYearStartDay = day;
+        }
+        break;
+      }
+      case 'ACCOUNTING': {
+        if (input.accountingBasis !== undefined) {
+          preferenceData.accountingBasis = input.accountingBasis;
+        }
+        if (input.chartTemplate !== undefined) {
+          if (!isSupportedChartTemplate(input.chartTemplate)) {
+            throw new BadRequestException('That starter chart of accounts is not available.');
+          }
+          preferenceData.chartTemplate = input.chartTemplate;
+        }
+        preferenceData.booksStartDate = input.booksStartDate
+          ? new Date(input.booksStartDate)
+          : null;
+        break;
+      }
+      case 'TAX': {
+        if (input.taxRegistered !== undefined) preferenceData.taxRegistered = input.taxRegistered;
+        if (input.taxIdentifier !== undefined) {
+          preferenceData.taxIdentifier = input.taxIdentifier || null;
+        }
+        if (input.defaultTaxTreatment !== undefined) {
+          preferenceData.defaultTaxTreatment = input.defaultTaxTreatment;
+        }
+        if (input.defaultTaxRate !== undefined) {
+          preferenceData.defaultTaxRate = input.defaultTaxRate;
+        }
+        break;
+      }
+      case 'NUMBERING': {
+        if (input.journalPrefix !== undefined) preferenceData.journalPrefix = input.journalPrefix;
+        if (input.numberPadding !== undefined) preferenceData.numberPadding = input.numberPadding;
+        if (input.nextJournalNumber !== undefined) {
+          preferenceData.nextJournalNumber = input.nextJournalNumber;
+        }
+        if (input.numberingReset !== undefined) {
+          preferenceData.numberingReset = input.numberingReset;
+        }
+        break;
+      }
+      case 'TEAM':
+      case 'REVIEW':
+        break;
+    }
+
+    const organization = await this.prisma.$transaction(async (tx) => {
+      if (Object.keys(preferenceData).length > 0) {
+        await tx.organizationPreference.update({
+          where: { organizationId: context.id },
+          data: preferenceData,
+        });
+      }
+
+      if (context.status === OrganizationStatus.DRAFT) {
+        const nextStep = laterStep(context.onboardingStep, STEP_AFTER_SECTION[input.section]);
+        if (nextStep !== context.onboardingStep) organizationData.onboardingStep = nextStep;
+      }
+
+      const updated =
+        Object.keys(organizationData).length > 0
+          ? await tx.organization.update({
+              where: { id: context.id },
+              data: organizationData,
+              select: organizationDetailSelect,
+            })
+          : await tx.organization.findUniqueOrThrow({
+              where: { id: context.id },
+              select: organizationDetailSelect,
+            });
+
+      await this.event(tx, user.id, context.id, 'organization.section_updated', metadata, {
+        section: input.section,
+      });
+
+      return updated;
+    });
+
+    return toOrganizationDetail(organization, context.role);
+  }
+
+  /**
+   * Finalizes onboarding. The completeness check, the status change, and the foundation defaults
+   * all happen inside one transaction, so an organization is never half-activated.
+   */
+  async finalize(context: OrganizationContext, user: PublicUser, metadata: RequestMetadata) {
+    this.requireVerifiedEmail(user);
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      const organization = await tx.organization.findUnique({
+        where: { id: context.id },
+        select: organizationDetailSelect,
+      });
+      if (!organization) throw new NotFoundException('Organization not found.');
+      if (organization.status !== OrganizationStatus.DRAFT) {
+        throw new ConflictException('This organization has already been set up.');
+      }
+
+      const missing = missingFinalizationFields(organization);
+      if (missing.length > 0) {
+        throw new BadRequestException({
+          message: ['Complete the remaining setup steps before finishing.', ...missing],
+        });
+      }
+
+      const owner = await tx.organizationMember.findFirst({
+        where: {
+          organizationId: context.id,
+          role: OrganizationRole.OWNER,
+          status: MembershipStatus.ACTIVE,
+        },
+        select: { id: true },
+      });
+      if (!owner) {
+        throw new ConflictException('This organization has no active owner.');
+      }
+
+      const country = findCountry(organization.countryCode);
+      const activated = await tx.organization.update({
+        where: { id: context.id, status: OrganizationStatus.DRAFT },
+        data: {
+          status: OrganizationStatus.ACTIVE,
+          onboardingStep: OnboardingStep.COMPLETE,
+          onboardingCompletedAt: new Date(),
+          preferences: {
+            update: {
+              countryPackCode: country?.countryPackCode ?? 'GENERIC',
+              countryPackVersion: country?.countryPackVersion ?? 'unversioned',
+            },
+          },
+        },
+        select: organizationDetailSelect,
+      });
+
+      await this.ledger.ensureStarterChart(
+        context.id,
+        activated.preferences?.chartTemplate ?? 'general-business',
+        tx,
+      );
+
+      const pending = await tx.organizationInvitation.findMany({
+        where: {
+          organizationId: context.id,
+          status: InvitationStatus.PENDING,
+          notifiedAt: null,
+        },
+        select: { id: true, email: true, role: true },
+      });
+      if (pending.length > 0) {
+        await tx.organizationInvitation.updateMany({
+          where: { id: { in: pending.map(({ id }) => id) } },
+          data: { notifiedAt: new Date() },
+        });
+      }
+
+      await this.event(tx, user.id, context.id, 'organization.finalized', metadata, {
+        invitationsQueued: pending.length,
+      });
+
+      return { organization: activated, pending };
+    });
+
+    // Invitation tokens are only known at issue time, so deferred mail carries a fresh token.
+    for (const invitation of result.pending) {
+      await this.reissueAndSendInvitation(invitation.id, result.organization.legalName, user);
+    }
+
+    return toOrganizationDetail(result.organization, context.role);
+  }
+
+  /**
+   * Describes an invitation to whoever holds the token. Everything returned is already known to
+   * the intended recipient, and `accountExists` lets the web application route to sign-in or
+   * sign-up without a second, guessable lookup.
+   */
+  async previewInvitation(rawToken: string) {
+    const invitation = await this.prisma.organizationInvitation.findUnique({
+      where: { tokenHash: hashToken(rawToken) },
+      select: {
+        email: true,
+        role: true,
+        status: true,
+        expiresAt: true,
+        organization: { select: { legalName: true, tradingName: true, status: true } },
+      },
+    });
+
+    if (
+      !invitation ||
+      invitation.status !== InvitationStatus.PENDING ||
+      invitation.expiresAt <= new Date()
+    ) {
+      throw new NotFoundException('This invitation link is invalid or has expired.');
+    }
+
+    const account = await this.prisma.user.findUnique({
+      where: { email: invitation.email },
+      select: { id: true, emailVerifiedAt: true },
+    });
+
+    return {
+      email: invitation.email,
+      role: invitation.role,
+      expiresAt: invitation.expiresAt.toISOString(),
+      organizationName: invitation.organization.tradingName ?? invitation.organization.legalName,
+      organizationReady: invitation.organization.status === OrganizationStatus.ACTIVE,
+      accountExists: Boolean(account),
+      accountVerified: Boolean(account?.emailVerifiedAt),
+    };
+  }
+
+  async acceptInvitation(rawToken: string, user: PublicUser, metadata: RequestMetadata) {
+    const invitation = await this.prisma.organizationInvitation.findUnique({
+      where: { tokenHash: hashToken(rawToken) },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        status: true,
+        expiresAt: true,
+        organizationId: true,
+        organization: { select: { legalName: true, status: true } },
+      },
+    });
+
+    if (
+      !invitation ||
+      invitation.status !== InvitationStatus.PENDING ||
+      invitation.expiresAt <= new Date()
+    ) {
+      throw new NotFoundException('This invitation link is invalid or has expired.');
+    }
+    if (invitation.email.toLowerCase() !== user.email.toLowerCase()) {
+      throw new ForbiddenException('This invitation was sent to a different email address.');
+    }
+    this.requireVerifiedEmail(user);
+    if (invitation.organization.status === OrganizationStatus.SUSPENDED) {
+      throw new ForbiddenException('This organization is suspended.');
+    }
+    if (invitation.organization.status !== OrganizationStatus.ACTIVE) {
+      throw new ConflictException('This organization is still being set up. Try again shortly.');
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      const claimed = await tx.organizationInvitation.updateMany({
+        where: { id: invitation.id, status: InvitationStatus.PENDING },
+        data: {
+          status: InvitationStatus.ACCEPTED,
+          acceptedAt: new Date(),
+          acceptedByUserId: user.id,
+        },
+      });
+      if (claimed.count !== 1) {
+        throw new ConflictException('This invitation has already been used.');
+      }
+
+      await tx.organizationMember.upsert({
+        where: {
+          organizationId_userId: { organizationId: invitation.organizationId, userId: user.id },
+        },
+        create: {
+          organizationId: invitation.organizationId,
+          userId: user.id,
+          role: invitation.role,
+          status: MembershipStatus.ACTIVE,
+        },
+        update: { status: MembershipStatus.ACTIVE },
+      });
+
+      await this.event(
+        tx,
+        user.id,
+        invitation.organizationId,
+        'organization.invitation_accepted',
+        metadata,
+        { role: invitation.role },
+      );
+    });
+
+    return {
+      organizationId: invitation.organizationId,
+      organizationName: invitation.organization.legalName,
+      role: invitation.role,
+    };
+  }
+
+  private async reissueAndSendInvitation(
+    invitationId: string,
+    organizationName: string,
+    inviter: PublicUser,
+  ): Promise<void> {
+    const rawToken = createOpaqueToken();
+    const invitation = await this.prisma.organizationInvitation.update({
+      where: { id: invitationId },
+      data: { tokenHash: hashToken(rawToken), notifiedAt: new Date() },
+      select: { email: true, role: true, expiresAt: true },
+    });
+
+    await this.mailer.sendOrganizationInvitation({
+      email: invitation.email,
+      organizationName,
+      inviterName: inviter.displayName,
+      role: invitation.role,
+      token: rawToken,
+      expiresAt: invitation.expiresAt,
+    });
+  }
+
+  private requireVerifiedEmail(user: PublicUser): void {
+    if (!user.emailVerified) {
+      throw new ForbiddenException('Verify your email address before setting up an organization.');
+    }
+  }
+
+  private event(
+    tx: Prisma.TransactionClient,
+    userId: string,
+    organizationId: string,
+    eventKey: string,
+    metadata: RequestMetadata,
+    details: Prisma.InputJsonObject,
+  ) {
+    return tx.securityEvent.create({
+      data: { userId, organizationId, eventKey, ipHash: metadata.ipHash, metadata: details },
+    });
+  }
+}
+
+function laterStep(current: OnboardingStep, candidate: OnboardingStep): OnboardingStep {
+  const currentIndex = ONBOARDING_ORDER.indexOf(current);
+  const candidateIndex = ONBOARDING_ORDER.indexOf(candidate);
+  return candidateIndex > currentIndex ? candidate : current;
+}
+
+function missingFinalizationFields(organization: OrganizationDetailRow): string[] {
+  const missing: string[] = [];
+  if (organization.legalName.trim().length < 2)
+    missing.push('A legal or business name is required.');
+  if (!findCountry(organization.countryCode)) missing.push('Choose a supported country.');
+  if (!isSupportedCurrency(organization.baseCurrency))
+    missing.push('Choose a supported base currency.');
+  if (!isSupportedTimeZone(organization.timeZone)) missing.push('Choose a supported time zone.');
+  if (!isSupportedLocale(organization.locale)) missing.push('Choose a supported language.');
+  if (organization.fiscalYearStartDay > maxFiscalStartDay(organization.fiscalYearStartMonth)) {
+    missing.push('Choose a fiscal-year start date that exists.');
+  }
+  if (!organization.preferences) {
+    missing.push('Accounting, tax, and numbering defaults are missing.');
+  } else if (!isSupportedChartTemplate(organization.preferences.chartTemplate)) {
+    missing.push('Choose a starter chart of accounts.');
+  }
+  return missing;
+}
+
+function toOrganizationDetail(organization: OrganizationDetailRow, role: OrganizationRole) {
+  const preferences = organization.preferences;
+  return {
+    id: organization.id,
+    legalName: organization.legalName,
+    tradingName: organization.tradingName,
+    slug: organization.slug,
+    businessType: organization.businessType,
+    countryCode: organization.countryCode,
+    baseCurrency: organization.baseCurrency,
+    timeZone: organization.timeZone,
+    locale: organization.locale,
+    fiscalYearStartMonth: organization.fiscalYearStartMonth,
+    fiscalYearStartDay: organization.fiscalYearStartDay,
+    status: organization.status,
+    onboardingStep: organization.onboardingStep,
+    onboardingCompletedAt: organization.onboardingCompletedAt?.toISOString() ?? null,
+    createdAt: organization.createdAt.toISOString(),
+    role,
+    preferences: preferences
+      ? {
+          accountingBasis: preferences.accountingBasis,
+          chartTemplate: preferences.chartTemplate,
+          booksStartDate: preferences.booksStartDate?.toISOString().slice(0, 10) ?? null,
+          taxRegistered: preferences.taxRegistered,
+          taxIdentifier: preferences.taxIdentifier,
+          defaultTaxTreatment: preferences.defaultTaxTreatment,
+          defaultTaxRate: preferences.defaultTaxRate.toNumber(),
+          journalPrefix: preferences.journalPrefix,
+          numberPadding: preferences.numberPadding,
+          nextJournalNumber: preferences.nextJournalNumber,
+          numberingReset: preferences.numberingReset,
+          countryPackCode: preferences.countryPackCode,
+          countryPackVersion: preferences.countryPackVersion,
+        }
+      : null,
+  };
+}
+
+function slugify(value: string): string {
+  const base = value
+    .normalize('NFKD')
+    // Strip the combining marks that NFKD separated out, so accented names slug cleanly.
+    .replace(/[̀-ͯ]/gu, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60);
+  return base.length >= 2 ? base : 'organization';
+}
+
+async function uniqueSlug(tx: Prisma.TransactionClient, legalName: string): Promise<string> {
+  const base = slugify(legalName);
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const candidate = `${base}-${randomBytes(4).toString('hex')}`;
+    const taken = await tx.organization.findUnique({
+      where: { slug: candidate },
+      select: { id: true },
+    });
+    if (!taken) return candidate;
+  }
+  throw new ConflictException('Could not allocate an organization address. Try again.');
+}

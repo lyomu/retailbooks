@@ -26,11 +26,16 @@ separate RetailBooks identity and accounting-focused information architecture.
 1. Copy `.env.example` to `.env`.
 2. Run `npm.cmd install` on Windows (`npm install` elsewhere).
 3. Run `docker compose up -d`.
-4. Run `npm.cmd run dev`.
-5. Open `http://localhost:3000`; API health is at `http://localhost:3001/health`.
+4. Run `npm.cmd run db:deploy --workspace @retailbooks/api`.
+5. Run `npm.cmd run dev`.
+6. Open `http://localhost:3000`; API health is at `http://localhost:3001/api/v1/health`.
 
 Mailpit is available at `http://localhost:58025`; MinIO Console is at
 `http://localhost:59001`.
+
+Identity routes are available at `/signup`, `/login`, `/verify-email`, `/forgot-password`, and
+`/reset-password`. Mailpit captures verification and reset messages locally. Set a strong,
+environment-specific `SECURITY_PEPPER` before using non-local environments.
 
 ## Verification
 

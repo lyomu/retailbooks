@@ -1,0 +1,560 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserStatus {
+  PENDING_VERIFICATION
+  ACTIVE
+  SUSPENDED
+  CLOSED
+}
+
+enum AuthProvider {
+  PASSWORD
+}
+
+enum SessionStatus {
+  ACTIVE
+  REVOKED
+  EXPIRED
+}
+
+enum ActionTokenPurpose {
+  VERIFY_EMAIL
+  RESET_PASSWORD
+}
+
+enum OrganizationStatus {
+  DRAFT
+  ACTIVE
+  SUSPENDED
+}
+
+enum OrganizationRole {
+  OWNER
+  ADMIN
+  ACCOUNTANT
+  STAFF
+}
+
+enum MembershipStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  REVOKED
+}
+
+enum OnboardingStep {
+  PROFILE
+  JURISDICTION
+  ACCOUNTING
+  TAX
+  NUMBERING
+  TEAM
+  REVIEW
+  COMPLETE
+}
+
+enum BusinessType {
+  SOLE_PROPRIETOR
+  PARTNERSHIP
+  LIMITED_COMPANY
+  NONPROFIT
+  COOPERATIVE
+  OTHER
+}
+
+enum AccountingBasis {
+  ACCRUAL
+  CASH
+}
+
+enum TaxTreatment {
+  EXCLUSIVE
+  INCLUSIVE
+}
+
+enum NumberingReset {
+  NEVER
+  ANNUAL
+  MONTHLY
+}
+
+enum FiscalPeriodStatus {
+  OPEN
+  CLOSED
+  LOCKED
+}
+
+enum LedgerAccountType {
+  ASSET
+  LIABILITY
+  EQUITY
+  REVENUE
+  EXPENSE
+  COST_OF_SALES
+  OTHER_INCOME
+  OTHER_EXPENSE
+}
+
+enum LedgerNormalBalance {
+  DEBIT
+  CREDIT
+}
+
+enum LedgerAccountStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum JournalStatus {
+  DRAFT
+  POSTED
+  REVERSED
+}
+
+enum TaxCodeStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+model User {
+  id                    String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email                 String                       @unique @db.Citext
+  displayName           String                       @map("display_name") @db.VarChar(120)
+  emailVerifiedAt       DateTime?                    @map("email_verified_at") @db.Timestamptz(6)
+  status                UserStatus                   @default(PENDING_VERIFICATION)
+  createdAt             DateTime                     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime                     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  authMethods           AuthMethod[]
+  sessions              Session[]
+  actionTokens          ActionToken[]
+  securityEvents        SecurityEvent[]
+  memberships           OrganizationMember[]
+  organizationsCreated  Organization[]               @relation("OrganizationCreatedBy")
+  invitationsSent       OrganizationInvitation[]     @relation("InvitationInvitedBy")
+  invitationsAccepted   OrganizationInvitation[]     @relation("InvitationAcceptedBy")
+  rolePermissionChanges OrganizationRolePermission[] @relation("RolePermissionUpdatedBy")
+  journalsCreated       Journal[]                    @relation("JournalCreatedBy")
+  journalsPosted        Journal[]                    @relation("JournalPostedBy")
+
+  @@map("users")
+}
+
+model AuthMethod {
+  id           String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId       String       @map("user_id") @db.Uuid
+  provider     AuthProvider @default(PASSWORD)
+  providerKey  String?      @map("provider_key") @db.VarChar(255)
+  passwordHash String?      @map("password_hash") @db.Text
+  createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, provider])
+  @@map("auth_methods")
+}
+
+model Session {
+  id         String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String        @map("user_id") @db.Uuid
+  tokenHash  String        @unique @map("token_hash") @db.Char(64)
+  status     SessionStatus @default(ACTIVE)
+  userAgent  String?       @map("user_agent") @db.VarChar(512)
+  ipHash     String?       @map("ip_hash") @db.Char(64)
+  lastSeenAt DateTime      @default(now()) @map("last_seen_at") @db.Timestamptz(6)
+  expiresAt  DateTime      @map("expires_at") @db.Timestamptz(6)
+  revokedAt  DateTime?     @map("revoked_at") @db.Timestamptz(6)
+  createdAt  DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+model ActionToken {
+  id         String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String             @map("user_id") @db.Uuid
+  purpose    ActionTokenPurpose
+  tokenHash  String             @unique @map("token_hash") @db.Char(64)
+  expiresAt  DateTime           @map("expires_at") @db.Timestamptz(6)
+  consumedAt DateTime?          @map("consumed_at") @db.Timestamptz(6)
+  createdAt  DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  user       User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, purpose, consumedAt])
+  @@index([expiresAt])
+  @@map("action_tokens")
+}
+
+model SecurityEvent {
+  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId         String?       @map("user_id") @db.Uuid
+  organizationId String?       @map("organization_id") @db.Uuid
+  eventKey       String        @map("event_key") @db.VarChar(100)
+  severity       String        @default("INFO") @db.VarChar(16)
+  ipHash         String?       @map("ip_hash") @db.Char(64)
+  metadata       Json          @default("{}") @map("metadata_json") @db.JsonB
+  occurredAt     DateTime      @default(now()) @map("occurred_at") @db.Timestamptz(6)
+  user           User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+
+  @@index([userId, occurredAt])
+  @@index([eventKey, occurredAt])
+  @@index([organizationId, occurredAt])
+  @@map("security_events")
+}
+
+/// Tenant root. Every organization-owned row carries `organization_id` and is only reachable
+/// through a validated membership of the authenticated user.
+model Organization {
+  id                    String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  legalName             String                       @map("legal_name") @db.VarChar(180)
+  tradingName           String?                      @map("trading_name") @db.VarChar(180)
+  slug                  String                       @unique @db.VarChar(96)
+  businessType          BusinessType                 @default(OTHER) @map("business_type")
+  countryCode           String                       @map("country_code") @db.Char(2)
+  baseCurrency          String                       @map("base_currency") @db.Char(3)
+  timeZone              String                       @map("time_zone") @db.VarChar(64)
+  locale                String                       @db.VarChar(16)
+  fiscalYearStartMonth  Int                          @default(1) @map("fiscal_year_start_month") @db.SmallInt
+  fiscalYearStartDay    Int                          @default(1) @map("fiscal_year_start_day") @db.SmallInt
+  status                OrganizationStatus           @default(DRAFT)
+  onboardingStep        OnboardingStep               @default(JURISDICTION) @map("onboarding_step")
+  onboardingCompletedAt DateTime?                    @map("onboarding_completed_at") @db.Timestamptz(6)
+  createdByUserId       String                       @map("created_by_user_id") @db.Uuid
+  createdAt             DateTime                     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime                     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdBy             User                         @relation("OrganizationCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  preferences           OrganizationPreference?
+  members               OrganizationMember[]
+  invitations           OrganizationInvitation[]
+  securityEvents        SecurityEvent[]
+  rolePermissions       OrganizationRolePermission[]
+  fiscalYears           FiscalYear[]
+  fiscalPeriods         FiscalPeriod[]
+  documentNumbers       DocumentNumberSequence[]
+  accounts              LedgerAccount[]
+  journals              Journal[]
+  journalLines          JournalLine[]
+  ledgerIdempotencyKeys LedgerIdempotencyKey[]
+  taxCodes              TaxCode[]
+  taxRates              TaxRate[]
+
+  @@index([createdByUserId])
+  @@index([status])
+  @@map("organizations")
+}
+
+/// Organization-scoped fiscal year generated from configurable local accounting defaults.
+model FiscalYear {
+  id             String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String             @map("organization_id") @db.Uuid
+  label          String             @db.VarChar(24)
+  startsOn       DateTime           @map("starts_on") @db.Date
+  endsOn         DateTime           @map("ends_on") @db.Date
+  status         FiscalPeriodStatus @default(OPEN)
+  createdAt      DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  periods        FiscalPeriod[]
+
+  @@unique([organizationId, label])
+  @@unique([organizationId, startsOn])
+  @@index([organizationId, status])
+  @@map("fiscal_years")
+}
+
+/// Organization-scoped accounting period. Status changes are controlled by service methods and
+/// written with same-transaction SecurityEvent evidence.
+model FiscalPeriod {
+  id             String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String             @map("organization_id") @db.Uuid
+  fiscalYearId   String             @map("fiscal_year_id") @db.Uuid
+  code           String             @db.VarChar(32)
+  name           String             @db.VarChar(80)
+  startsOn       DateTime           @map("starts_on") @db.Date
+  endsOn         DateTime           @map("ends_on") @db.Date
+  status         FiscalPeriodStatus @default(OPEN)
+  closedAt       DateTime?          @map("closed_at") @db.Timestamptz(6)
+  lockedAt       DateTime?          @map("locked_at") @db.Timestamptz(6)
+  reopenedAt     DateTime?          @map("reopened_at") @db.Timestamptz(6)
+  createdAt      DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  fiscalYear     FiscalYear         @relation(fields: [fiscalYearId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, code])
+  @@unique([organizationId, startsOn])
+  @@index([organizationId, status])
+  @@index([fiscalYearId, startsOn])
+  @@map("fiscal_periods")
+}
+
+/// Generic document numbering counter. Future journal, invoice, and tax documents can allocate
+/// independently without overloading organization_preferences.
+model DocumentNumberSequence {
+  id                  String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId      String         @map("organization_id") @db.Uuid
+  documentType        String         @map("document_type") @db.VarChar(40)
+  scopeKey            String         @map("scope_key") @db.VarChar(32)
+  prefix              String         @db.VarChar(16)
+  numberPadding       Int            @map("number_padding") @db.SmallInt
+  numberingReset      NumberingReset @map("numbering_reset")
+  nextNumber          Int            @map("next_number")
+  lastAllocatedNumber Int?           @map("last_allocated_number")
+  lastAllocatedAt     DateTime?      @map("last_allocated_at") @db.Timestamptz(6)
+  createdAt           DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization        Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, documentType, scopeKey])
+  @@index([organizationId, documentType])
+  @@map("document_number_sequences")
+}
+
+/// Organization-scoped accounting, tax, numbering, and country-pack defaults. Configurable
+/// software defaults only; they are not a statutory certification.
+model OrganizationPreference {
+  id                  String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId      String          @unique @map("organization_id") @db.Uuid
+  accountingBasis     AccountingBasis @default(ACCRUAL) @map("accounting_basis")
+  chartTemplate       String          @default("general-business") @map("chart_template") @db.VarChar(60)
+  booksStartDate      DateTime?       @map("books_start_date") @db.Date
+  taxRegistered       Boolean         @default(false) @map("tax_registered")
+  taxIdentifier       String?         @map("tax_identifier") @db.VarChar(60)
+  defaultTaxTreatment TaxTreatment    @default(EXCLUSIVE) @map("default_tax_treatment")
+  defaultTaxRate      Decimal         @default(0) @map("default_tax_rate") @db.Decimal(7, 4)
+  journalPrefix       String          @default("JRN") @map("journal_prefix") @db.VarChar(12)
+  numberPadding       Int             @default(5) @map("number_padding") @db.SmallInt
+  nextJournalNumber   Int             @default(1) @map("next_journal_number")
+  numberingReset      NumberingReset  @default(ANNUAL) @map("numbering_reset")
+  countryPackCode     String          @map("country_pack_code") @db.VarChar(8)
+  countryPackVersion  String          @map("country_pack_version") @db.VarChar(24)
+  createdAt           DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization        Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("organization_preferences")
+}
+
+model OrganizationMember {
+  id             String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String           @map("organization_id") @db.Uuid
+  userId         String           @map("user_id") @db.Uuid
+  role           OrganizationRole @default(STAFF)
+  status         MembershipStatus @default(ACTIVE)
+  joinedAt       DateTime         @default(now()) @map("joined_at") @db.Timestamptz(6)
+  createdAt      DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@index([userId, status])
+  @@index([organizationId, role])
+  @@map("organization_members")
+}
+
+model OrganizationInvitation {
+  id               String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId   String           @map("organization_id") @db.Uuid
+  email            String           @db.Citext
+  role             OrganizationRole @default(STAFF)
+  status           InvitationStatus @default(PENDING)
+  tokenHash        String           @unique @map("token_hash") @db.Char(64)
+  invitedByUserId  String           @map("invited_by_user_id") @db.Uuid
+  acceptedByUserId String?          @map("accepted_by_user_id") @db.Uuid
+  expiresAt        DateTime         @map("expires_at") @db.Timestamptz(6)
+  notifiedAt       DateTime?        @map("notified_at") @db.Timestamptz(6)
+  acceptedAt       DateTime?        @map("accepted_at") @db.Timestamptz(6)
+  revokedAt        DateTime?        @map("revoked_at") @db.Timestamptz(6)
+  createdAt        DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization     Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invitedBy        User             @relation("InvitationInvitedBy", fields: [invitedByUserId], references: [id], onDelete: Cascade)
+  acceptedBy       User?            @relation("InvitationAcceptedBy", fields: [acceptedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, status])
+  @@index([email, status])
+  @@index([expiresAt])
+  @@map("organization_invitations")
+}
+
+/// Sparse per-organization overrides to the default role permission baseline. Absence of a row for
+/// a (role, permissionKey) pair means "use the default". OWNER is never represented here — its
+/// permission set is total and resolved without consulting this table.
+model OrganizationRolePermission {
+  id              String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId  String           @map("organization_id") @db.Uuid
+  role            OrganizationRole
+  permissionKey   String           @map("permission_key") @db.VarChar(60)
+  granted         Boolean
+  updatedByUserId String           @map("updated_by_user_id") @db.Uuid
+  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization    Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  updatedBy       User             @relation("RolePermissionUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, role, permissionKey])
+  @@index([organizationId, role])
+  @@map("organization_role_permissions")
+}
+
+/// Editable organization-scoped chart of accounts. Accounts are archived rather than hard-deleted
+/// once they have journal history.
+model LedgerAccount {
+  id             String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String              @map("organization_id") @db.Uuid
+  code           String              @db.VarChar(24)
+  name           String              @db.VarChar(120)
+  type           LedgerAccountType
+  normalBalance  LedgerNormalBalance @map("normal_balance")
+  status         LedgerAccountStatus @default(ACTIVE)
+  description    String?             @db.VarChar(240)
+  systemSeed     Boolean             @default(false) @map("system_seed")
+  archivedAt     DateTime?           @map("archived_at") @db.Timestamptz(6)
+  createdAt      DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization   Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  journalLines   JournalLine[]
+  taxCodesAsSalesAccount    TaxCode[] @relation("TaxCodeSalesAccount")
+  taxCodesAsPurchaseAccount TaxCode[] @relation("TaxCodePurchaseAccount")
+
+  @@unique([organizationId, code])
+  @@index([organizationId, status])
+  @@index([organizationId, type])
+  @@map("ledger_accounts")
+}
+
+/// Draft and posted journal header. Posted journals are immutable; corrections use reversal.
+model Journal {
+  id                  String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId      String        @map("organization_id") @db.Uuid
+  reference           String?       @db.VarChar(64)
+  status              JournalStatus @default(DRAFT)
+  journalDate         DateTime      @map("journal_date") @db.Date
+  currency            String        @db.Char(3)
+  description         String        @db.VarChar(240)
+  sourceType          String?       @map("source_type") @db.VarChar(60)
+  sourceId            String?       @map("source_id") @db.VarChar(100)
+  postedAt            DateTime?     @map("posted_at") @db.Timestamptz(6)
+  postedByUserId      String?       @map("posted_by_user_id") @db.Uuid
+  createdByUserId     String        @map("created_by_user_id") @db.Uuid
+  reversalOfJournalId String?       @unique @map("reversal_of_journal_id") @db.Uuid
+  createdAt           DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization        Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy           User          @relation("JournalCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  postedBy            User?         @relation("JournalPostedBy", fields: [postedByUserId], references: [id], onDelete: Restrict)
+  reversalOf          Journal?      @relation("JournalReversal", fields: [reversalOfJournalId], references: [id], onDelete: Restrict)
+  reversalJournal     Journal?      @relation("JournalReversal")
+  lines               JournalLine[]
+
+  @@unique([organizationId, reference])
+  @@index([organizationId, status, journalDate])
+  @@index([organizationId, journalDate])
+  @@index([reversalOfJournalId])
+  @@map("journals")
+}
+
+model JournalLine {
+  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String        @map("organization_id") @db.Uuid
+  journalId      String        @map("journal_id") @db.Uuid
+  accountId      String        @map("account_id") @db.Uuid
+  lineNumber     Int           @map("line_number") @db.SmallInt
+  description    String?       @db.VarChar(240)
+  debitMinor     BigInt        @default(0) @map("debit_minor") @db.BigInt
+  creditMinor    BigInt        @default(0) @map("credit_minor") @db.BigInt
+  taxCodeId              String?       @map("tax_code_id") @db.Uuid
+  taxCodeSnapshot        String?       @map("tax_code_snapshot") @db.VarChar(24)
+  taxTreatmentSnapshot   TaxTreatment? @map("tax_treatment_snapshot")
+  taxRecoverableSnapshot Boolean?      @map("tax_recoverable_snapshot")
+  taxRatePercentSnapshot Decimal?      @map("tax_rate_percent_snapshot") @db.Decimal(7, 4)
+  taxableAmountMinor     BigInt?       @map("taxable_amount_minor") @db.BigInt
+  taxAmountMinor         BigInt?       @map("tax_amount_minor") @db.BigInt
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  journal        Journal       @relation(fields: [journalId], references: [id], onDelete: Cascade)
+  account        LedgerAccount @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  taxCode                TaxCode?      @relation(fields: [taxCodeId], references: [id], onDelete: Restrict)
+
+  @@unique([journalId, lineNumber])
+  @@index([organizationId, accountId])
+  @@index([organizationId, journalId])
+  @@index([taxCodeId])
+  @@map("journal_lines")
+}
+
+model LedgerIdempotencyKey {
+  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  key            String       @db.VarChar(120)
+  operation      String       @db.VarChar(40)
+  resourceType   String       @map("resource_type") @db.VarChar(40)
+  resourceId     String       @map("resource_id") @db.Uuid
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, operation, key])
+  @@index([organizationId, resourceType, resourceId])
+  @@map("ledger_idempotency_keys")
+}
+
+/// Organization-scoped tax code catalog, seeded from the country pack and then fully editable.
+/// Codes are archived rather than hard-deleted once they have posted journal-line history.
+model TaxCode {
+  id                   String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId       String         @map("organization_id") @db.Uuid
+  code                 String         @db.VarChar(24)
+  name                 String         @db.VarChar(120)
+  treatment            TaxTreatment
+  recoverable          Boolean        @default(false)
+  status               TaxCodeStatus  @default(ACTIVE)
+  description          String?        @db.VarChar(240)
+  salesTaxAccountId    String?        @map("sales_tax_account_id") @db.Uuid
+  purchaseTaxAccountId String?        @map("purchase_tax_account_id") @db.Uuid
+  systemSeed           Boolean        @default(false) @map("system_seed")
+  archivedAt           DateTime?      @map("archived_at") @db.Timestamptz(6)
+  createdAt            DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization         Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  salesTaxAccount      LedgerAccount? @relation("TaxCodeSalesAccount", fields: [salesTaxAccountId], references: [id], onDelete: SetNull)
+  purchaseTaxAccount   LedgerAccount? @relation("TaxCodePurchaseAccount", fields: [purchaseTaxAccountId], references: [id], onDelete: SetNull)
+  rates                TaxRate[]
+  journalLines         JournalLine[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId, status])
+  @@map("tax_codes")
+}
+
+/// Effective-dated rate history for a tax code. Never edited once used by a posted line; new
+/// rate periods are new rows, mirroring why posted journals are immutable.
+model TaxRate {
+  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  taxCodeId      String       @map("tax_code_id") @db.Uuid
+  ratePercent    Decimal      @map("rate_percent") @db.Decimal(7, 4)
+  effectiveFrom  DateTime     @map("effective_from") @db.Date
+  effectiveTo    DateTime?    @map("effective_to") @db.Date
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  taxCode        TaxCode      @relation(fields: [taxCodeId], references: [id], onDelete: Cascade)
+
+  @@unique([taxCodeId, effectiveFrom])
+  @@index([organizationId, taxCodeId, effectiveFrom])
+  @@map("tax_rates")
+}
