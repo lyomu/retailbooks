@@ -47,7 +47,8 @@ pull request, commit, or milestone note.
 - [x] Add transactional email templates and Mailpit-backed local delivery
 - [x] Add session/device management settings
 - [x] Represent MFA as a disabled future capability without implying functionality
-- [ ] Add identity unit and integration tests, including token expiry and replay cases
+- [x] Add identity unit and integration tests, including token expiry and replay cases — proven by
+      `apps/api/test/identity-tenancy.int.test.ts`
 
 Implementation note: API and web TypeScript compilation passed on 2026-08-16. Database migration
 execution, Mailpit delivery verification, browser QA, and automated identity tests are intentionally
@@ -61,7 +62,9 @@ deferred to the agreed verification pass.
 - [x] Collect legal/display name, country, base currency, time zone, fiscal start, and language
 - [x] Support invitation acceptance for existing and new users
 - [x] Enforce organization scoping in persistence and service boundaries
-- [ ] Add tenant-isolation integration tests
+- [x] Add tenant-isolation integration tests — representative flows are proven by
+      `identity-tenancy.int.test.ts`; every organization-scoped route is proven by
+      `authorization-boundary.int.test.ts`
 
 Implementation note: API, web, contracts, and UI TypeScript compilation passed on 2026-08-17.
 Organization access is resolved only from the authenticated user's membership through
@@ -281,12 +284,26 @@ dependencies from `emitDecoratorMetadata`, which vitest's default esbuild transf
 Proven by `apps/api/test/harness.int.test.ts` (6 tests). This is infrastructure only — no milestone
 checkbox closes here; stages 2–4 consume it.
 
+**Stage 2 — identity and tenancy (2026-08-24).** Seven production-shaped HTTP integration tests now
+cover signup, single-use verification, login/logout, session rotation and revocation, expired
+verification and recovery tokens, password-reset replay, anti-enumeration, Redis rate limiting and
+release, tenant-indistinguishable not-found responses, and invitation acceptance for existing and
+new users. Test email jobs use an isolated BullMQ prefix so acceptance traffic cannot contaminate
+development queue health.
+
+**Stage 3 — authorization boundary (2026-08-24).** A controller-metadata contract discovers all 48
+organization-scoped endpoints and fails when an endpoint lacks `OrganizationGuard` or a matrix
+entry. The HTTP suite exercises all eight system roles across every endpoint (384 decisions), then
+proves all 48 routes return identical not-found envelopes for another tenant and a nonexistent
+tenant (96 comparisons). Protected-permission escalation, final-owner protection, and the exact
+four-role `audit.view` boundary are also proven over HTTP.
+
 ## Milestone 1J — Hardening and Phase 1 acceptance
 
 - [ ] Complete end-to-end journeys for identity, onboarding, teams, periods, journals, and tax —
       verification stage 5, deferred
-- [ ] Complete cross-tenant and permission-boundary security tests — verification stage 3,
-      explicitly deferred after stages 0–1
+- [x] Complete cross-tenant and permission-boundary security tests — verification stages 2–3,
+      proven by `identity-tenancy.int.test.ts` and `authorization-boundary.int.test.ts`
 - [ ] Complete visual regression at desktop, tablet, and mobile breakpoints — verification stage 6,
       deferred and blocked on D1
 - [ ] Complete WCAG 2.2 AA keyboard, screen-reader, contrast, and focus review — verification stage 6,

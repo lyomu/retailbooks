@@ -6,12 +6,9 @@ boxes get closed and in what order.
 
 ## Scope
 
-**In scope — stages 0 through 4.** Prove the schema, build the missing integration harness, then
-close the identity, tenancy, authorization, and accounting/tax correctness gaps.
-
-**Deliberately deferred — stages 5 through 8.** End-to-end journeys, visual regression, WCAG 2.2 AA
-review, performance budgets, runbooks, and the threat model. These are reassessed once stages 0–4
-land, because they would churn if the earlier stages force schema changes.
+**Current scope — stages 0 through 8.** Stages 0–3 are complete. Stage 4 closes accounting and tax
+correctness before stages 5–8 execute end-to-end journeys, visual and accessibility review,
+performance and operational verification, and the final threat-model/readiness record.
 
 ## Agreed working decisions
 
@@ -106,7 +103,7 @@ prefix, the production validation pipe rejects unknown fields, the connection re
 `retailbooks_test`, all six migrations are applied, and truncation clears data while preserving the
 schema. CI runs the integration suite against its own PostgreSQL service.
 
-## Stage 2 — Identity and tenancy
+## Stage 2 — Identity and tenancy — COMPLETE
 
 Closes 1C "identity unit and integration tests" and 1D "tenant-isolation integration tests".
 
@@ -119,7 +116,11 @@ Closes 1C "identity unit and integration tests" and 1D "tenant-isolation integra
   identifier receives the same not-found response as a nonexistent identifier.
 - Invitation acceptance for a new and an existing user, plus invitation replay rejection.
 
-## Stage 3 — Authorization boundary
+Verified by `test/identity-tenancy.int.test.ts` (7 tests). The suite uses the real HTTP error
+envelope, session cookies, Redis limiter, BullMQ email payloads, and PostgreSQL persistence. The
+route-complete tenant-isolation requirement is additionally enforced by Stage 3's endpoint matrix.
+
+## Stage 3 — Authorization boundary — COMPLETE
 
 Closes 1J "cross-tenant and permission-boundary security tests". `permission-resolution.test.ts`
 covers the resolution logic, but nothing proves `OrganizationGuard` is mounted on the routes.
@@ -132,6 +133,12 @@ covers the resolution logic, but nothing proves `OrganizationGuard` is mounted o
 - Final-owner protection over HTTP.
 - `audit.view` granted to OWNER, ADMIN, ACCOUNTANT, and VIEWER and denied to the four
   module-placeholder roles.
+
+Verified by `test/authorization-boundary.int.test.ts` (6 tests). Controller metadata is compared
+against a declared 48-endpoint matrix, including an assertion that every discovered organization
+route mounts `OrganizationGuard`. The suite executes 384 role/route decisions, 96 cross-tenant vs
+unknown-tenant comparisons, protected-permission escalation attempts, final-owner mutations, and
+the explicit audit-view boundary.
 
 ## Stage 4 — Accounting and tax invariants
 
