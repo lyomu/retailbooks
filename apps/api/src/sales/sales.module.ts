@@ -6,10 +6,12 @@ import { CatalogController } from './catalog.controller.js';
 import { CatalogService } from './catalog.service.js';
 import { CustomersController } from './customers.controller.js';
 import { CustomersService } from './customers.service.js';
+import { InvoicesController } from './invoices.controller.js';
+import { InvoicesService } from './invoices.service.js';
 
 @Module({
   imports: [AuthModule, OrganizationsModule],
-  controllers: [CustomersController, CatalogController],
-  providers: [CustomersService, CatalogService],
+  controllers: [CustomersController, CatalogController, InvoicesController],
+  providers: [CustomersService, CatalogService, InvoicesService],
 })
 export class SalesModule {}

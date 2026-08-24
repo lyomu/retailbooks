@@ -361,6 +361,42 @@ export class TaxService {
     }
   }
 
+  /**
+   * Resolves a tax code's effective rate and computes tax on a given base amount, inside the
+   * caller's transaction. This is the transaction-safe sibling of `calculate()`: `calculate()` reads
+   * through `this.prisma` for a stateless preview, while callers freezing a snapshot as part of a
+   * larger posting transaction (e.g. `InvoicesService#issueInvoice`) need the same resolution to
+   * happen against `tx`, atomically with the rest of that transaction.
+   */
+  async resolveForPosting(
+    tx: Prisma.TransactionClient,
+    organizationId: string,
+    taxCodeId: string,
+    baseAmountMinor: bigint,
+    asOfDate: string,
+  ) {
+    const code = await tx.taxCode.findFirst({
+      where: { id: taxCodeId, organizationId },
+      include: { rates: true },
+    });
+    if (!code) throw new BadRequestException('Every taxed line must use an active tax code.');
+    const rate = effectiveRateAsOf(code.rates, asOfDate);
+    if (!rate) {
+      throw new BadRequestException(`Tax code ${code.code} has no rate effective on ${asOfDate}.`);
+    }
+    const result = computeTax(baseAmountMinor, rate.ratePercent.toString(), code.treatment);
+    return {
+      taxCodeId: code.id,
+      taxCode: code.code,
+      treatment: code.treatment,
+      recoverable: code.recoverable,
+      ratePercent: rate.ratePercent,
+      salesTaxAccountId: code.salesTaxAccountId,
+      taxableAmountMinor: result.taxableMinor,
+      taxAmountMinor: result.taxMinor,
+    };
+  }
+
   private async hasPostedLineHistory(organizationId: string, taxCodeId: string): Promise<boolean> {
     const count = await this.prisma.journalLine.count({
       where: { organizationId, taxCodeId, journal: { status: { in: [...POSTED_STATUSES] } } },

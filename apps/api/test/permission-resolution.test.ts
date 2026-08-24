@@ -78,7 +78,7 @@ describe('SYSTEM_ROLE_TEMPLATES', () => {
     }
   });
 
-  it('gives SALES its real Phase 2 customer and catalog permissions', () => {
+  it('gives SALES its real Phase 2 customer, catalog, and invoice permissions', () => {
     const template = SYSTEM_ROLE_TEMPLATES.find((t) => t.key === 'SALES');
     expect(template?.permissions).toEqual([
       'organization.view',
@@ -87,6 +87,9 @@ describe('SYSTEM_ROLE_TEMPLATES', () => {
       'customers.currency_override',
       'catalog.view',
       'catalog.manage',
+      'sales.invoices.view',
+      'sales.invoices.manage',
+      'sales.invoices.issue',
     ]);
   });
 });

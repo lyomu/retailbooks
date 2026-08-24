@@ -42,6 +42,7 @@ const READ_ONLY_BASELINE: readonly PermissionKey[] = [
   'tax.codes.view',
   'customers.view',
   'catalog.view',
+  'sales.invoices.view',
 ];
 
 export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freeze([
@@ -97,6 +98,11 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
       'customers.currency_override',
       'catalog.view',
       'catalog.manage',
+      'sales.invoices.view',
+      'sales.invoices.manage',
+      'sales.invoices.issue',
+      'sales.invoices.void',
+      'sales.invoices.revenue_account_override',
     ],
   },
   {
@@ -126,6 +132,11 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
       'customers.manage',
       'catalog.view',
       'catalog.manage',
+      'sales.invoices.view',
+      'sales.invoices.manage',
+      'sales.invoices.issue',
+      'sales.invoices.void',
+      'sales.invoices.revenue_account_override',
     ],
   },
   {
@@ -140,6 +151,9 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
       'customers.currency_override',
       'catalog.view',
       'catalog.manage',
+      'sales.invoices.view',
+      'sales.invoices.manage',
+      'sales.invoices.issue',
     ],
   },
   {

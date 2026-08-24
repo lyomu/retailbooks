@@ -54,6 +54,7 @@ import { TaxService } from './tax.service.js';
     OrganizationMembersService,
     RolesService,
     FiscalPeriodsService,
+    DocumentNumberingService,
     LedgerService,
     TaxService,
     CurrencyService,

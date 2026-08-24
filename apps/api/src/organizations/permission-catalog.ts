@@ -60,6 +60,11 @@ export const PERMISSION_KEYS = [
   'customers.currency_override',
   'catalog.view',
   'catalog.manage',
+  'sales.invoices.view',
+  'sales.invoices.manage',
+  'sales.invoices.issue',
+  'sales.invoices.void',
+  'sales.invoices.revenue_account_override',
 ] as const;
 
 export type PermissionKey = (typeof PERMISSION_KEYS)[number];
@@ -461,6 +466,42 @@ export const PERMISSION_CATALOG: readonly PermissionDefinition[] = Object.freeze
     key: 'catalog.manage',
     label: 'Manage catalog',
     description: 'Create, edit, and deactivate items, services, units, and categories.',
+    group: 'Sales',
+    protected: false,
+  },
+  {
+    key: 'sales.invoices.view',
+    label: 'View invoices',
+    description: 'See draft, issued, and voided invoices.',
+    group: 'Sales',
+    protected: false,
+  },
+  {
+    key: 'sales.invoices.manage',
+    label: 'Manage invoice drafts',
+    description: 'Create and edit draft invoices.',
+    group: 'Sales',
+    protected: false,
+  },
+  {
+    key: 'sales.invoices.issue',
+    label: 'Issue invoices',
+    description: 'Post a draft invoice, allocating its number and its AR/revenue/tax journal.',
+    group: 'Sales',
+    protected: false,
+  },
+  {
+    key: 'sales.invoices.void',
+    label: 'Void invoices',
+    description: 'Reverse an issued invoice that has no payments applied.',
+    group: 'Sales',
+    protected: false,
+  },
+  {
+    key: 'sales.invoices.revenue_account_override',
+    label: 'Override invoice revenue account',
+    description:
+      "Set an invoice line's revenue account to something other than the item's default.",
     group: 'Sales',
     protected: false,
   },

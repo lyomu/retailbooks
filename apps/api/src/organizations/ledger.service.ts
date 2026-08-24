@@ -400,74 +400,168 @@ export class LedgerService {
         throw new ConflictException('Only draft journals can be posted.');
       }
 
-      const preparedJournal = await this.prepareFxPosting(tx, context.id, journal);
-      await this.validatePostingState(tx, context.id, preparedJournal);
-      const allocation = await this.numbering.allocateJournalNumberWithClient(
+      return this.finalizePosting(
         tx,
-        context.id,
-        preparedJournal.journalDate,
-      );
-      const postedJournal = await tx.journal.update({
-        where: { id: preparedJournal.id },
-        data: {
-          reference: allocation.value,
-          status: JournalStatus.POSTED,
-          postedAt: new Date(),
-          postedByUserId: user.id,
-        },
-        include: journalDetailInclude,
-      });
-
-      await this.tax.freezeLineSnapshots(
-        tx,
-        context.id,
-        dateOnly(postedJournal.journalDate),
-        postedJournal.lines.map((line) => ({
-          id: line.id,
-          taxCodeId: line.taxCodeId,
-          debitMinor: line.debitMinor,
-          creditMinor: line.creditMinor,
-        })),
-      );
-
-      await this.recordIdempotency(
-        tx,
-        context.id,
+        context,
+        user,
+        journal,
+        metadata,
         'JOURNAL_POST',
         idempotencyKey,
-        postedJournal.id,
       );
-      await ledgerEvent(tx, user.id, context.id, 'ledger.journal_posted', metadata, {
-        journalId: postedJournal.id,
-        reference: allocation.value,
-        debitMinor: sum(postedJournal.lines.map((line) => line.debitMinor)).toString(),
-        creditMinor: sum(postedJournal.lines.map((line) => line.creditMinor)).toString(),
-      });
-      await writeAuditEvent(tx, {
-        organizationId: context.id,
-        actorUserId: user.id,
-        eventKey: 'ledger.journal_posted',
-        entityType: 'journal',
-        entityId: postedJournal.id,
-        action: AuditAction.UPDATE,
-        before: { status: JournalStatus.DRAFT },
-        after: {
-          status: JournalStatus.POSTED,
-          reference: allocation.value,
-          currency: postedJournal.currency,
-          exchangeRate: postedJournal.exchangeRate?.toString() ?? null,
-        },
-        ipHash: metadata.ipHash,
-      });
-
-      const finalJournal = await tx.journal.findFirst({
-        where: { id: postedJournal.id },
-        include: journalDetailInclude,
-      });
-      return finalJournal!;
     });
 
     return journalDetail(posted);
+  }
+
+  /**
+   * Creates a draft journal from already-resolved lines and posts it in the same transaction and
+   * idempotency envelope as `postJournal` -- the programmatic path for modules (Invoices, and later
+   * Credit Notes/Payments) that need to post without a human first saving a draft through the
+   * journals UI. `operation` namespaces the idempotency key the same way `'JOURNAL_POST'` does for
+   * `postJournal`, e.g. `'INVOICE_ISSUE'`.
+   */
+  async postJournalFromLines(
+    context: OrganizationContext,
+    user: PublicUser,
+    operation: string,
+    input: {
+      journalDate: Date;
+      currency: string;
+      description: string;
+      sourceType: string;
+      sourceId: string;
+      lines: readonly {
+        accountId: string;
+        description?: string | null;
+        debitMinor: bigint;
+        creditMinor: bigint;
+      }[];
+    },
+    metadata: RequestMetadata,
+    idempotencyKey?: string,
+    /**
+     * When the caller already has an open transaction (e.g. `InvoicesService#issueInvoice`, which
+     * also allocates a document number and flips the invoice's own status), pass it here so the
+     * whole operation commits or rolls back as one unit instead of this method opening its own
+     * transaction nested inside the caller's.
+     */
+    externalTx?: Prisma.TransactionClient,
+  ) {
+    const run = async (tx: Prisma.TransactionClient): Promise<JournalWithDetail> => {
+      await this.lockIdempotency(tx, context.id, operation, idempotencyKey);
+      const existing = await this.findIdempotentResult(context.id, operation, idempotencyKey, tx);
+      if (existing) {
+        return tx.journal.findFirstOrThrow({
+          where: { id: existing.resourceId, organizationId: context.id },
+          include: journalDetailInclude,
+        });
+      }
+
+      const draft = await tx.journal.create({
+        data: {
+          organizationId: context.id,
+          journalDate: input.journalDate,
+          currency: input.currency,
+          description: input.description,
+          sourceType: input.sourceType,
+          sourceId: input.sourceId,
+          createdByUserId: user.id,
+          lines: {
+            create: input.lines.map((line, index) => ({
+              organizationId: context.id,
+              accountId: line.accountId,
+              lineNumber: index + 1,
+              description: line.description ?? undefined,
+              debitMinor: line.debitMinor,
+              creditMinor: line.creditMinor,
+            })),
+          },
+        },
+        include: journalDetailInclude,
+      });
+
+      return this.finalizePosting(tx, context, user, draft, metadata, operation, idempotencyKey);
+    };
+
+    const posted = externalTx ? await run(externalTx) : await this.prisma.$transaction(run);
+    return journalDetail(posted);
+  }
+
+  /**
+   * The shared posting core behind both `postJournal` (an existing draft) and `postJournalFromLines`
+   * (a draft created moments earlier in the same transaction): FX preparation, balance/period
+   * validation, number allocation, the POSTED flip, tax-snapshot freezing, and the idempotency
+   * record, in that exact order -- unchanged from what `postJournal` always did.
+   */
+  private async finalizePosting(
+    tx: Prisma.TransactionClient,
+    context: OrganizationContext,
+    user: PublicUser,
+    journal: JournalWithDetail,
+    metadata: RequestMetadata,
+    operation: string,
+    idempotencyKey: string | undefined,
+  ): Promise<JournalWithDetail> {
+    const preparedJournal = await this.prepareFxPosting(tx, context.id, journal);
+    await this.validatePostingState(tx, context.id, preparedJournal);
+    const allocation = await this.numbering.allocateJournalNumberWithClient(
+      tx,
+      context.id,
+      preparedJournal.journalDate,
+    );
+    const postedJournal = await tx.journal.update({
+      where: { id: preparedJournal.id },
+      data: {
+        reference: allocation.value,
+        status: JournalStatus.POSTED,
+        postedAt: new Date(),
+        postedByUserId: user.id,
+      },
+      include: journalDetailInclude,
+    });
+
+    await this.tax.freezeLineSnapshots(
+      tx,
+      context.id,
+      dateOnly(postedJournal.journalDate),
+      postedJournal.lines.map((line) => ({
+        id: line.id,
+        taxCodeId: line.taxCodeId,
+        debitMinor: line.debitMinor,
+        creditMinor: line.creditMinor,
+      })),
+    );
+
+    await this.recordIdempotency(tx, context.id, operation, idempotencyKey, postedJournal.id);
+    await ledgerEvent(tx, user.id, context.id, 'ledger.journal_posted', metadata, {
+      journalId: postedJournal.id,
+      reference: allocation.value,
+      debitMinor: sum(postedJournal.lines.map((line) => line.debitMinor)).toString(),
+      creditMinor: sum(postedJournal.lines.map((line) => line.creditMinor)).toString(),
+    });
+    await writeAuditEvent(tx, {
+      organizationId: context.id,
+      actorUserId: user.id,
+      eventKey: 'ledger.journal_posted',
+      entityType: 'journal',
+      entityId: postedJournal.id,
+      action: AuditAction.UPDATE,
+      before: { status: JournalStatus.DRAFT },
+      after: {
+        status: JournalStatus.POSTED,
+        reference: allocation.value,
+        currency: postedJournal.currency,
+        exchangeRate: postedJournal.exchangeRate?.toString() ?? null,
+      },
+      ipHash: metadata.ipHash,
+    });
+
+    const finalJournal = await tx.journal.findFirst({
+      where: { id: postedJournal.id },
+      include: journalDetailInclude,
+    });
+    return finalJournal!;
   }
 
   async reverseJournal(
@@ -477,9 +571,11 @@ export class LedgerService {
     input: ReversalDto,
     metadata: RequestMetadata,
     idempotencyKey?: string,
+    /** See `postJournalFromLines`'s `externalTx` parameter for when and why to pass this. */
+    externalTx?: Prisma.TransactionClient,
   ) {
     const key = input.idempotencyKey ?? idempotencyKey;
-    const reversal = await this.prisma.$transaction(async (tx) => {
+    const run = async (tx: Prisma.TransactionClient): Promise<JournalWithDetail> => {
       await this.lockIdempotency(tx, context.id, 'JOURNAL_REVERSE', key);
       const existing = await this.findIdempotentResult(context.id, 'JOURNAL_REVERSE', key, tx);
       if (existing) {
@@ -576,8 +672,9 @@ export class LedgerService {
         ipHash: metadata.ipHash,
       });
       return created;
-    });
+    };
 
+    const reversal = externalTx ? await run(externalTx) : await this.prisma.$transaction(run);
     return journalDetail(reversal);
   }
 

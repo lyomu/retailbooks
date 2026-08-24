@@ -151,6 +151,16 @@ enum ItemStatus {
   INACTIVE
 }
 
+enum InvoiceStatus {
+  DRAFT
+  PENDING_APPROVAL
+  ISSUED
+  PARTIALLY_PAID
+  PAID
+  OVERDUE
+  VOID
+}
+
 model User {
   id                   String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   email                String                   @unique @db.Citext
@@ -170,6 +180,7 @@ model User {
   invitationsAccepted  OrganizationInvitation[] @relation("InvitationAcceptedBy")
   journalsCreated      Journal[]                @relation("JournalCreatedBy")
   journalsPosted       Journal[]                @relation("JournalPostedBy")
+  invoicesCreated      Invoice[]                @relation("InvoiceCreatedBy")
 
   @@map("users")
 }
@@ -315,6 +326,8 @@ model Organization {
   categories               Category[]
   items                    Item[]
   itemPrices               ItemPrice[]
+  invoices                 Invoice[]
+  invoiceLines             InvoiceLine[]
 
   @@index([createdByUserId])
   @@index([status])
@@ -580,26 +593,27 @@ model RolePermission {
 /// Editable organization-scoped chart of accounts. Accounts are archived rather than hard-deleted
 /// once they have journal history.
 model LedgerAccount {
-  id                          String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  organizationId              String              @map("organization_id") @db.Uuid
-  code                        String              @db.VarChar(24)
-  name                        String              @db.VarChar(120)
-  type                        LedgerAccountType
-  normalBalance               LedgerNormalBalance @map("normal_balance")
-  status                      LedgerAccountStatus @default(ACTIVE)
-  description                 String?             @db.VarChar(240)
-  systemSeed                  Boolean             @default(false) @map("system_seed")
-  systemKey                   String?             @map("system_key") @db.VarChar(40)
-  isControl                   Boolean             @default(false) @map("is_control")
-  archivedAt                  DateTime?           @map("archived_at") @db.Timestamptz(6)
-  createdAt                   DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt                   DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  organization                Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  journalLines                JournalLine[]
-  taxCodesAsSalesAccount      TaxCode[]           @relation("TaxCodeSalesAccount")
-  taxCodesAsPurchaseAccount   TaxCode[]           @relation("TaxCodePurchaseAccount")
-  contactsAsReceivableAccount Contact[]           @relation("ContactReceivableAccount")
-  itemsAsRevenueAccount       Item[]              @relation("ItemRevenueAccount")
+  id                           String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId               String              @map("organization_id") @db.Uuid
+  code                         String              @db.VarChar(24)
+  name                         String              @db.VarChar(120)
+  type                         LedgerAccountType
+  normalBalance                LedgerNormalBalance @map("normal_balance")
+  status                       LedgerAccountStatus @default(ACTIVE)
+  description                  String?             @db.VarChar(240)
+  systemSeed                   Boolean             @default(false) @map("system_seed")
+  systemKey                    String?             @map("system_key") @db.VarChar(40)
+  isControl                    Boolean             @default(false) @map("is_control")
+  archivedAt                   DateTime?           @map("archived_at") @db.Timestamptz(6)
+  createdAt                    DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                    DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization                 Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  journalLines                 JournalLine[]
+  taxCodesAsSalesAccount       TaxCode[]           @relation("TaxCodeSalesAccount")
+  taxCodesAsPurchaseAccount    TaxCode[]           @relation("TaxCodePurchaseAccount")
+  contactsAsReceivableAccount  Contact[]           @relation("ContactReceivableAccount")
+  itemsAsRevenueAccount        Item[]              @relation("ItemRevenueAccount")
+  invoiceLinesAsRevenueAccount InvoiceLine[]       @relation("InvoiceLineRevenueAccount")
 
   @@unique([organizationId, code])
   @@unique([organizationId, systemKey])
@@ -632,6 +646,7 @@ model Journal {
   reversalOf          Journal?      @relation("JournalReversal", fields: [reversalOfJournalId], references: [id], onDelete: Restrict)
   reversalJournal     Journal?      @relation("JournalReversal")
   lines               JournalLine[]
+  invoice             Invoice?
 
   @@unique([organizationId, reference])
   @@index([organizationId, status, journalDate])
@@ -709,6 +724,7 @@ model TaxCode {
   rates                 TaxRate[]
   journalLines          JournalLine[]
   itemsAsDefaultTaxCode Item[]
+  invoiceLines          InvoiceLine[]
 
   @@unique([organizationId, code])
   @@index([organizationId, status])
@@ -755,6 +771,7 @@ model Contact {
   receivableAccount   LedgerAccount?   @relation("ContactReceivableAccount", fields: [receivableAccountId], references: [id], onDelete: SetNull)
   addresses           ContactAddress[]
   taxIds              ContactTaxId[]
+  invoices            Invoice[]
 
   @@unique([organizationId, displayName])
   @@index([organizationId, status])
@@ -848,6 +865,7 @@ model Item {
   revenueAccount         LedgerAccount? @relation("ItemRevenueAccount", fields: [revenueAccountId], references: [id], onDelete: SetNull)
   defaultTaxCode         TaxCode?       @relation(fields: [defaultTaxCodeId], references: [id], onDelete: SetNull)
   prices                 ItemPrice[]
+  invoiceLines           InvoiceLine[]
 
   @@index([organizationId, status])
   @@map("items")
@@ -867,4 +885,74 @@ model ItemPrice {
 
   @@unique([organizationId, itemId, priceListKey, currency])
   @@map("item_prices")
+}
+
+/// Sales invoice header. DRAFT/PENDING_APPROVAL are freely editable; ISSUED is immutable except for
+/// the payment-derived status transitions (PARTIALLY_PAID/PAID/OVERDUE) and VOID, mirroring how a
+/// posted Journal is immutable except for reversal. `journalId` is set at Issue, when this invoice's
+/// lines post AR/revenue/tax through LedgerService.postJournalFromLines.
+model Invoice {
+  id              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId  String        @map("organization_id") @db.Uuid
+  contactId       String        @map("contact_id") @db.Uuid
+  invoiceNumber   String?       @map("invoice_number") @db.VarChar(64)
+  status          InvoiceStatus @default(DRAFT)
+  issueDate       DateTime?     @map("issue_date") @db.Date
+  dueDate         DateTime?     @map("due_date") @db.Date
+  currency        String        @db.Char(3)
+  exchangeRate    Decimal?      @map("exchange_rate") @db.Decimal(20, 10)
+  subtotalMinor   BigInt        @default(0) @map("subtotal_minor") @db.BigInt
+  taxTotalMinor   BigInt        @default(0) @map("tax_total_minor") @db.BigInt
+  totalMinor      BigInt        @default(0) @map("total_minor") @db.BigInt
+  paidMinor       BigInt        @default(0) @map("paid_minor") @db.BigInt
+  balanceMinor    BigInt        @default(0) @map("balance_minor") @db.BigInt
+  journalId       String?       @unique @map("journal_id") @db.Uuid
+  voidedAt        DateTime?     @map("voided_at") @db.Timestamptz(6)
+  sentAt          DateTime?     @map("sent_at") @db.Timestamptz(6)
+  createdByUserId String        @map("created_by_user_id") @db.Uuid
+  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization    Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  contact         Contact       @relation(fields: [contactId], references: [id], onDelete: Restrict)
+  journal         Journal?      @relation(fields: [journalId], references: [id], onDelete: Restrict)
+  createdBy       User          @relation("InvoiceCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  lines           InvoiceLine[]
+
+  @@unique([organizationId, invoiceNumber])
+  @@index([organizationId, status, issueDate])
+  @@index([organizationId, contactId])
+  @@map("invoices")
+}
+
+model InvoiceLine {
+  id                     String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId         String         @map("organization_id") @db.Uuid
+  invoiceId              String         @map("invoice_id") @db.Uuid
+  lineNumber             Int            @map("line_number") @db.SmallInt
+  itemId                 String?        @map("item_id") @db.Uuid
+  descriptionSnapshot    String         @map("description_snapshot") @db.VarChar(240)
+  quantity               Decimal        @db.Decimal(18, 4)
+  unitPriceMinor         BigInt         @map("unit_price_minor") @db.BigInt
+  discountMinor          BigInt         @default(0) @map("discount_minor") @db.BigInt
+  lineTotalMinor         BigInt         @map("line_total_minor") @db.BigInt
+  taxCodeId              String?        @map("tax_code_id") @db.Uuid
+  taxCodeSnapshot        String?        @map("tax_code_snapshot") @db.VarChar(24)
+  taxTreatmentSnapshot   TaxTreatment?  @map("tax_treatment_snapshot")
+  taxRecoverableSnapshot Boolean?       @map("tax_recoverable_snapshot")
+  taxRatePercentSnapshot Decimal?       @map("tax_rate_percent_snapshot") @db.Decimal(7, 4)
+  taxableAmountMinor     BigInt?        @map("taxable_amount_minor") @db.BigInt
+  taxAmountMinor         BigInt?        @map("tax_amount_minor") @db.BigInt
+  revenueAccountId       String?        @map("revenue_account_id") @db.Uuid
+  projectTag             String?        @map("project_tag") @db.VarChar(80)
+  createdAt              DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  organization           Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invoice                Invoice        @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  item                   Item?          @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  taxCode                TaxCode?       @relation(fields: [taxCodeId], references: [id], onDelete: Restrict)
+  revenueAccount         LedgerAccount? @relation("InvoiceLineRevenueAccount", fields: [revenueAccountId], references: [id], onDelete: Restrict)
+
+  @@unique([invoiceId, lineNumber])
+  @@index([organizationId, invoiceId])
+  @@index([taxCodeId])
+  @@map("invoice_lines")
 }

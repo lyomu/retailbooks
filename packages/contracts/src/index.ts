@@ -126,6 +126,11 @@ export const permissionKeySchema = z.enum([
   'customers.currency_override',
   'catalog.view',
   'catalog.manage',
+  'sales.invoices.view',
+  'sales.invoices.manage',
+  'sales.invoices.issue',
+  'sales.invoices.void',
+  'sales.invoices.revenue_account_override',
 ]);
 
 export const organizationSummarySchema = z.object({
@@ -707,6 +712,84 @@ export const createItemDto = z.object({
 
 export const updateItemDto = createItemDto.partial();
 
+// --- Sales: Invoices ---
+
+export const invoiceStatusSchema = z.enum([
+  'DRAFT',
+  'PENDING_APPROVAL',
+  'ISSUED',
+  'PARTIALLY_PAID',
+  'PAID',
+  'OVERDUE',
+  'VOID',
+]);
+
+export const invoiceLineSchema = z.object({
+  id: z.uuid(),
+  lineNumber: z.number().int(),
+  itemId: z.uuid().nullable(),
+  descriptionSnapshot: z.string().min(1),
+  quantity: z.string(),
+  unitPriceMinor: z.string().regex(/^\d+$/),
+  discountMinor: z.string().regex(/^\d+$/),
+  lineTotalMinor: z.string().regex(/^\d+$/),
+  taxCodeId: z.uuid().nullable(),
+  taxCodeSnapshot: z.string().nullable(),
+  taxTreatmentSnapshot: taxTreatmentSchema.nullable(),
+  taxRecoverableSnapshot: z.boolean().nullable(),
+  taxRatePercentSnapshot: z.string().nullable(),
+  taxableAmountMinor: z.string().nullable(),
+  taxAmountMinor: z.string().nullable(),
+  revenueAccountId: z.uuid().nullable(),
+  projectTag: z.string().nullable(),
+});
+
+export const invoiceSchema = z.object({
+  id: z.uuid(),
+  contactId: z.uuid(),
+  contactName: z.string().min(1),
+  invoiceNumber: z.string().nullable(),
+  status: invoiceStatusSchema,
+  issueDate: z.iso.date().nullable(),
+  dueDate: z.iso.date().nullable(),
+  currency: z.string().length(3),
+  exchangeRate: z.string().nullable(),
+  subtotalMinor: z.string().regex(/^\d+$/),
+  taxTotalMinor: z.string().regex(/^\d+$/),
+  totalMinor: z.string().regex(/^\d+$/),
+  paidMinor: z.string().regex(/^\d+$/),
+  balanceMinor: z.string().regex(/^\d+$/),
+  journalId: z.uuid().nullable(),
+  voidedAt: z.iso.datetime().nullable(),
+  sentAt: z.iso.datetime().nullable(),
+  lines: z.array(invoiceLineSchema),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+});
+
+export const invoiceListResponseSchema = z.object({ data: z.array(invoiceSchema) });
+export const invoiceResponseSchema = z.object({ data: invoiceSchema });
+
+export const invoiceLineDto = z.object({
+  itemId: z.uuid().optional(),
+  description: z.string().max(240).optional(),
+  quantity: z.string(),
+  unitPriceMinor: z.string().regex(/^\d+$/).optional(),
+  discountMinor: z.string().regex(/^\d+$/).optional(),
+  taxCodeId: z.uuid().optional(),
+  revenueAccountId: z.uuid().optional(),
+  projectTag: z.string().max(80).optional(),
+});
+
+export const createInvoiceDto = z.object({
+  contactId: z.uuid(),
+  dueDate: z.iso.date().optional(),
+  currency: z.string().length(3).optional(),
+  lines: z.array(invoiceLineDto).min(1).max(200),
+});
+
+export const updateInvoiceDto = createInvoiceDto.partial();
+
 export const apiErrorSchema = z.object({
   error: z.object({
     code: z.string().min(1),
@@ -788,6 +871,14 @@ export type CreateCategoryDto = z.infer<typeof createCategoryDto>;
 export type UpdateCategoryDto = z.infer<typeof updateCategoryDto>;
 export type CreateItemDto = z.infer<typeof createItemDto>;
 export type UpdateItemDto = z.infer<typeof updateItemDto>;
+
+export type InvoiceStatus = z.infer<typeof invoiceStatusSchema>;
+export type InvoiceLine = z.infer<typeof invoiceLineSchema>;
+export type Invoice = z.infer<typeof invoiceSchema>;
+export type InvoiceListResponse = z.infer<typeof invoiceListResponseSchema>;
+export type InvoiceResponse = z.infer<typeof invoiceResponseSchema>;
+export type CreateInvoiceDto = z.infer<typeof createInvoiceDto>;
+export type UpdateInvoiceDto = z.infer<typeof updateInvoiceDto>;
 
 /** Shape of `GET /organizations/reference-data`. Values stay configurable per organization. */
 export interface OrganizationReferenceData {
