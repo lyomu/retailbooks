@@ -8,102 +8,181 @@ double-entry accounting & invoicing web platform (monorepo: `apps/api` NestJS, `
 
 Before writing any code, read these in order:
 
-1. `docs/BUILD_ROADMAP.md` — the master 14-phase task checklist (Foundation → Sales → Purchases →
-   Accounting Engine → Banking → Inventory → Projects/Time → Globalization → Reporting → Automation →
-   Portals → Platform Admin → AI → Hardening). This is the authoritative source of what's done and
-   what's next. **Read its "Testing strategy" section carefully — it defines the required build/test
-   sequencing (see §5 below).**
-2. `docs/PHASE1_TODO.md` — detailed milestone-by-milestone record for Phase 1 (Foundation), including
-   implementation notes and ADR links. More granular than the Phase 1 section of BUILD_ROADMAP.md.
-3. `docs/adr/000*` — architecture decision records for Phase 1 (tenancy, auth, roles/permissions,
-   ledger, tax engine).
+1. `docs/BUILD_ROADMAP.md` — the master 14-phase task checklist. Its Phase 2 section is a rolled-up
+   summary; `docs/PHASE2_TODO.md` (below) is the detailed, authoritative record.
+2. `docs/PHASE2_TODO.md` — milestone-by-milestone record for Phase 2 (Sales), same style as
+   `PHASE1_TODO.md`. **This is the single most important file to read next** — it has an implementation
+   note under every completed milestone with exact file paths, patterns reused, and what each
+   milestone's tests actually prove.
+3. `docs/PHASE1_TODO.md` and `docs/adr/000*` — Phase 1 detail and architecture decisions (tenancy,
+   auth, roles/permissions, ledger, tax engine). Still load-bearing context for Phase 2 work.
 4. `starter/global_accounting_platform_build_specification_v1.docx` and
-   `starter/global_accounting_platform_master_blueprint.docx` — the original product specs both
-   roadmap docs were derived from. Consult these for exact field/rule/state definitions when a roadmap
-   checklist item is ambiguous.
+   `starter/global_accounting_platform_master_blueprint.docx` — original specs, for exact
+   field/rule/state definitions when a checklist item is ambiguous.
 
 ## 2. Current state (as of 2026-08-24)
 
-- **Phase 1 (Foundation) is functionally complete**: auth/sessions, multi-tenant orgs + onboarding,
-  8-role RBAC, localization/country-pack catalog, fiscal years/periods, document numbering, full
-  double-entry ledger with FX posting/reversal, tax engine, audit log — all with matching web UI.
-  22 Prisma models, 10 migrations, 74 passing DB-free tests.
-- **Open hardening/test debt on Phase 1** (see BUILD_ROADMAP.md's Phase 1 section and
-  PHASE1_TODO.md's Milestone 1J): visual regression baselines, WCAG review, performance review,
-  audit-log coverage review, backup/restore drill, threat model/dependency review, DESIGN.md update.
-  Identity, tenant-isolation, authorization-boundary, accounting-invariant/idempotency/concurrency, and
-  end-to-end-journey tests are all now done.
-- **Phases 2–14 have zero code** — no modules, Prisma models, routes, or pages exist yet for Sales,
-  Purchases, Banking, Inventory, Projects, Reporting, Automation, Portals, Platform Admin, or AI.
+**Phase 1 (Foundation) is fully complete**, including hardening: identity, tenant-isolation,
+authorization-boundary, accounting-invariant/idempotency/concurrency, and end-to-end-journey tests are
+all done. What's left in Phase 1 (visual regression baselines, WCAG review, performance review,
+audit-log coverage review, backup/restore drill, threat model/dependency review, `DESIGN.md` update) is
+**intentionally deferred** per the project's own "verification pass can wait" policy — it does not block
+Phase 2 and should not be picked up unless asked.
 
-## 3. What to work on
+**Phase 2 (Sales) is in progress.** Milestones 2A–2D's backend are done and committed; 2D's UI is the
+immediate next task. Milestones 2E–2K have not been started.
 
-Follow the **recommended build order** at the bottom of `docs/BUILD_ROADMAP.md`: close remaining
-Phase 1 hardening debt where it blocks you, then build **Phase 2 — Sales** as the first complete
-vertical slice (UI → API → ledger → report), since it's the next phase in sequence and the spec
-explicitly calls it out as the first full vertical slice to prove the architecture end-to-end.
+| Milestone                                                 | Status                              |
+| --------------------------------------------------------- | ----------------------------------- |
+| 2A — Document numbering generalization                    | ✅ Done                             |
+| 2B — Customers/Contacts                                   | ✅ Done (backend + UI)              |
+| 2C — Catalog (Items/Units/Categories)                     | ✅ Done (backend + UI)              |
+| 2D — Invoices (posting slice)                             | ⚠️ **Backend done, UI not started** |
+| 2E — Payments Received + allocation                       | ⬜ Not started                      |
+| 2F — Credit Notes                                         | ⬜ Not started                      |
+| 2G — Quotes + Sales Orders                                | ⬜ Not started                      |
+| 2H — PDF generation + email delivery                      | ⬜ Not started                      |
+| 2I — Recurring Invoices                                   | ⬜ Not started                      |
+| 2J — Customer Statements                                  | ⬜ Not started                      |
+| 2K — Phase 2 verification pass (hard gate before Phase 6) | ⬜ Not started                      |
 
-Unless told otherwise, don't jump ahead to a later phase (e.g. Inventory or Reporting) — later phases
-assume entities/patterns established by earlier ones (e.g. Phase 6 Inventory's COGS posting depends on
-Phase 2's invoice/sale flow; Phase 9 Reporting depends on Sales/Purchases data existing to report on).
+Full detail for each done milestone — exact models, permission keys, test names, and what was proven —
+is in `docs/PHASE2_TODO.md`. Recent commits, in order:
+
+```
+a6674ab Add Catalog module: items, services, units, categories (Milestone 2C)
+40812d6 Add Customers/Contacts module (Milestone 2B)
+213a4ce Apply prettier formatting to Part A files
+af038b4 Generalize document numbering for Phase 2 (Milestone 2A)
+2dc97bf Add Phase 2 (Sales) milestone tracker
+8048060 Complete Phase 1 end-to-end browser journeys and sync hardening status
+5b41681 Add invoice posting backend (Milestone 2D, backend only)   <- most recent
+```
+
+## 3. Immediate next step: finish Milestone 2D's UI
+
+The backend for invoice posting is done, tested (6 integration tests proving balanced multi-tax-code
+posting, illegal-transition rejection, idempotent replay, competing-key races, and exact-reversal void —
+see `apps/api/test/invoices.int.test.ts`), and committed. **What's missing is the UI.**
+
+Build, following the exact pattern already established by `apps/web/src/components/customers-workbench.tsx`
+and `apps/web/src/components/catalog-workbench.tsx` (both single-page list + inline create/edit forms
+using `DataTable`/`EmptyState`/`ForbiddenState`/`Card` from `@retailbooks/ui`, gated by `hasPermission()`):
+
+- `apps/web/src/components/invoices-workbench.tsx` — list with status filter, a line editor (item
+  picker with free-text fallback, quantity/price/discount/tax-code per line, live subtotal preview),
+  and a detail/edit view with **Issue** and **Void** actions gated by `sales.invoices.issue` /
+  `sales.invoices.void`. The line editor should mirror the journal editor's live-balance-preview UX
+  (`apps/web/src/components/ledger-workbench.tsx`) rather than the simpler catalog form, since invoices
+  have multiple lines with running totals.
+- `apps/web/src/app/invoices/page.tsx` — thin route wrapper, same pattern as
+  `apps/web/src/app/customers/page.tsx`.
+- Add an "Invoices" nav item to the `Sales` group in `apps/web/src/components/app-shell.tsx` (already
+  has `Customers` and `Items & services`; add `Invoices` alongside them).
+- The API surface is already there: `GET/POST /organizations/:id/invoices`,
+  `GET/PATCH /organizations/:id/invoices/:invoiceId`, `POST .../issue`, `POST .../void`. Response/DTO
+  shapes are in `packages/contracts/src/index.ts` under `// --- Sales: Invoices ---`
+  (`invoiceSchema`, `createInvoiceDto`, `updateInvoiceDto`, etc.) — already typechecked and exported.
+
+**When the UI is done:**
+
+1. `npm run build --workspace @retailbooks/web` to confirm the new route builds.
+2. Manually exercise the golden path in a browser (start infra + dev servers, create a customer and an
+   item first, then draft → issue → void an invoice) — this repo's conventions require UI changes to be
+   browser-tested, not just typechecked.
+3. Flip Milestone 2D's UI bullet in `docs/PHASE2_TODO.md` to `[x]` with a short implementation note
+   (matching the style of every other completed milestone in that file), and mark the milestone header
+   ✅.
+4. Run the full verification sequence in §6 below and commit.
 
 ## 4. Non-negotiable conventions
 
-(See "Platform-wide contracts" in `docs/BUILD_ROADMAP.md` for the full list.)
+(Full list in `docs/BUILD_ROADMAP.md`'s "Platform-wide contracts" section.)
 
-- Every tenant-owned table row carries `organization_id`; enforce scoping in the service + guard
-  layer, never trust it from client input.
+- Every tenant-owned table row carries `organization_id`; enforce scoping in the service + guard layer,
+  never trust it from client input.
 - Money is **always** fixed-precision integer minor units (`BigInt`) — never floating point. Reuse
-  `packages/accounting-core` for money/tax/FX math.
-- Posted ledger records are immutable — corrections happen via reversal, never edits. Reuse
-  `LedgerService` in `apps/api/src/organizations/ledger.service.ts` for all posting; don't hand-roll
-  new posting logic per module.
-- Every financial mutation needs an audit event (extend the existing `AuditEvent`/`SecurityEvent`
-  pattern).
+  `packages/accounting-core` (`roundHalfUpDivide`, `taxAmountExclusive`, `splitInclusiveAmount`, etc.)
+  for money/tax/FX math.
+- Posted ledger records are immutable — corrections happen via reversal, never edits. **Never hand-roll
+  posting logic.** Reuse `LedgerService` (`apps/api/src/organizations/ledger.service.ts`):
+  - `accountBySystemKey(organizationId, systemKey, client?)` to resolve control accounts
+    (`accounts_receivable`, `sales_revenue`, `tax_payable`, etc.) — never match on account code/name.
+  - `postJournalFromLines(context, user, operation, input, metadata, idempotencyKey?, externalTx?)` —
+    the programmatic posting path added in Milestone 2D for modules that build journal lines themselves
+    rather than a human drafting one through the journals UI. Pass `externalTx` (and
+    `idempotencyKey: undefined`) when your own transaction already owns idempotency at a higher level
+    (see `InvoicesService#issueInvoice` for the reference implementation).
+  - `reverseJournal(..., externalTx?)` — same `externalTx` pattern, for atomic void/correction flows.
+- `TaxService.resolveForPosting(tx, organizationId, taxCodeId, baseAmountMinor, asOfDate)` — the
+  transaction-safe way to freeze a tax snapshot as part of a larger posting transaction (added in 2D;
+  `TaxService.calculate()` is the older, non-transactional preview-only sibling).
+- Every financial mutation needs an audit event (`writeAuditEvent`, inside the same transaction as the
+  mutation it describes).
 - Every critical screen needs loading/empty/error/no-permission/archived-void/success states — reuse
-  `packages/ui`'s `EmptyState`/`ForbiddenState`/`Loading`/`Toast` primitives.
-- New Zod schemas go in `packages/contracts`, shared by API and web.
-- Extend `roles-catalog.ts` / `permission-catalog.ts` for any new module's permissions rather than
-  inventing a parallel authorization mechanism — several roles (SALES, PURCHASES,
-  INVENTORY_MANAGER, PROJECT_MANAGER) are already scaffolded as placeholders waiting for their real
-  permission sets.
+  `packages/ui`'s `EmptyState`/`ForbiddenState`/`Skeleton`/`Toast` primitives.
+- New Zod schemas go in `packages/contracts/src/index.ts` (flat file, grouped by `// --- Section ---`
+  comments), shared by API and web.
+- **Every new permission key must land in three places, or the web typecheck will silently miss it
+  until someone tries to use it:**
+  1. `apps/api/src/organizations/permission-catalog.ts` (`PERMISSION_KEYS` + `PERMISSION_CATALOG` entry)
+  2. `apps/api/src/organizations/roles-catalog.ts` (role wiring)
+  3. `packages/contracts/src/index.ts`'s `permissionKeySchema` enum — **this one is the easy miss**; it
+     happened once already during 2C and was only caught because the web app's typecheck failed.
+- Any new controller needs a matching entry in `apps/api/test/authorization-boundary.int.test.ts`'s
+  `ENDPOINTS` array (and a `.replace(':yourParam', ID)` in `requestEndpoint` if it introduces a new
+  route param) — the test's own first assertion (`keeps the declared matrix synchronized...`) will fail
+  loudly if you forget.
 
 ## 5. Build/test sequencing — build first, verify in a follow-up pass
 
 Within a phase, implement **Data model → Backend/API → UI → Business rules** before working through
-that phase's **Tests/acceptance** checklist — don't block feature work on writing the full test list
-first. This continues the pattern Phase 1 already used (every 1C–1I milestone note deferred tests to a
-later "verification pass," which then caught the suite up in one dedicated stage).
-
-Two things do **not** get deferred, because they're cheap now and expensive to discover late in an
-accounting product:
+that phase's **Tests/acceptance** checklist. Two things do **not** get deferred:
 
 - **Money-invariant checks as you build the posting logic itself**: posting always balances, reversal
-  is exact, payment/credit allocation can never over-apply, stock can never go negative without a
-  traceable movement. Write these alongside the implementation, not as a follow-up task.
-- **A phase's `Tests/acceptance` checklist must be fully checked off before that phase is marked done
-  or a later dependent phase starts building on it** — e.g. don't start Phase 6 Inventory's COGS
-  posting on top of unverified Phase 2 invoice posting. "Deferred" means "after the feature work in
-  this phase," not indefinitely.
+  is exact, payment/credit allocation can never over-apply. Write these alongside the implementation.
+  Every Sales milestone so far has shipped its own money-invariant integration tests in the same commit
+  as the feature (see `apps/api/test/{customers,catalog,invoices}.int.test.ts`) — keep that pattern.
+- **A phase's `Tests/acceptance` checklist must be fully checked off before a later dependent phase
+  starts building on it** — Milestone 2K is an explicit hard gate: nothing in Phase 6 (Inventory) may
+  build on unverified Phase 2 posting.
 
-Everything else — full integration suites, accessibility, visual regression, concurrency/load
-testing — can genuinely wait for the verification pass, same as Phase 1 did.
+Visual regression, WCAG, performance, and similar can genuinely wait for a dedicated verification pass.
 
-## 6. Process
+## 6. Verification checklist before considering any task done
 
-- **Work in vertical slices**: for each roadmap item, implement data model → migration → backend
-  service/API → contracts schema → UI screen → tests, rather than building a whole layer across all
-  modules first.
-- **Update the checklist as you go**: check off `- [ ]` → `- [x]` in `docs/BUILD_ROADMAP.md` only once
-  a task is implemented _and verified_ (tests passing per §5's rules), not just coded. For Phase 1
-  items, update `docs/PHASE1_TODO.md` first (it's the detailed record) and keep BUILD_ROADMAP.md's
-  rolled-up summary in sync.
-- Once a new phase starts in earnest, consider creating a `docs/PHASE<N>_TODO.md` in the same style as
-  `PHASE1_TODO.md` for detailed milestone tracking, keeping the BUILD_ROADMAP.md entry as its
-  rolled-up summary — the pattern Phase 1 already established.
-- Run the full test suite (`npm test`, `npm run test:integration`) and typecheck/lint before
-  considering any task fully done. CI (`.github/workflows/ci.yml`) also runs a Prisma migration drift
-  check — make sure new migrations don't drift from `schema.prisma`.
-- Don't mark a phase's release gate complete until its "Tests/acceptance" checklist items and any
-  relevant cross-module acceptance scenario (build spec §18, listed under Phase 14 in the roadmap)
-  actually pass.
+1. `npx tsc --noEmit` in the workspace(s) you touched, then `npm run typecheck` at the repo root.
+2. `npm run lint` at the repo root (`eslint . --max-warnings=0`).
+3. `npx prettier --write <changed files>` then `npm run format:check`.
+4. `npm test` and `npm run test:integration` in `apps/api` (infra must be up: `npm run infra:up` at
+   repo root — Postgres :55432, Redis :56379, MinIO, Mailpit; already running in this environment as
+   Docker containers `retailbooks-{postgres,redis,minio,mailpit}-1`).
+5. **Migration drift check**, if you touched `schema.prisma`. `psql` is not on PATH in this shell's
+   bash tool — go through the Postgres container directly:
+   ```
+   docker exec retailbooks-postgres-1 psql -U retailbooks -d postgres -c 'DROP DATABASE IF EXISTS retailbooks_shadow_check' -c 'CREATE DATABASE retailbooks_shadow_check'
+   cd apps/api && npx prisma migrate diff --from-migrations prisma/migrations --to-schema-datamodel prisma/schema.prisma --shadow-database-url "postgresql://retailbooks:retailbooks@localhost:55432/retailbooks_shadow_check" --exit-code
+   docker exec retailbooks-postgres-1 psql -U retailbooks -d postgres -c 'DROP DATABASE retailbooks_shadow_check'
+   ```
+6. `npm run build` at the repo root (both API and web must compile in production mode).
+7. Update `docs/PHASE2_TODO.md` for the milestone you closed (check off items, add a short
+   implementation note citing test file names — match the style already used for 2A–2D), then sync
+   `docs/BUILD_ROADMAP.md`'s Phase 2 section if its rolled-up summary needs it.
+8. Commit with a message that explains _why_, not just _what_ (see the 2D commit for the level of detail
+   expected — it explains the `externalTx` design decision and why it was needed, not just "add
+   invoices").
+
+## 7. Known environment quirks worth knowing before you hit them
+
+- **Prisma client generation can fail with `EPERM` on Windows** if a previous `npm run start`/test run
+  left an orphaned `node dist/src/main.js` process holding the query-engine DLL open. If
+  `npx prisma generate` or `migrate dev` fails this way, find it via
+  `powershell -Command "Get-CimInstance Win32_Process -Filter \"Name='node.exe'\""`, confirm it's a
+  retailbooks process (its loaded modules include `node_modules\.prisma\client\query_engine-windows.dll.node`),
+  and stop it — **ask the user first**, this is a destructive action.
+- **The web production build bakes `NEXT_PUBLIC_API_URL` in at build time**, not runtime — Next.js
+  inlines `NEXT_PUBLIC_*` vars into the client bundle during `next build`. If you rebuild `apps/web` for
+  a different target (e.g. the E2E harness's `:3401` API vs. normal dev's `:3001`), the _next_ plain
+  `npm run build --workspace @retailbooks/web` you run afterward will silently revert to whatever
+  `apps/web/.env.local` says. Rebuild once more with normal env before resuming ordinary local dev if
+  you've been running the E2E suite.
