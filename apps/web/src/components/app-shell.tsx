@@ -27,6 +27,7 @@ import {
   LayoutDashboard,
   Menu,
   Package,
+  Receipt,
   Search,
   Settings,
   ShieldCheck,
@@ -65,6 +66,7 @@ const navigationGroups: NavigationGroup[] = [
     items: [
       { label: 'Customers', icon: Users, href: '/customers' },
       { label: 'Items & services', icon: Package, href: '/catalog/items' },
+      { label: 'Invoices', icon: Receipt, href: '/invoices' },
     ],
   },
   {

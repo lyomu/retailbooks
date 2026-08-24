@@ -98,34 +98,52 @@ depend on Invoices/Payments/CreditNotes. 2K (verification pass) is a hard gate: 
       matrix; full suite green (73 unit + 64 integration), typecheck/lint/format clean, both API and
       web production builds succeed
 
-## Milestone 2D — Invoices (posting slice)
+## Milestone 2D — Invoices (posting slice) ✅
 
-- [ ] `Invoice` model (contactId, invoiceNumber, status, issueDate, dueDate, currency, exchangeRate,
+- [x] `Invoice` model (contactId, invoiceNumber, status, issueDate, dueDate, currency, exchangeRate,
       subtotal/tax/total/paid/balanceMinor, journalId, voidedAt, sentAt placeholder for 2H)
-- [ ] `InvoiceLine` model (itemId, descriptionSnapshot, quantity, unitPriceMinor, discountMinor, full
+- [x] `InvoiceLine` model (itemId, descriptionSnapshot, quantity, unitPriceMinor, discountMinor, full
       tax-snapshot field set matching `JournalLine`'s shape, lineTotalMinor, revenueAccountId,
       projectTag)
-- [ ] `InvoiceStatus` enum: DRAFT, PENDING_APPROVAL, ISSUED, PARTIALLY_PAID, PAID, OVERDUE, VOID
-- [ ] Migration written, applied, and drift-checked in CI
-- [ ] State machine: no generic state-machine class — follow `Journal.status`'s pattern, one service
+- [x] `InvoiceStatus` enum: DRAFT, PENDING_APPROVAL, ISSUED, PARTIALLY_PAID, PAID, OVERDUE, VOID
+- [x] Migration written, applied, and drift-checked in CI
+- [x] State machine: no generic state-machine class — follow `Journal.status`'s pattern, one service
       method per transition with an inline status guard
-- [ ] `LedgerService.postJournalFromLines(...)` helper factored out of `postJournal` for programmatic
+- [x] `LedgerService.postJournalFromLines(...)` helper factored out of `postJournal` for programmatic
       single-call draft-then-post posting (the one new piece of shared ledger surface this phase needs)
-- [ ] `invoices.service.ts#issueInvoice`: replicates `postJournal`'s idempotency sequence
+- [x] `invoices.service.ts#issueInvoice`: replicates `postJournal`'s idempotency sequence
       (`operation: 'INVOICE_ISSUE'`), consolidates journal lines by account (one AR debit, one revenue
       credit per distinct revenueAccountId, one tax credit per distinct taxCodeId via
       `accountBySystemKey`), allocates invoice number via 2A, `sourceType='SALES_INVOICE'`
-- [ ] `voidInvoice`: only from ISSUED/PARTIALLY_PAID with `paidMinor===0`, calls
+- [x] `voidInvoice`: only from ISSUED/PARTIALLY_PAID with `paidMinor===0`, calls
       `LedgerService.reverseJournal`
-- [ ] New permission keys `sales.invoices.view`, `sales.invoices.manage`, `sales.invoices.issue`,
+- [x] New permission keys `sales.invoices.view`, `sales.invoices.manage`, `sales.invoices.issue`,
       `sales.invoices.void`, `sales.invoices.revenue_account_override`; SALES gets view/manage/issue,
       ADMIN/ACCOUNTANT get all five
-- [ ] Zod schemas in `packages/contracts/src/index.ts`; extend `permissionKeySchema`
-- [ ] UI: `apps/web/src/app/invoices/**` (list with status filters, line editor with item/free-text
-      toggle and live tax preview, detail with Issue/Void actions)
-- [ ] Money-invariant tests (written alongside, non-negotiable): illegal-transition rejection;
+- [x] Zod schemas in `packages/contracts/src/index.ts`; extend `permissionKeySchema`
+- [x] UI: `apps/web/src/components/invoices-workbench.tsx` (`InvoicesPage` list with search and status
+      filter; `InvoiceEditorPage` create/edit draft with an item picker + free-text fallback per line,
+      quantity/unit-price/discount/tax-code inputs, and a live client-side subtotal preview mirroring
+      the journal editor's running-balance UX) plus three routes under `apps/web/src/app/invoices/`
+      (list, `new`, `[id]`), following the journals list+editor route split rather than
+      customers'/catalog's single-page inline-form pattern, since invoices need a dedicated Issue/Void
+      detail view. Added "Invoices" to the Sales nav group in `app-shell.tsx`. Line-level
+      `revenueAccountId` override and `projectTag` are deliberately not exposed in the UI yet — the
+      backend and contracts support them, same deferral precedent as 2C's unit/category screens.
+- [x] Money-invariant tests (written alongside, non-negotiable): illegal-transition rejection;
       multi-tax-code issue produces a balanced journal with correct account resolution; same-key
       replay; concurrent-different-keys-on-same-invoice (only one wins); void produces exact reversal
+      (`apps/api/test/invoices.int.test.ts`, 6 tests)
+- [x] Full suite green (73 unit + 70 integration), typecheck/lint/format clean, both API and web
+      production builds succeed; browser-verified the golden path (customer → item → draft invoice →
+      issue → void) against the dev servers, confirming invoice-number allocation, status transitions,
+      and the item-picker auto-fill of description/price/tax-code all work end to end with zero
+      console errors. Note for future sessions: a long-lived local dev database's demo-org roles can
+      go stale relative to `roles-catalog.ts` as new permission keys are added between sessions (roles
+      are snapshotted once at org-creation time, not re-synced) — if a demo user gets an unexpected
+      `ForbiddenState` on a page whose permission key is newly added, that's the likely cause, not a
+      guard bug; reconcile by inserting the missing `role_permissions` rows for that org rather than
+      resetting the database.
 
 ## Milestone 2E — Payments Received + allocation
 

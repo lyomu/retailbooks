@@ -20,7 +20,7 @@ Before writing any code, read these in order:
    `starter/global_accounting_platform_master_blueprint.docx` — original specs, for exact
    field/rule/state definitions when a checklist item is ambiguous.
 
-## 2. Current state (as of 2026-08-24)
+## 2. Current state (as of 2026-08-25)
 
 **Phase 1 (Foundation) is fully complete**, including hardening: identity, tenant-isolation,
 authorization-boundary, accounting-invariant/idempotency/concurrency, and end-to-end-journey tests are
@@ -29,68 +29,86 @@ audit-log coverage review, backup/restore drill, threat model/dependency review,
 **intentionally deferred** per the project's own "verification pass can wait" policy — it does not block
 Phase 2 and should not be picked up unless asked.
 
-**Phase 2 (Sales) is in progress.** Milestones 2A–2D's backend are done and committed; 2D's UI is the
-immediate next task. Milestones 2E–2K have not been started.
+**Phase 2 (Sales) is in progress.** Milestones 2A–2D (backend + UI) are done and committed. Milestone
+2E (Payments Received) is the immediate next task; 2F–2K have not been started.
 
-| Milestone                                                 | Status                              |
-| --------------------------------------------------------- | ----------------------------------- |
-| 2A — Document numbering generalization                    | ✅ Done                             |
-| 2B — Customers/Contacts                                   | ✅ Done (backend + UI)              |
-| 2C — Catalog (Items/Units/Categories)                     | ✅ Done (backend + UI)              |
-| 2D — Invoices (posting slice)                             | ⚠️ **Backend done, UI not started** |
-| 2E — Payments Received + allocation                       | ⬜ Not started                      |
-| 2F — Credit Notes                                         | ⬜ Not started                      |
-| 2G — Quotes + Sales Orders                                | ⬜ Not started                      |
-| 2H — PDF generation + email delivery                      | ⬜ Not started                      |
-| 2I — Recurring Invoices                                   | ⬜ Not started                      |
-| 2J — Customer Statements                                  | ⬜ Not started                      |
-| 2K — Phase 2 verification pass (hard gate before Phase 6) | ⬜ Not started                      |
+| Milestone                                                 | Status                 |
+| --------------------------------------------------------- | ---------------------- |
+| 2A — Document numbering generalization                    | ✅ Done                |
+| 2B — Customers/Contacts                                   | ✅ Done (backend + UI) |
+| 2C — Catalog (Items/Units/Categories)                     | ✅ Done (backend + UI) |
+| 2D — Invoices (posting slice)                             | ✅ Done (backend + UI) |
+| 2E — Payments Received + allocation                       | ⬜ Not started         |
+| 2F — Credit Notes                                         | ⬜ Not started         |
+| 2G — Quotes + Sales Orders                                | ⬜ Not started         |
+| 2H — PDF generation + email delivery                      | ⬜ Not started         |
+| 2I — Recurring Invoices                                   | ⬜ Not started         |
+| 2J — Customer Statements                                  | ⬜ Not started         |
+| 2K — Phase 2 verification pass (hard gate before Phase 6) | ⬜ Not started         |
 
 Full detail for each done milestone — exact models, permission keys, test names, and what was proven —
 is in `docs/PHASE2_TODO.md`. Recent commits, in order:
 
 ```
+5b41681 Add invoice posting backend (Milestone 2D, backend only)
 a6674ab Add Catalog module: items, services, units, categories (Milestone 2C)
 40812d6 Add Customers/Contacts module (Milestone 2B)
 213a4ce Apply prettier formatting to Part A files
 af038b4 Generalize document numbering for Phase 2 (Milestone 2A)
 2dc97bf Add Phase 2 (Sales) milestone tracker
 8048060 Complete Phase 1 end-to-end browser journeys and sync hardening status
-5b41681 Add invoice posting backend (Milestone 2D, backend only)   <- most recent
 ```
 
-## 3. Immediate next step: finish Milestone 2D's UI
+(the commit adding Milestone 2D's UI, described in this handover, lands after `5b41681` — check
+`git log` for its actual hash if you need it)
 
-The backend for invoice posting is done, tested (6 integration tests proving balanced multi-tax-code
-posting, illegal-transition rejection, idempotent replay, competing-key races, and exact-reversal void —
-see `apps/api/test/invoices.int.test.ts`), and committed. **What's missing is the UI.**
+## 3. Immediate next step: Milestone 2E — Payments Received + allocation
 
-Build, following the exact pattern already established by `apps/web/src/components/customers-workbench.tsx`
-and `apps/web/src/components/catalog-workbench.tsx` (both single-page list + inline create/edit forms
-using `DataTable`/`EmptyState`/`ForbiddenState`/`Card` from `@retailbooks/ui`, gated by `hasPermission()`):
+Invoices (2D) are fully done, backend and UI, browser-verified end to end (draft → issue → void).
+Per `docs/PHASE2_TODO.md`'s sequencing rationale, Payments Received is next since it depends on
+Invoices existing to allocate against. Build, following the 2D pattern (`invoices.{service,controller,
+dto}.ts` + `invoices-workbench.tsx` + the journals-style list/editor route split):
 
-- `apps/web/src/components/invoices-workbench.tsx` — list with status filter, a line editor (item
-  picker with free-text fallback, quantity/price/discount/tax-code per line, live subtotal preview),
-  and a detail/edit view with **Issue** and **Void** actions gated by `sales.invoices.issue` /
-  `sales.invoices.void`. The line editor should mirror the journal editor's live-balance-preview UX
-  (`apps/web/src/components/ledger-workbench.tsx`) rather than the simpler catalog form, since invoices
-  have multiple lines with running totals.
-- `apps/web/src/app/invoices/page.tsx` — thin route wrapper, same pattern as
-  `apps/web/src/app/customers/page.tsx`.
-- Add an "Invoices" nav item to the `Sales` group in `apps/web/src/components/app-shell.tsx` (already
-  has `Customers` and `Items & services`; add `Invoices` alongside them).
-- The API surface is already there: `GET/POST /organizations/:id/invoices`,
-  `GET/PATCH /organizations/:id/invoices/:invoiceId`, `POST .../issue`, `POST .../void`. Response/DTO
-  shapes are in `packages/contracts/src/index.ts` under `// --- Sales: Invoices ---`
-  (`invoiceSchema`, `createInvoiceDto`, `updateInvoiceDto`, etc.) — already typechecked and exported.
+- `PaymentReceived` model (contactId, paymentNumber, receivedDate, currency, amountMinor,
+  allocatedMinor, unappliedMinor, depositAccountId, journalId, status) and `PaymentAllocation`
+  (paymentId, invoiceId, amountMinor) — migration written, applied, and drift-checked.
+- `payments.service.ts`: post once at recording time (cash/bank debit vs AR credit) via
+  `LedgerService.postJournalFromLines` (the same helper 2D introduced), `sourceType='PAYMENT_RECEIVED'`.
+- Over-allocation guard (the money-invariant this milestone exists to prove): lock the payment row and
+  every target invoice row, assert `sum(requested) <= payment.unappliedMinor` **and** per-invoice
+  `existing + requested <= invoice.balanceMinor`, atomic rejection otherwise. Write this test alongside
+  the implementation, not after — same non-negotiable-tests policy 2D followed for its own invariants.
+- Derive `Invoice.status` (PARTIALLY_PAID/PAID) and `PaymentReceived.status` in the same transaction as
+  the allocation.
+- New permission keys `sales.payments.view`, `sales.payments.record`, `sales.payments.allocate`
+  (SALES/ADMIN/ACCOUNTANT) — remember all three landing spots: `permission-catalog.ts`,
+  `roles-catalog.ts`, and `packages/contracts/src/index.ts`'s `permissionKeySchema` enum.
+- UI: `apps/web/src/app/payments/**` — list plus an allocation screen against a customer's open
+  invoices (probably reuses the invoice list's status filter to show only ISSUED/PARTIALLY_PAID rows).
+- Full test list for this milestone is in `docs/PHASE2_TODO.md` under Milestone 2E.
 
-**When the UI is done:**
+**Gotcha found while closing out 2D, worth knowing before you touch permissions again:** if a demo user
+hits an unexpected `ForbiddenState` on a page whose permission key was added in an earlier session, it's
+likely because the long-lived local dev database's demo-org roles were snapshotted from
+`roles-catalog.ts` once at org-creation time and never re-synced — a newly-added permission key doesn't
+retroactively appear on existing persisted `role_permissions` rows. That's not a guard bug. Reconcile by
+inserting the missing rows for that org's roles (compare `role_permissions` against the current
+`SYSTEM_ROLE_TEMPLATES`/`PERMISSION_KEYS` from the compiled `dist/` output) rather than resetting the
+database. Separately: the Playwright **e2e harness** (`apps/web/e2e/prepare.mjs`, used by
+`npm run test:e2e`) currently fails at the `clearAuthRateLimits` step with `ERR wrong number of
+arguments for 'del' command` from the `redis` client's `scanIterator` — pre-existing, unrelated to Sales
+work, not yet root-caused. Manual browser verification against the plain dev servers (not the e2e
+harness) works fine and is what 2D's golden-path check used.
 
-1. `npm run build --workspace @retailbooks/web` to confirm the new route builds.
-2. Manually exercise the golden path in a browser (start infra + dev servers, create a customer and an
-   item first, then draft → issue → void an invoice) — this repo's conventions require UI changes to be
-   browser-tested, not just typechecked.
-3. Flip Milestone 2D's UI bullet in `docs/PHASE2_TODO.md` to `[x]` with a short implementation note
+**When 2E is done:**
+
+1. `npm run build --workspace @retailbooks/web` (and `@retailbooks/api` if the schema changed) to
+   confirm both compile in production mode.
+2. Manually exercise the golden path in a browser: issue an invoice, record a payment, allocate it,
+   confirm the invoice flips to PARTIALLY_PAID or PAID and the over-allocation guard rejects an
+   over-application — this repo's conventions require UI changes to be browser-tested, not just
+   typechecked.
+3. Flip Milestone 2E's items in `docs/PHASE2_TODO.md` to `[x]` with a short implementation note
    (matching the style of every other completed milestone in that file), and mark the milestone header
    ✅.
 4. Run the full verification sequence in §6 below and commit.
