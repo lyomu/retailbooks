@@ -32,6 +32,12 @@ export default tseslint.config(
     },
   },
   {
+    files: ['**/*.mjs'],
+    languageOptions: {
+      globals: { ...globals.node },
+    },
+  },
+  {
     files: ['apps/web/**/*.{ts,tsx}'],
     plugins: { '@next/next': nextPlugin },
     settings: { next: { rootDir: 'apps/web' } },
@@ -42,7 +48,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ['**/*.config.{js,mjs,ts}', 'eslint.config.mjs'],
+    files: ['**/*.config.{js,mjs,ts}', 'eslint.config.mjs', '**/*.mjs'],
     extends: [tseslint.configs.disableTypeChecked],
   },
 );

@@ -4,6 +4,10 @@ const nextConfig: NextConfig = {
   devIndicators: false,
   output: 'standalone',
   transpilePackages: ['@retailbooks/contracts', '@retailbooks/ui'],
+  experimental: {
+    cpus: 1,
+    staticGenerationMaxConcurrency: 1,
+  },
 };
 
 export default nextConfig;

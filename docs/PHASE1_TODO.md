@@ -249,9 +249,9 @@ this milestone — the audit log reads the existing `SecurityEvent` table withou
 ## Verification pass — progress
 
 The verification pass that milestones 1C–1I each deferred work into is planned in
-`docs/PHASE1_VERIFICATION_PLAN.md`, scoped to stages 0–4 (schema, integration harness, identity and
-tenancy, authorization, accounting and tax invariants). Stages 5–8 are deliberately deferred and
-reassessed once those land.
+`docs/PHASE1_VERIFICATION_PLAN.md`, scoped to stages 0–5 (schema, integration harness, identity and
+tenancy, authorization, accounting and tax invariants, end-to-end journeys). Stages 6–8 are deliberately
+deferred and reassessed once those land.
 
 **Stage 0 — schema proven (2026-08-24).** All six migrations
 (`202608160001` through `202608180001`) were applied to PostgreSQL for the first time and applied
@@ -309,10 +309,25 @@ idempotency locks plus journal row locks, so concurrent requests neither double-
 document number. Time-zone fiscal-boundary behavior remains proven by
 `fiscal-periods-calendar.test.ts`.
 
+**Stage 5 — end-to-end journeys (2026-08-24).** Six serial Playwright journeys run against a
+production-mode build and a dedicated `retailbooks_e2e` database (provisioned, migrated, truncated, and
+reseeded via `apps/web/e2e/prepare.mjs` on every run) cover identity (anti-enumerating password reset,
+login, logout), onboarding (the full wizard through to a switchable new organization), teams (invite
+send and withdraw), periods (close and reopen), journals (draft, post, reverse, with the immutability
+notice), and tax (code, rate, and calculation preview). Getting this green surfaced two real defects
+beyond selector drift: `NEXT_PUBLIC_API_URL` is inlined into the Next.js bundle at build time, so the
+web `webServer` entry now runs a build before `next start` with the e2e API URL in its environment
+(`apps/web/playwright.config.ts`); and `LedgerService`'s reversal and first-draft-save flows navigated
+to a new journal route immediately after setting a local toast notice, which unmounted the notice before
+it ever rendered — fixed by carrying the notice across the navigation via a short-lived
+`sessionStorage` flash key (`apps/web/src/components/ledger-workbench.tsx`). `apps/web/e2e/prepare.mjs`
+also now clears Redis-backed auth rate-limit keys on every run so repeated local iteration doesn't trip
+false 429s.
+
 ## Milestone 1J — Hardening and Phase 1 acceptance
 
-- [ ] Complete end-to-end journeys for identity, onboarding, teams, periods, journals, and tax —
-      verification stage 5, deferred
+- [x] Complete end-to-end journeys for identity, onboarding, teams, periods, journals, and tax —
+      verification stage 5, proven by `apps/web/e2e/phase1-journeys.spec.ts`
 - [x] Complete cross-tenant and permission-boundary security tests — verification stages 2–3,
       proven by `identity-tenancy.int.test.ts` and `authorization-boundary.int.test.ts`
 - [ ] Complete visual regression at desktop, tablet, and mobile breakpoints — verification stage 6,

@@ -509,6 +509,8 @@ export function JournalsPage() {
   );
 }
 
+const JOURNAL_FLASH_NOTICE_KEY = 'rb-journal-reversal-notice';
+
 export function JournalEditorPage({ journalId }: { journalId?: string }) {
   const router = useRouter();
   const workspace = useWorkspace({ requireOrganization: true });
@@ -565,6 +567,13 @@ export function JournalEditorPage({ journalId }: { journalId?: string }) {
     void load();
   }, [load]);
 
+  useEffect(() => {
+    const flash = window.sessionStorage.getItem(JOURNAL_FLASH_NOTICE_KEY);
+    if (!flash) return;
+    window.sessionStorage.removeItem(JOURNAL_FLASH_NOTICE_KEY);
+    setNotice(flash);
+  }, [journalId]);
+
   const totals = useMemo(() => {
     const debitMinor = lines.reduce(
       (total, line) => total + BigInt(decimalToMinor(line.debit || '0')),
@@ -593,8 +602,12 @@ export function JournalEditorPage({ journalId }: { journalId?: string }) {
         { method: journalId ? 'PATCH' : 'POST', body: JSON.stringify(payload) },
       );
       setJournal(response.data);
-      setNotice('Draft saved.');
-      if (!journalId) router.replace(`/journals/${response.data.id}`);
+      if (!journalId) {
+        window.sessionStorage.setItem(JOURNAL_FLASH_NOTICE_KEY, 'Draft saved.');
+        router.replace(`/journals/${response.data.id}`);
+      } else {
+        setNotice('Draft saved.');
+      }
       return response.data;
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : 'The draft could not be saved.');
@@ -636,7 +649,10 @@ export function JournalEditorPage({ journalId }: { journalId?: string }) {
           body: JSON.stringify({ description: `Reversal of ${journal.reference ?? journal.id}` }),
         },
       );
-      setNotice(`Reversal posted as ${response.data.reference}.`);
+      window.sessionStorage.setItem(
+        JOURNAL_FLASH_NOTICE_KEY,
+        `Reversal posted as ${response.data.reference}.`,
+      );
       router.push(`/journals/${response.data.id}`);
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : 'The journal could not be reversed.');
