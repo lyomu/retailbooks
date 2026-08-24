@@ -16,6 +16,7 @@ import {
   Building2,
   Calculator,
   CalendarClock,
+  CircleDollarSign,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -79,6 +80,7 @@ const navigationGroups: NavigationGroup[] = [
     label: 'Organization',
     items: [
       { label: 'Organization profile', icon: Building2, href: '/settings/organization' },
+      { label: 'Currencies', icon: CircleDollarSign, href: '/settings/currencies' },
       { label: 'Team & roles', icon: Users, href: '/settings/team' },
       { label: 'Audit log', icon: ShieldCheck, href: '/settings/audit-log' },
       { label: 'Security', icon: Settings, href: '/settings/security' },

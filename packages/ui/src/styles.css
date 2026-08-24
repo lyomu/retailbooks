@@ -439,6 +439,51 @@
   color: hsl(var(--rb-danger));
 }
 
+.rb-money-input {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  min-width: 0;
+  border: 1px solid hsl(var(--rb-input));
+  border-radius: var(--rb-radius-md);
+  background: hsl(var(--rb-background));
+  transition:
+    border-color var(--rb-duration-fast) var(--rb-ease-out),
+    box-shadow var(--rb-duration-fast) var(--rb-ease-out);
+}
+
+.rb-money-input:focus-within {
+  border-color: hsl(var(--rb-ring));
+  box-shadow: 0 0 0 3px hsl(var(--rb-ring) / 0.18);
+}
+
+.rb-money-input__symbol,
+.rb-money-input__currency {
+  color: hsl(var(--rb-muted-foreground));
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.rb-money-input__symbol {
+  padding-left: var(--rb-space-3);
+}
+
+.rb-money-input__currency {
+  padding-right: var(--rb-space-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.rb-money-input__control {
+  border: 0;
+  box-shadow: none;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.rb-money-input__control:focus-visible {
+  box-shadow: none;
+}
+
 .rb-table-card {
   overflow: hidden;
 }

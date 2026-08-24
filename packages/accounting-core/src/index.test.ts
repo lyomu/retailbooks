@@ -2,9 +2,11 @@ import { describe, expect, it } from 'vitest';
 
 import {
   assertMinorUnitString,
+  convertForeignMinorToBaseMinor,
   isBalancedJournal,
   normalBalanceForType,
   parseRatePercentToScaled,
+  parseExchangeRateToScaled,
   reverseJournalLines,
   roundHalfUpDivide,
   signedMovement,
@@ -179,5 +181,53 @@ describe('splitInclusiveAmount', () => {
       baseMinor: 5_000n,
       taxMinor: 0n,
     });
+  });
+});
+
+describe('exchange-rate conversion', () => {
+  it('parses a Decimal(20,10)-compatible rate without floating point', () => {
+    expect(parseExchangeRateToScaled('129.5')).toBe(1_295_000_000_000n);
+    expect(parseExchangeRateToScaled('0.0091')).toBe(91_000_000n);
+    expect(() => parseExchangeRateToScaled('0')).toThrow('greater than zero');
+    expect(() => parseExchangeRateToScaled('1.12345678901')).toThrow('up to 10 places');
+  });
+
+  it('converts between currencies with equal and different minor-unit precision', () => {
+    expect(
+      convertForeignMinorToBaseMinor({
+        foreignAmountMinor: 10_000n,
+        exchangeRate: '129.5',
+        baseMinorUnits: 2,
+        quoteMinorUnits: 2,
+      }),
+    ).toBe(1_295_000n);
+
+    expect(
+      convertForeignMinorToBaseMinor({
+        foreignAmountMinor: 1n,
+        exchangeRate: '0.0091',
+        baseMinorUnits: 2,
+        quoteMinorUnits: 0,
+      }),
+    ).toBe(1n);
+  });
+
+  it('rounds once at the destination minor unit, including negative values', () => {
+    expect(
+      convertForeignMinorToBaseMinor({
+        foreignAmountMinor: 1n,
+        exchangeRate: '1.005',
+        baseMinorUnits: 2,
+        quoteMinorUnits: 2,
+      }),
+    ).toBe(1n);
+    expect(
+      convertForeignMinorToBaseMinor({
+        foreignAmountMinor: -1n,
+        exchangeRate: '1.5',
+        baseMinorUnits: 2,
+        quoteMinorUnits: 2,
+      }),
+    ).toBe(-2n);
   });
 });

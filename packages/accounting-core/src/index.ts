@@ -153,6 +153,7 @@ export function assertMinorUnitString(value: string): bigint {
 /** Scale applied to a decimal rate-percent string so all tax math stays integer-only. */
 const RATE_SCALE = 10_000n;
 const RATE_FRACTION_DENOMINATOR = 1_000_000n;
+const EXCHANGE_RATE_SCALE = 10_000_000_000n;
 
 /**
  * Parses a decimal rate-percent string (up to 4 decimal places, matching the Decimal(7,4) column
@@ -196,4 +197,50 @@ export function splitInclusiveAmount(
     RATE_FRACTION_DENOMINATOR + rateScaled,
   );
   return { baseMinor, taxMinor: totalMinor - baseMinor };
+}
+
+/**
+ * Parses a positive exchange-rate string with up to ten decimal places, matching the
+ * Decimal(20,10) persistence boundary. The result is scaled by 10^10 so money conversion remains
+ * integer-only from validation through posting.
+ */
+export function parseExchangeRateToScaled(exchangeRate: string): bigint {
+  if (!/^\d+(\.\d{1,10})?$/.test(exchangeRate)) {
+    throw new RangeError('Exchange rate must be a positive decimal string with up to 10 places.');
+  }
+  const [whole = '0', fraction = ''] = exchangeRate.split('.');
+  const scaled = BigInt(whole) * EXCHANGE_RATE_SCALE + BigInt(fraction.padEnd(10, '0'));
+  if (scaled <= 0n) throw new RangeError('Exchange rate must be greater than zero.');
+  return scaled;
+}
+
+/**
+ * Converts quote-currency minor units to base-currency minor units using a rate expressed as base
+ * major units per one quote major unit. Different currency precisions are accounted for before a
+ * single half-up rounding at the final base minor unit.
+ */
+export function convertForeignMinorToBaseMinor(
+  input: Readonly<{
+    foreignAmountMinor: bigint;
+    exchangeRate: string;
+    baseMinorUnits: number;
+    quoteMinorUnits: number;
+  }>,
+): bigint {
+  assertMinorUnitPrecision(input.baseMinorUnits);
+  assertMinorUnitPrecision(input.quoteMinorUnits);
+  const rateScaled = parseExchangeRateToScaled(input.exchangeRate);
+  const numerator = input.foreignAmountMinor * rateScaled * powerOfTen(input.baseMinorUnits);
+  const denominator = EXCHANGE_RATE_SCALE * powerOfTen(input.quoteMinorUnits);
+  return roundHalfUpDivide(numerator, denominator);
+}
+
+function assertMinorUnitPrecision(value: number): void {
+  if (!Number.isInteger(value) || value < 0 || value > 6) {
+    throw new RangeError('Currency minor units must be an integer between 0 and 6.');
+  }
+}
+
+function powerOfTen(exponent: number): bigint {
+  return 10n ** BigInt(exponent);
 }

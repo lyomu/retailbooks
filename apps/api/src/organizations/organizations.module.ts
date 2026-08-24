@@ -3,6 +3,8 @@ import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module.js';
 import { AuditLogController } from './audit-log.controller.js';
 import { AuditLogService } from './audit-log.service.js';
+import { CurrencyCatalogController, CurrencyController } from './currency.controller.js';
+import { CurrencyService } from './currency.service.js';
 import { DocumentNumberingService } from './document-numbering.service.js';
 import { FiscalPeriodsService } from './fiscal-periods.service.js';
 import { LedgerController } from './ledger.controller.js';
@@ -26,6 +28,8 @@ import { TaxService } from './tax.service.js';
     OrganizationsController,
     InvitationsController,
     PermissionsController,
+    CurrencyCatalogController,
+    CurrencyController,
     LedgerController,
     TaxController,
     AuditLogController,
@@ -39,9 +43,19 @@ import { TaxService } from './tax.service.js';
     LedgerService,
     TaxService,
     AuditLogService,
+    CurrencyService,
     OrganizationAccessService,
     OrganizationGuard,
   ],
-  exports: [OrganizationAccessService, OrganizationGuard],
+  exports: [
+    OrganizationAccessService,
+    OrganizationGuard,
+    OrganizationService,
+    RolesService,
+    FiscalPeriodsService,
+    LedgerService,
+    TaxService,
+    CurrencyService,
+  ],
 })
 export class OrganizationsModule {}

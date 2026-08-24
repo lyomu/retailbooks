@@ -352,6 +352,7 @@ export const journalSummarySchema = z.object({
   status: journalStatusSchema,
   journalDate: z.iso.date(),
   currency: z.string().length(3),
+  exchangeRate: z.string().nullable(),
   description: z.string().min(1),
   debitMinor: z.string().regex(/^\d+$/),
   creditMinor: z.string().regex(/^\d+$/),
@@ -369,6 +370,8 @@ export const journalLineSchema = z.object({
   description: z.string().nullable(),
   debitMinor: z.string().regex(/^\d+$/),
   creditMinor: z.string().regex(/^\d+$/),
+  foreignAmountMinor: z.string().regex(/^\d+$/).nullable(),
+  exchangeRate: z.string().nullable(),
   taxCodeId: z.uuid().nullable(),
   taxCodeSnapshot: z.string().nullable(),
   taxTreatmentSnapshot: taxTreatmentSchema.nullable(),
@@ -444,6 +447,36 @@ export const accountLedgerResponseSchema = z.object({
 });
 
 export const taxCodeStatusSchema = z.enum(['ACTIVE', 'ARCHIVED']);
+
+export const currencyDefinitionSchema = z.object({
+  code: z.string().length(3),
+  name: z.string().min(1),
+  symbol: z.string().min(1),
+  minorUnits: z.number().int().min(0).max(6),
+  status: z.enum(['ACTIVE', 'INACTIVE']),
+});
+
+export const organizationCurrencySchema = currencyDefinitionSchema.extend({
+  isBase: z.boolean(),
+  enabled: z.boolean(),
+});
+
+export const exchangeRateSchema = z.object({
+  id: z.uuid(),
+  baseCurrency: z.string().length(3),
+  quoteCurrency: z.string().length(3),
+  quoteCurrencyName: z.string().min(1),
+  rate: z.string().min(1),
+  rateDate: z.iso.date(),
+  source: z.string().min(1),
+  createdAt: z.iso.datetime(),
+});
+
+export const currencySettingsSchema = z.object({
+  baseCurrency: z.string().length(3),
+  currencies: z.array(organizationCurrencySchema),
+  exchangeRates: z.array(exchangeRateSchema),
+});
 
 export const taxCodeSchema = z.object({
   id: z.uuid(),
@@ -539,6 +572,10 @@ export type LedgerAccount = z.infer<typeof ledgerAccountSchema>;
 export type JournalSummary = z.infer<typeof journalSummarySchema>;
 export type JournalLine = z.infer<typeof journalLineSchema>;
 export type JournalDetail = z.infer<typeof journalDetailSchema>;
+export type CurrencyDefinition = z.infer<typeof currencyDefinitionSchema>;
+export type OrganizationCurrency = z.infer<typeof organizationCurrencySchema>;
+export type ExchangeRate = z.infer<typeof exchangeRateSchema>;
+export type CurrencySettings = z.infer<typeof currencySettingsSchema>;
 export type TrialBalanceResponse = z.infer<typeof trialBalanceResponseSchema>;
 export type AccountLedgerResponse = z.infer<typeof accountLedgerResponseSchema>;
 export type TaxTreatment = z.infer<typeof taxTreatmentSchema>;
@@ -583,7 +620,7 @@ export interface OrganizationReferenceData {
     };
     notes: string[];
   }[];
-  currencies: { code: string; name: string; minorUnits: number }[];
+  currencies: { code: string; name: string; symbol: string; minorUnits: number }[];
   timeZones: string[];
   locales: { code: string; name: string }[];
   chartTemplates: { code: string; name: string; description: string }[];

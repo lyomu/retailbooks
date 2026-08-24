@@ -115,6 +115,11 @@ enum JournalStatus {
   REVERSED
 }
 
+enum CurrencyStatus {
+  ACTIVE
+  INACTIVE
+}
+
 enum TaxCodeStatus {
   ACTIVE
   ARCHIVED
@@ -272,12 +277,71 @@ model Organization {
   journals              Journal[]
   journalLines          JournalLine[]
   ledgerIdempotencyKeys LedgerIdempotencyKey[]
+  enabledCurrencies     OrganizationCurrency[]
+  exchangeRates         ExchangeRate[]
   taxCodes              TaxCode[]
   taxRates              TaxRate[]
 
   @@index([createdByUserId])
   @@index([status])
   @@map("organizations")
+}
+
+/// Global ISO-style currency reference data. Monetary storage remains integer minor units; this
+/// table supplies display metadata and the precision required for deterministic FX conversion.
+model Currency {
+  code                 String                 @id @db.Char(3)
+  name                 String                 @db.VarChar(80)
+  symbol               String                 @db.VarChar(8)
+  decimals             Int                    @db.SmallInt
+  status               CurrencyStatus         @default(ACTIVE)
+  createdAt            DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime               @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organizations        OrganizationCurrency[]
+  exchangeRatesAsBase  ExchangeRate[]         @relation("ExchangeRateBaseCurrency")
+  exchangeRatesAsQuote ExchangeRate[]         @relation("ExchangeRateQuoteCurrency")
+
+  @@index([status])
+  @@map("currencies")
+}
+
+/// Currencies explicitly enabled for one organization. `isBase` mirrors the protected
+/// organizations.base_currency value so settings reads are self-contained and auditable.
+model OrganizationCurrency {
+  organizationId String       @map("organization_id") @db.Uuid
+  currencyCode   String       @map("currency_code") @db.Char(3)
+  isBase         Boolean      @default(false) @map("is_base")
+  enabled        Boolean      @default(true)
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  currency       Currency     @relation(fields: [currencyCode], references: [code], onDelete: Restrict)
+
+  @@id([organizationId, currencyCode])
+  @@index([organizationId, enabled])
+  @@map("organization_currencies")
+}
+
+/// Effective-dated organization rates. A rate means base-currency major units per one quote-
+/// currency major unit and is stored as Decimal only at the persistence boundary; conversion uses
+/// a scaled BigInt representation in accounting-core.
+model ExchangeRate {
+  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  baseCurrency   String       @map("base_currency") @db.Char(3)
+  quoteCurrency  String       @map("quote_currency") @db.Char(3)
+  rate           Decimal      @db.Decimal(20, 10)
+  rateDate       DateTime     @map("rate_date") @db.Date
+  source         String       @default("MANUAL") @db.VarChar(40)
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  base           Currency     @relation("ExchangeRateBaseCurrency", fields: [baseCurrency], references: [code], onDelete: Restrict)
+  quote          Currency     @relation("ExchangeRateQuoteCurrency", fields: [quoteCurrency], references: [code], onDelete: Restrict)
+
+  @@unique([organizationId, baseCurrency, quoteCurrency, rateDate])
+  @@index([organizationId, quoteCurrency, rateDate])
+  @@map("exchange_rates")
 }
 
 /// Organization-scoped fiscal year generated from configurable local accounting defaults.
@@ -495,6 +559,7 @@ model Journal {
   status              JournalStatus @default(DRAFT)
   journalDate         DateTime      @map("journal_date") @db.Date
   currency            String        @db.Char(3)
+  exchangeRate        Decimal?      @map("exchange_rate") @db.Decimal(20, 10)
   description         String        @db.VarChar(240)
   sourceType          String?       @map("source_type") @db.VarChar(60)
   sourceId            String?       @map("source_id") @db.VarChar(100)
@@ -527,6 +592,8 @@ model JournalLine {
   description            String?       @db.VarChar(240)
   debitMinor             BigInt        @default(0) @map("debit_minor") @db.BigInt
   creditMinor            BigInt        @default(0) @map("credit_minor") @db.BigInt
+  foreignAmountMinor     BigInt?       @map("foreign_amount_minor") @db.BigInt
+  exchangeRate           Decimal?      @map("exchange_rate") @db.Decimal(20, 10)
   taxCodeId              String?       @map("tax_code_id") @db.Uuid
   taxCodeSnapshot        String?       @map("tax_code_snapshot") @db.VarChar(24)
   taxTreatmentSnapshot   TaxTreatment? @map("tax_treatment_snapshot")

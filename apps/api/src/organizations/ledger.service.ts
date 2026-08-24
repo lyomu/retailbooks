@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  AuditAction,
   FiscalPeriodStatus,
   JournalStatus,
   LedgerAccountStatus,
@@ -13,10 +14,13 @@ import {
   type LedgerAccount,
   type Prisma,
 } from '@prisma/client';
+import { parseExchangeRateToScaled } from '@retailbooks/accounting-core';
 
 import type { PublicUser } from '../auth/auth.service.js';
 import type { RequestMetadata } from '../auth/request-context.js';
 import { PrismaService } from '../database/prisma.service.js';
+import { writeAuditEvent } from './audit-event.js';
+import { CurrencyService } from './currency.service.js';
 import { DocumentNumberingService } from './document-numbering.service.js';
 import {
   AccountLedgerQueryDto,
@@ -40,6 +44,7 @@ export class LedgerService {
     private readonly prisma: PrismaService,
     private readonly numbering: DocumentNumberingService,
     private readonly tax: TaxService,
+    private readonly currencies: CurrencyService,
   ) {}
 
   async ensureStarterChart(
@@ -72,9 +77,13 @@ export class LedgerService {
    * This is the supported way for later modules to reach control accounts. Never match on code or
    * name: codes are editable by the organization, and templates renumber them.
    */
-  async accountBySystemKey(organizationId: string, systemKey: SystemAccountKey) {
-    await this.ensureStarterChartForOrganization(organizationId);
-    const account = await this.prisma.ledgerAccount.findFirst({
+  async accountBySystemKey(
+    organizationId: string,
+    systemKey: SystemAccountKey,
+    client: Prisma.TransactionClient | PrismaService = this.prisma,
+  ) {
+    await this.ensureStarterChartForOrganization(organizationId, client);
+    const account = await client.ledgerAccount.findFirst({
       where: { organizationId, systemKey },
     });
     if (!account) {
@@ -131,6 +140,16 @@ export class LedgerService {
         accountId: account.id,
         code: account.code,
       });
+      await writeAuditEvent(tx, {
+        organizationId: context.id,
+        actorUserId: user.id,
+        eventKey: 'ledger.account_created',
+        entityType: 'ledger_account',
+        entityId: account.id,
+        action: AuditAction.CREATE,
+        after: { code: account.code, name: account.name, type: account.type },
+        ipHash: metadata.ipHash,
+      });
       return account;
     });
 
@@ -186,6 +205,29 @@ export class LedgerService {
           description: input.description ?? null,
         },
       });
+      await writeAuditEvent(tx, {
+        organizationId: context.id,
+        actorUserId: user.id,
+        eventKey: 'ledger.account_updated',
+        entityType: 'ledger_account',
+        entityId: accountId,
+        action: AuditAction.UPDATE,
+        before: {
+          code: existing.code,
+          name: existing.name,
+          type: existing.type,
+          normalBalance: existing.normalBalance,
+          description: existing.description,
+        },
+        after: {
+          code: account.code,
+          name: account.name,
+          type: account.type,
+          normalBalance: account.normalBalance,
+          description: account.description,
+        },
+        ipHash: metadata.ipHash,
+      });
       return account;
     });
 
@@ -218,6 +260,17 @@ export class LedgerService {
         accountId,
         code: existing.code,
       });
+      await writeAuditEvent(tx, {
+        organizationId: context.id,
+        actorUserId: user.id,
+        eventKey: 'ledger.account_archived',
+        entityType: 'ledger_account',
+        entityId: accountId,
+        action: AuditAction.UPDATE,
+        before: { status: existing.status },
+        after: { status: LedgerAccountStatus.ARCHIVED },
+        ipHash: metadata.ipHash,
+      });
     });
   }
 
@@ -243,8 +296,9 @@ export class LedgerService {
     const journal = await this.prisma.journal.create({
       data: {
         organizationId: context.id,
-        journalDate: input.journalDate,
+        journalDate: isoDate(input.journalDate),
         currency: input.currency,
+        exchangeRate: input.exchangeRate,
         description: input.description,
         sourceType: input.sourceType,
         sourceId: input.sourceId,
@@ -287,8 +341,9 @@ export class LedgerService {
       return tx.journal.update({
         where: { id: journalId },
         data: {
-          journalDate: input.journalDate,
+          journalDate: isoDate(input.journalDate),
           currency: input.currency,
+          exchangeRate: input.exchangeRate,
           description: input.description,
           sourceType: input.sourceType,
           sourceId: input.sourceId,
@@ -333,14 +388,15 @@ export class LedgerService {
         throw new ConflictException('Only draft journals can be posted.');
       }
 
-      await this.validatePostingState(tx, context.id, journal);
+      const preparedJournal = await this.prepareFxPosting(tx, context.id, journal);
+      await this.validatePostingState(tx, context.id, preparedJournal);
       const allocation = await this.numbering.allocateJournalNumberWithClient(
         tx,
         context.id,
-        journal.journalDate,
+        preparedJournal.journalDate,
       );
       const postedJournal = await tx.journal.update({
-        where: { id: journal.id },
+        where: { id: preparedJournal.id },
         data: {
           reference: allocation.value,
           status: JournalStatus.POSTED,
@@ -374,6 +430,22 @@ export class LedgerService {
         reference: allocation.value,
         debitMinor: sum(postedJournal.lines.map((line) => line.debitMinor)).toString(),
         creditMinor: sum(postedJournal.lines.map((line) => line.creditMinor)).toString(),
+      });
+      await writeAuditEvent(tx, {
+        organizationId: context.id,
+        actorUserId: user.id,
+        eventKey: 'ledger.journal_posted',
+        entityType: 'journal',
+        entityId: postedJournal.id,
+        action: AuditAction.UPDATE,
+        before: { status: JournalStatus.DRAFT },
+        after: {
+          status: JournalStatus.POSTED,
+          reference: allocation.value,
+          currency: postedJournal.currency,
+          exchangeRate: postedJournal.exchangeRate?.toString() ?? null,
+        },
+        ipHash: metadata.ipHash,
       });
 
       const finalJournal = await tx.journal.findFirst({
@@ -424,8 +496,9 @@ export class LedgerService {
           organizationId: context.id,
           reference: allocation.value,
           status: JournalStatus.POSTED,
-          journalDate: reversalDate,
+          journalDate: isoDate(reversalDate),
           currency: original.currency,
+          exchangeRate: original.exchangeRate,
           description: input.description ?? `Reversal of ${original.reference ?? original.id}`,
           sourceType: 'REVERSAL',
           sourceId: original.id,
@@ -441,6 +514,8 @@ export class LedgerService {
               description: line.description,
               debitMinor: line.creditMinor,
               creditMinor: line.debitMinor,
+              foreignAmountMinor: line.foreignAmountMinor,
+              exchangeRate: line.exchangeRate,
             })),
           },
         },
@@ -459,6 +534,21 @@ export class LedgerService {
         originalReference: original.reference,
         reversalReference: created.reference,
       });
+      await writeAuditEvent(tx, {
+        organizationId: context.id,
+        actorUserId: user.id,
+        eventKey: 'ledger.journal_reversed',
+        entityType: 'journal',
+        entityId: original.id,
+        action: AuditAction.UPDATE,
+        before: { status: JournalStatus.POSTED },
+        after: {
+          status: JournalStatus.REVERSED,
+          reversalJournalId: created.id,
+          reversalReference: created.reference,
+        },
+        ipHash: metadata.ipHash,
+      });
       return created;
     });
 
@@ -474,7 +564,7 @@ export class LedgerService {
     const lines = await this.prisma.journalLine.findMany({
       where: {
         organizationId,
-        journal: { status: { in: [...POSTED_STATUSES] }, journalDate: { lte: asOf } },
+        journal: { status: { in: [...POSTED_STATUSES] }, journalDate: { lte: isoDate(asOf) } },
       },
       include: { account: true },
     });
@@ -520,7 +610,7 @@ export class LedgerService {
           where: {
             organizationId,
             accountId,
-            journal: { status: { in: [...POSTED_STATUSES] }, journalDate: { lt: from } },
+            journal: { status: { in: [...POSTED_STATUSES] }, journalDate: { lt: isoDate(from) } },
           },
           include: { journal: true },
         })
@@ -537,7 +627,7 @@ export class LedgerService {
         accountId,
         journal: {
           status: { in: [...POSTED_STATUSES] },
-          journalDate: { ...(from ? { gte: from } : {}), lte: to },
+          journalDate: { ...(from ? { gte: isoDate(from) } : {}), lte: isoDate(to) },
         },
       },
       include: { journal: true },
@@ -570,13 +660,16 @@ export class LedgerService {
     };
   }
 
-  private async ensureStarterChartForOrganization(organizationId: string) {
-    const organization = await this.prisma.organization.findUnique({
+  private async ensureStarterChartForOrganization(
+    organizationId: string,
+    client: Prisma.TransactionClient | PrismaService = this.prisma,
+  ) {
+    const organization = await client.organization.findUnique({
       where: { id: organizationId },
       select: { preferences: { select: { chartTemplate: true } } },
     });
     if (!organization?.preferences) throw new NotFoundException('Organization not found.');
-    await this.ensureStarterChart(organizationId, organization.preferences.chartTemplate);
+    await this.ensureStarterChart(organizationId, organization.preferences.chartTemplate, client);
   }
 
   private async organizationForLedger(organizationId: string) {
@@ -593,11 +686,33 @@ export class LedgerService {
     baseCurrency: string,
     input: UpsertJournalDto,
   ) {
-    if (input.currency !== baseCurrency || !isSupportedCurrency(input.currency)) {
-      throw new BadRequestException('Journals must use the organization base currency.');
+    if (!isSupportedCurrency(input.currency)) {
+      throw new BadRequestException('That journal currency is not available.');
+    }
+    const foreignJournal = input.currency !== baseCurrency;
+    const hasForeignAmounts = input.lines.some((line) => line.foreignAmountMinor !== undefined);
+    if (!foreignJournal && (input.exchangeRate !== undefined || hasForeignAmounts)) {
+      throw new BadRequestException('Base-currency journals cannot carry foreign-currency values.');
+    }
+    if (foreignJournal) {
+      const enabled = await this.prisma.organizationCurrency.findUnique({
+        where: {
+          organizationId_currencyCode: {
+            organizationId,
+            currencyCode: input.currency,
+          },
+        },
+      });
+      if (!enabled?.enabled) {
+        throw new BadRequestException('Enable the journal currency before using it.');
+      }
+      if (!hasForeignAmounts) {
+        throw new BadRequestException('A foreign-currency journal needs a foreign amount.');
+      }
+      if (input.exchangeRate !== undefined) parseExchangeRateToScaled(input.exchangeRate);
     }
     const lines = parsedLines(input.lines);
-    const lineErrors = validateLines(lines);
+    const lineErrors = validateLines(lines, !foreignJournal);
     if (lineErrors.length > 0) throw new BadRequestException({ message: lineErrors });
 
     const accountIds = Array.from(new Set(input.lines.map((line) => line.accountId)));
@@ -634,6 +749,98 @@ export class LedgerService {
     if (inactive) throw new BadRequestException('Every journal line must use an active account.');
   }
 
+  private async prepareFxPosting(
+    tx: Prisma.TransactionClient,
+    organizationId: string,
+    journal: JournalWithDetail,
+  ): Promise<JournalWithDetail> {
+    const organization = await tx.organization.findUniqueOrThrow({
+      where: { id: organizationId },
+      select: { baseCurrency: true },
+    });
+    if (journal.currency === organization.baseCurrency) return journal;
+
+    const resolved = await this.currencies.resolveRate(
+      tx,
+      organizationId,
+      organization.baseCurrency,
+      journal.currency,
+      journal.journalDate,
+      journal.exchangeRate?.toString(),
+    );
+
+    await tx.journal.update({
+      where: { id: journal.id },
+      data: { exchangeRate: resolved.rate },
+    });
+    for (const line of journal.lines) {
+      const foreignAmount = line.foreignAmountMinor;
+      const side = line.debitMinor > 0n ? 'DEBIT' : line.creditMinor > 0n ? 'CREDIT' : null;
+      if (foreignAmount !== null && foreignAmount <= 0n) {
+        throw new BadRequestException('Foreign amounts must be greater than zero.');
+      }
+      const converted =
+        foreignAmount === null
+          ? null
+          : this.currencies.convert({
+              foreignAmountMinor: foreignAmount,
+              exchangeRate: resolved.rate,
+              base: resolved.base,
+              quote: resolved.quote,
+            });
+      await tx.journalLine.update({
+        where: { id: line.id },
+        data: {
+          exchangeRate: resolved.rate,
+          ...(converted !== null && side === 'DEBIT'
+            ? { debitMinor: converted, creditMinor: 0n }
+            : {}),
+          ...(converted !== null && side === 'CREDIT'
+            ? { debitMinor: 0n, creditMinor: converted }
+            : {}),
+        },
+      });
+    }
+
+    let prepared = await tx.journal.findFirstOrThrow({
+      where: { id: journal.id, organizationId },
+      include: journalDetailInclude,
+    });
+    const totals = journalTotals(prepared.lines);
+    if (totals.debitMinor !== totals.creditMinor) {
+      if (prepared.lines.length >= 200) {
+        throw new BadRequestException('The journal has no room for its FX balancing line.');
+      }
+      const debitShort = totals.debitMinor < totals.creditMinor;
+      const account = await this.accountBySystemKey(
+        organizationId,
+        debitShort ? 'fx_loss' : 'fx_gain',
+        tx,
+      );
+      const difference = debitShort
+        ? totals.creditMinor - totals.debitMinor
+        : totals.debitMinor - totals.creditMinor;
+      await tx.journalLine.create({
+        data: {
+          organizationId,
+          journalId: journal.id,
+          accountId: account.id,
+          lineNumber: Math.max(...prepared.lines.map((line) => line.lineNumber)) + 1,
+          description: debitShort ? 'Foreign exchange loss' : 'Foreign exchange gain',
+          debitMinor: debitShort ? difference : 0n,
+          creditMinor: debitShort ? 0n : difference,
+          exchangeRate: resolved.rate,
+        },
+      });
+      prepared = await tx.journal.findFirstOrThrow({
+        where: { id: journal.id, organizationId },
+        include: journalDetailInclude,
+      });
+    }
+
+    return prepared;
+  }
+
   private async requireOpenPeriod(
     tx: Prisma.TransactionClient,
     organizationId: string,
@@ -642,8 +849,8 @@ export class LedgerService {
     const period = await tx.fiscalPeriod.findFirst({
       where: {
         organizationId,
-        startsOn: { lte: journalDate },
-        endsOn: { gte: journalDate },
+        startsOn: { lte: isoDate(journalDate) },
+        endsOn: { gte: isoDate(journalDate) },
       },
       select: { id: true, status: true, code: true },
     });
@@ -721,35 +928,58 @@ const journalDetailInclude = {
 type JournalWithDetail = Prisma.JournalGetPayload<{ include: typeof journalDetailInclude }>;
 
 function parsedLines(
-  lines: readonly { accountId: string; debitMinor: string; creditMinor: string }[],
+  lines: readonly {
+    accountId: string;
+    debitMinor: string;
+    creditMinor: string;
+    foreignAmountMinor?: string;
+  }[],
 ) {
   return lines.map((line) => ({
     accountId: line.accountId,
     debitMinor: BigInt(line.debitMinor),
     creditMinor: BigInt(line.creditMinor),
+    foreignAmountMinor:
+      line.foreignAmountMinor === undefined ? null : BigInt(line.foreignAmountMinor),
   }));
 }
 
 function validateLines(
-  lines: readonly { accountId: string; debitMinor: bigint; creditMinor: bigint }[],
+  lines: readonly {
+    accountId: string;
+    debitMinor: bigint;
+    creditMinor: bigint;
+    foreignAmountMinor?: bigint | null;
+  }[],
+  requireBalanced = true,
 ) {
   const errors: string[] = [];
   if (lines.length < 2) errors.push('A journal needs at least two lines.');
   for (const [index, line] of lines.entries()) {
     const label = `Line ${index + 1}`;
     if (!line.accountId) errors.push(`${label} needs an account.`);
+    if (line.debitMinor < 0n || line.creditMinor < 0n) {
+      errors.push(`${label} cannot have negative amounts.`);
+    }
     if (line.debitMinor === 0n && line.creditMinor === 0n) {
       errors.push(`${label} needs a debit or credit amount.`);
     }
     if (line.debitMinor > 0n && line.creditMinor > 0n) {
       errors.push(`${label} cannot have both debit and credit.`);
     }
+    if (line.foreignAmountMinor !== undefined && line.foreignAmountMinor !== null) {
+      if (line.foreignAmountMinor <= 0n) {
+        errors.push(`${label} foreign amount must be greater than zero.`);
+      }
+    }
   }
   const debitMinor = sum(lines.map((line) => line.debitMinor));
   const creditMinor = sum(lines.map((line) => line.creditMinor));
   if (debitMinor <= 0n || creditMinor <= 0n)
     errors.push('Journal totals must be greater than zero.');
-  if (debitMinor !== creditMinor) errors.push('Journal debits and credits must balance.');
+  if (requireBalanced && debitMinor !== creditMinor) {
+    errors.push('Journal debits and credits must balance.');
+  }
   return [...new Set(errors)];
 }
 
@@ -761,6 +991,7 @@ function lineCreates(
     debitMinor: string;
     creditMinor: string;
     taxCodeId?: string;
+    foreignAmountMinor?: string;
   }[],
 ) {
   return lines.map((line, index) => ({
@@ -770,6 +1001,8 @@ function lineCreates(
     description: line.description,
     debitMinor: BigInt(line.debitMinor),
     creditMinor: BigInt(line.creditMinor),
+    foreignAmountMinor:
+      line.foreignAmountMinor === undefined ? null : BigInt(line.foreignAmountMinor),
     taxCodeId: line.taxCodeId,
   }));
 }
@@ -798,6 +1031,7 @@ function journalSummary(journal: Journal & { lines: JournalLine[] }) {
     status: journal.status,
     journalDate: dateOnly(journal.journalDate),
     currency: journal.currency,
+    exchangeRate: journal.exchangeRate?.toString() ?? null,
     description: journal.description,
     debitMinor: totals.debitMinor.toString(),
     creditMinor: totals.creditMinor.toString(),
@@ -826,6 +1060,9 @@ function journalDetail(journal: JournalWithDetail) {
       description: line.description,
       debitMinor: line.debitMinor.toString(),
       creditMinor: line.creditMinor.toString(),
+      foreignAmountMinor:
+        line.foreignAmountMinor !== null ? line.foreignAmountMinor.toString() : null,
+      exchangeRate: line.exchangeRate?.toString() ?? null,
       taxCodeId: line.taxCodeId,
       taxCodeSnapshot: line.taxCodeSnapshot,
       taxTreatmentSnapshot: line.taxTreatmentSnapshot,
@@ -889,6 +1126,10 @@ function sum(values: readonly bigint[]): bigint {
 
 function dateOnly(date: Date): string {
   return date.toISOString().slice(0, 10);
+}
+
+function isoDate(value: string): Date {
+  return new Date(`${value.slice(0, 10)}T00:00:00.000Z`);
 }
 
 function ledgerEvent(

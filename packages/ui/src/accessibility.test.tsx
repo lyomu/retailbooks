@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { Button } from './button';
 import { DataTable, type DataTableColumn } from './data-table';
 import { Dialog, DialogContent, DialogTrigger } from './dialog';
+import { CurrencySelect, MoneyInput } from './currency';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './tabs';
 
 async function expectNoAccessibilityViolations(): Promise<void> {
@@ -90,6 +91,24 @@ describe('RetailBooks UI accessibility', () => {
     expect(screen.getByRole('table', { name: 'Chart of accounts' })).toBeInTheDocument();
     expect(screen.getByRole('columnheader', { name: 'Account' })).toBeInTheDocument();
     expect(screen.getByText('No accounts yet')).toBeVisible();
+    await expectNoAccessibilityViolations();
+  });
+
+  it('keeps currency and money inputs explicitly labelled', async () => {
+    render(
+      <main>
+        <label htmlFor="currency">Currency</label>
+        <CurrencySelect
+          id="currency"
+          currencies={[{ code: 'KES', name: 'Kenyan shilling', symbol: 'KSh' }]}
+        />
+        <label htmlFor="amount">Amount</label>
+        <MoneyInput id="amount" currency="KES" symbol="KSh" defaultValue="1250.00" />
+      </main>,
+    );
+
+    expect(screen.getByRole('combobox', { name: 'Currency' })).toHaveValue('KES');
+    expect(screen.getByRole('textbox', { name: 'Amount' })).toHaveAttribute('data-currency', 'KES');
     await expectNoAccessibilityViolations();
   });
 });

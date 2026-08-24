@@ -8,6 +8,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  AuditAction,
   InvitationStatus,
   MembershipStatus,
   OnboardingStep,
@@ -20,6 +21,8 @@ import { createOpaqueToken, hashToken } from '../auth/auth.crypto.js';
 import type { PublicUser } from '../auth/auth.service.js';
 import type { RequestMetadata } from '../auth/request-context.js';
 import { PrismaService } from '../database/prisma.service.js';
+import { writeAuditEvent } from './audit-event.js';
+import { CurrencyService } from './currency.service.js';
 import {
   findCountry,
   isSupportedChartTemplate,
@@ -91,6 +94,7 @@ export class OrganizationService {
     private readonly mailer: AuthMailerService,
     private readonly roles: RolesService,
     private readonly ledger: LedgerService,
+    private readonly currencies: CurrencyService,
   ) {}
 
   async listForUser(userId: string, preferredOrganizationId: string | null) {
@@ -196,6 +200,8 @@ export class OrganizationService {
         const owner = seededRoles.get('OWNER');
         if (!owner) throw new Error('Owner role was not seeded.');
 
+        await this.currencies.ensureOrganizationBaseCurrency(tx, created.id, created.baseCurrency);
+
         await tx.organizationMember.create({
           data: {
             organizationId: created.id,
@@ -233,6 +239,7 @@ export class OrganizationService {
   ) {
     const organizationData: Prisma.OrganizationUpdateInput = {};
     const preferenceData: Prisma.OrganizationPreferenceUpdateInput = {};
+    let requestedBaseCurrency: string | undefined;
 
     switch (input.section) {
       case 'PROFILE': {
@@ -255,7 +262,7 @@ export class OrganizationService {
           if (!isSupportedCurrency(input.baseCurrency)) {
             throw new BadRequestException('That base currency is not available yet.');
           }
-          organizationData.baseCurrency = input.baseCurrency;
+          requestedBaseCurrency = input.baseCurrency;
         }
         if (input.timeZone !== undefined) {
           if (!isSupportedTimeZone(input.timeZone)) {
@@ -325,6 +332,10 @@ export class OrganizationService {
     }
 
     const organization = await this.prisma.$transaction(async (tx) => {
+      const beforeOrganization = await tx.organization.findUniqueOrThrow({
+        where: { id: context.id },
+        select: organizationDetailSelect,
+      });
       if (Object.keys(preferenceData).length > 0) {
         await tx.organizationPreference.update({
           where: { organizationId: context.id },
@@ -335,6 +346,16 @@ export class OrganizationService {
       if (context.status === OrganizationStatus.DRAFT) {
         const nextStep = laterStep(context.onboardingStep, STEP_AFTER_SECTION[input.section]);
         if (nextStep !== context.onboardingStep) organizationData.onboardingStep = nextStep;
+      }
+
+      if (requestedBaseCurrency !== undefined) {
+        await this.currencies.setBaseCurrency(
+          tx,
+          context.id,
+          requestedBaseCurrency,
+          user,
+          metadata,
+        );
       }
 
       const updated =
@@ -351,6 +372,18 @@ export class OrganizationService {
 
       await this.event(tx, user.id, context.id, 'organization.section_updated', metadata, {
         section: input.section,
+      });
+      await writeAuditEvent(tx, {
+        organizationId: context.id,
+        actorUserId: user.id,
+        eventKey: 'organization.section_updated',
+        entityType: 'organization',
+        entityId: context.id,
+        action: AuditAction.UPDATE,
+        before: organizationAuditSnapshot(beforeOrganization, input.section),
+        after: organizationAuditSnapshot(updated, input.section),
+        metadata: { section: input.section },
+        ipHash: metadata.ipHash,
       });
 
       return updated;
@@ -670,6 +703,53 @@ function toOrganizationDetail(organization: OrganizationDetailRow, role: MemberR
         }
       : null,
   };
+}
+
+function organizationAuditSnapshot(
+  organization: OrganizationDetailRow,
+  section: OrganizationSection,
+): Prisma.InputJsonObject {
+  switch (section) {
+    case 'PROFILE':
+      return {
+        legalName: organization.legalName,
+        tradingName: organization.tradingName,
+        businessType: organization.businessType,
+      };
+    case 'JURISDICTION':
+      return {
+        countryCode: organization.countryCode,
+        baseCurrency: organization.baseCurrency,
+        timeZone: organization.timeZone,
+        locale: organization.locale,
+        fiscalYearStartMonth: organization.fiscalYearStartMonth,
+        fiscalYearStartDay: organization.fiscalYearStartDay,
+      };
+    case 'ACCOUNTING':
+      return {
+        accountingBasis: organization.preferences?.accountingBasis ?? null,
+        chartTemplate: organization.preferences?.chartTemplate ?? null,
+        booksStartDate:
+          organization.preferences?.booksStartDate?.toISOString().slice(0, 10) ?? null,
+      };
+    case 'TAX':
+      return {
+        taxRegistered: organization.preferences?.taxRegistered ?? null,
+        taxIdentifier: organization.preferences?.taxIdentifier ?? null,
+        defaultTaxTreatment: organization.preferences?.defaultTaxTreatment ?? null,
+        defaultTaxRate: organization.preferences?.defaultTaxRate.toString() ?? null,
+      };
+    case 'NUMBERING':
+      return {
+        journalPrefix: organization.preferences?.journalPrefix ?? null,
+        numberPadding: organization.preferences?.numberPadding ?? null,
+        nextJournalNumber: organization.preferences?.nextJournalNumber ?? null,
+        numberingReset: organization.preferences?.numberingReset ?? null,
+      };
+    case 'TEAM':
+    case 'REVIEW':
+      return { onboardingStep: organization.onboardingStep };
+  }
 }
 
 function slugify(value: string): string {

@@ -117,6 +117,13 @@ export class JournalLineDto {
   @IsString()
   @Length(36, 36)
   taxCodeId?: string;
+
+  /** Absolute source-currency minor units for this line; debit/credit still store base currency. */
+  @IsOptional()
+  @IsString()
+  @Matches(/^\d+$/, { message: 'foreignAmountMinor must be a non-negative integer string' })
+  @Transform(moneyString)
+  foreignAmountMinor?: string;
 }
 
 export class UpsertJournalDto {
@@ -129,6 +136,15 @@ export class UpsertJournalDto {
   @Length(3, 3)
   @Transform(trimUpper)
   currency!: string;
+
+  /** Base-currency major units per one transaction-currency major unit. */
+  @IsOptional()
+  @IsString()
+  @Matches(/^\d+(\.\d{1,10})?$/, {
+    message: 'exchangeRate must be a positive decimal string with up to 10 places',
+  })
+  @Transform(trimOrUndefined)
+  exchangeRate?: string;
 
   @IsString()
   @Length(2, 240)

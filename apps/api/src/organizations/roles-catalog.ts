@@ -70,6 +70,7 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
       'roles.update',
       'roles.delete',
       'roles.assign',
+      'settings.currency.manage',
       'periods.view',
       'periods.manage',
       'periods.close',

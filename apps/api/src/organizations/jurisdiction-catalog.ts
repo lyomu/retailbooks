@@ -26,6 +26,7 @@ export interface CountryDefinition {
 export interface CurrencyDefinition {
   readonly code: string;
   readonly name: string;
+  readonly symbol: string;
   readonly minorUnits: number;
 }
 
@@ -311,22 +312,22 @@ export const countries: readonly CountryDefinition[] = Object.freeze([
 ]);
 
 export const currencies: readonly CurrencyDefinition[] = Object.freeze([
-  { code: 'AED', name: 'UAE dirham', minorUnits: 2 },
-  { code: 'AUD', name: 'Australian dollar', minorUnits: 2 },
-  { code: 'CAD', name: 'Canadian dollar', minorUnits: 2 },
-  { code: 'EUR', name: 'Euro', minorUnits: 2 },
-  { code: 'GBP', name: 'Pound sterling', minorUnits: 2 },
-  { code: 'GHS', name: 'Ghanaian cedi', minorUnits: 2 },
-  { code: 'INR', name: 'Indian rupee', minorUnits: 2 },
-  { code: 'KES', name: 'Kenyan shilling', minorUnits: 2 },
-  { code: 'NGN', name: 'Nigerian naira', minorUnits: 2 },
-  { code: 'NZD', name: 'New Zealand dollar', minorUnits: 2 },
-  { code: 'RWF', name: 'Rwandan franc', minorUnits: 0 },
-  { code: 'SGD', name: 'Singapore dollar', minorUnits: 2 },
-  { code: 'TZS', name: 'Tanzanian shilling', minorUnits: 2 },
-  { code: 'UGX', name: 'Ugandan shilling', minorUnits: 0 },
-  { code: 'USD', name: 'United States dollar', minorUnits: 2 },
-  { code: 'ZAR', name: 'South African rand', minorUnits: 2 },
+  { code: 'AED', name: 'UAE dirham', symbol: 'AED', minorUnits: 2 },
+  { code: 'AUD', name: 'Australian dollar', symbol: 'A$', minorUnits: 2 },
+  { code: 'CAD', name: 'Canadian dollar', symbol: 'C$', minorUnits: 2 },
+  { code: 'EUR', name: 'Euro', symbol: '€', minorUnits: 2 },
+  { code: 'GBP', name: 'Pound sterling', symbol: '£', minorUnits: 2 },
+  { code: 'GHS', name: 'Ghanaian cedi', symbol: 'GH₵', minorUnits: 2 },
+  { code: 'INR', name: 'Indian rupee', symbol: '₹', minorUnits: 2 },
+  { code: 'KES', name: 'Kenyan shilling', symbol: 'KSh', minorUnits: 2 },
+  { code: 'NGN', name: 'Nigerian naira', symbol: '₦', minorUnits: 2 },
+  { code: 'NZD', name: 'New Zealand dollar', symbol: 'NZ$', minorUnits: 2 },
+  { code: 'RWF', name: 'Rwandan franc', symbol: 'RF', minorUnits: 0 },
+  { code: 'SGD', name: 'Singapore dollar', symbol: 'S$', minorUnits: 2 },
+  { code: 'TZS', name: 'Tanzanian shilling', symbol: 'TSh', minorUnits: 2 },
+  { code: 'UGX', name: 'Ugandan shilling', symbol: 'USh', minorUnits: 0 },
+  { code: 'USD', name: 'United States dollar', symbol: '$', minorUnits: 2 },
+  { code: 'ZAR', name: 'South African rand', symbol: 'R', minorUnits: 2 },
 ]);
 
 export const timeZones: readonly string[] = Object.freeze([
