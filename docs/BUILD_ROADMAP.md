@@ -134,6 +134,9 @@ web UI for all of it. 22 Prisma models, 10 migrations applied and drift-checked 
 
 ## Phase 2 — Sales
 
+Full milestone-by-milestone detail (2A–2K) lives in `docs/PHASE2_TODO.md`, mirroring the Phase 1 /
+`PHASE1_TODO.md` split. This section is the rolled-up summary.
+
 Entities: `Customer`/`Contact`, `ContactAddress`, `ContactTaxId`, `Item`, `ItemPrice`, `Unit`, `Category`,
 `Quote`, `QuoteLine`, `SalesOrder`, `SalesOrderLine`, `Invoice`, `InvoiceLine`, `RecurringInvoiceTemplate`,
 `CreditNote`, `CreditNoteLine`, `PaymentReceived`, `PaymentAllocation` (build spec §4; blueprint §9).
