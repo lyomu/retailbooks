@@ -34,6 +34,7 @@ export const PERMISSION_KEYS = [
   'tax.codes.view',
   'tax.codes.manage',
   'audit.view',
+  'audit.export',
 ] as const;
 
 export type PermissionKey = (typeof PERMISSION_KEYS)[number];
@@ -249,6 +250,13 @@ export const PERMISSION_CATALOG: readonly PermissionDefinition[] = Object.freeze
     group: 'Audit',
     protected: false,
   },
+  {
+    key: 'audit.export',
+    label: 'Export audit log',
+    description: 'Download the audit and security event history as CSV.',
+    group: 'Audit',
+    protected: false,
+  },
 ]);
 
 export const PROTECTED_PERMISSION_KEYS: ReadonlySet<PermissionKey> = new Set(
@@ -291,6 +299,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Readonly<
     'tax.codes.view',
     'tax.codes.manage',
     'audit.view',
+    'audit.export',
   ],
   ACCOUNTANT: [
     'organization.view',
@@ -309,6 +318,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Readonly<
     'tax.codes.view',
     'tax.codes.manage',
     'audit.view',
+    'audit.export',
   ],
   STAFF: [
     'organization.view',

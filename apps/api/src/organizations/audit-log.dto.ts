@@ -1,5 +1,5 @@
 import { Transform, Type } from 'class-transformer';
-import { IsInt, IsISO8601, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
+import { IsIn, IsInt, IsISO8601, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
 
 const trim = ({ value }: { value: unknown }): unknown =>
   typeof value === 'string' ? value.trim() : value;
@@ -41,4 +41,9 @@ export class AuditLogQueryDto {
   @IsISO8601({ strict: true })
   @Transform(trim)
   to?: string;
+
+  /** Restrict to one stream. Omitted, both `audit_events` and `security_events` are merged. */
+  @IsOptional()
+  @IsIn(['audit', 'security'])
+  source?: 'audit' | 'security';
 }

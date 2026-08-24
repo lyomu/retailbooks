@@ -12,6 +12,7 @@ import { createOpaqueToken, hashToken } from '../auth/auth.crypto.js';
 import type { PublicUser } from '../auth/auth.service.js';
 import type { RequestMetadata } from '../auth/request-context.js';
 import { PrismaService } from '../database/prisma.service.js';
+import { writeAuditEvent } from './audit-event.js';
 import type { OrganizationContext } from './organization-context.js';
 import type { InviteMemberDto, UpdateMemberDto } from './organization.dto.js';
 import { canChangeMemberRole, canRemoveMember } from './permission-resolution.js';
@@ -110,6 +111,21 @@ export class OrganizationMembersService {
         },
       });
 
+      // Privilege changes get their own before/after record per spec section 12: "Audit actor, old
+      // role/permissions and new role/permissions."
+      await writeAuditEvent(tx, {
+        organizationId: context.id,
+        actorUserId: actor.id,
+        eventKey: 'organization.member_updated',
+        entityType: 'OrganizationMember',
+        entityId: member.id,
+        action: 'UPDATE',
+        before: { role: member.role, status: member.status },
+        after: { role: result.role, status: result.status },
+        metadata: { targetUserId: member.userId },
+        ipHash: metadata.ipHash,
+      });
+
       return result;
     });
 
@@ -150,6 +166,18 @@ export class OrganizationMembersService {
           ipHash: metadata.ipHash,
           metadata: { targetUserId: member.userId, role: member.role },
         },
+      });
+      await writeAuditEvent(tx, {
+        organizationId: context.id,
+        actorUserId: actor.id,
+        eventKey: 'organization.member_removed',
+        entityType: 'OrganizationMember',
+        entityId: member.id,
+        action: 'DELETE',
+        before: { role: member.role },
+        after: null,
+        metadata: { targetUserId: member.userId },
+        ipHash: metadata.ipHash,
       });
     });
   }

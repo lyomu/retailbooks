@@ -139,6 +139,7 @@ model User {
   sessions              Session[]
   actionTokens          ActionToken[]
   securityEvents        SecurityEvent[]
+  auditEvents           AuditEvent[]
   memberships           OrganizationMember[]
   organizationsCreated  Organization[]               @relation("OrganizationCreatedBy")
   invitationsSent       OrganizationInvitation[]     @relation("InvitationInvitedBy")
@@ -197,6 +198,36 @@ model ActionToken {
   @@map("action_tokens")
 }
 
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+}
+
+/// Append-only record of *what changed*. Distinct from SecurityEvent, which records
+/// security-relevant signals. Never updated or deleted: tenant users must not mutate audit history.
+model AuditEvent {
+  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String?       @map("organization_id") @db.Uuid
+  actorUserId    String?       @map("actor_user_id") @db.Uuid
+  eventKey       String        @map("event_key") @db.VarChar(100)
+  entityType     String        @map("entity_type") @db.VarChar(60)
+  entityId       String?       @map("entity_id") @db.VarChar(100)
+  action         AuditAction
+  before         Json?         @map("before_json") @db.JsonB
+  after          Json?         @map("after_json") @db.JsonB
+  metadata       Json          @default("{}") @map("metadata_json") @db.JsonB
+  ipHash         String?       @map("ip_hash") @db.Char(64)
+  occurredAt     DateTime      @default(now()) @map("occurred_at") @db.Timestamptz(6)
+  actor          User?         @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, occurredAt])
+  @@index([organizationId, entityType, entityId])
+  @@index([eventKey, occurredAt])
+  @@map("audit_events")
+}
+
 model SecurityEvent {
   id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   userId         String?       @map("user_id") @db.Uuid
@@ -240,6 +271,7 @@ model Organization {
   members               OrganizationMember[]
   invitations           OrganizationInvitation[]
   securityEvents        SecurityEvent[]
+  auditEvents           AuditEvent[]
   rolePermissions       OrganizationRolePermission[]
   fiscalYears           FiscalYear[]
   fiscalPeriods         FiscalPeriod[]
@@ -414,24 +446,24 @@ model OrganizationRolePermission {
 /// Editable organization-scoped chart of accounts. Accounts are archived rather than hard-deleted
 /// once they have journal history.
 model LedgerAccount {
-  id             String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  organizationId String              @map("organization_id") @db.Uuid
-  code           String              @db.VarChar(24)
-  name           String              @db.VarChar(120)
-  type           LedgerAccountType
-  normalBalance  LedgerNormalBalance @map("normal_balance")
-  status         LedgerAccountStatus @default(ACTIVE)
-  description    String?             @db.VarChar(240)
-  systemSeed     Boolean             @default(false) @map("system_seed")
-  systemKey      String?             @map("system_key") @db.VarChar(40)
-  isControl      Boolean             @default(false) @map("is_control")
-  archivedAt     DateTime?           @map("archived_at") @db.Timestamptz(6)
-  createdAt      DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt      DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  organization   Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  journalLines   JournalLine[]
-  taxCodesAsSalesAccount    TaxCode[] @relation("TaxCodeSalesAccount")
-  taxCodesAsPurchaseAccount TaxCode[] @relation("TaxCodePurchaseAccount")
+  id                        String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId            String              @map("organization_id") @db.Uuid
+  code                      String              @db.VarChar(24)
+  name                      String              @db.VarChar(120)
+  type                      LedgerAccountType
+  normalBalance             LedgerNormalBalance @map("normal_balance")
+  status                    LedgerAccountStatus @default(ACTIVE)
+  description               String?             @db.VarChar(240)
+  systemSeed                Boolean             @default(false) @map("system_seed")
+  systemKey                 String?             @map("system_key") @db.VarChar(40)
+  isControl                 Boolean             @default(false) @map("is_control")
+  archivedAt                DateTime?           @map("archived_at") @db.Timestamptz(6)
+  createdAt                 DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                 DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization              Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  journalLines              JournalLine[]
+  taxCodesAsSalesAccount    TaxCode[]           @relation("TaxCodeSalesAccount")
+  taxCodesAsPurchaseAccount TaxCode[]           @relation("TaxCodePurchaseAccount")
 
   @@unique([organizationId, code])
   @@unique([organizationId, systemKey])
@@ -472,14 +504,14 @@ model Journal {
 }
 
 model JournalLine {
-  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  organizationId String        @map("organization_id") @db.Uuid
-  journalId      String        @map("journal_id") @db.Uuid
-  accountId      String        @map("account_id") @db.Uuid
-  lineNumber     Int           @map("line_number") @db.SmallInt
-  description    String?       @db.VarChar(240)
-  debitMinor     BigInt        @default(0) @map("debit_minor") @db.BigInt
-  creditMinor    BigInt        @default(0) @map("credit_minor") @db.BigInt
+  id                     String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId         String        @map("organization_id") @db.Uuid
+  journalId              String        @map("journal_id") @db.Uuid
+  accountId              String        @map("account_id") @db.Uuid
+  lineNumber             Int           @map("line_number") @db.SmallInt
+  description            String?       @db.VarChar(240)
+  debitMinor             BigInt        @default(0) @map("debit_minor") @db.BigInt
+  creditMinor            BigInt        @default(0) @map("credit_minor") @db.BigInt
   taxCodeId              String?       @map("tax_code_id") @db.Uuid
   taxCodeSnapshot        String?       @map("tax_code_snapshot") @db.VarChar(24)
   taxTreatmentSnapshot   TaxTreatment? @map("tax_treatment_snapshot")
@@ -487,10 +519,10 @@ model JournalLine {
   taxRatePercentSnapshot Decimal?      @map("tax_rate_percent_snapshot") @db.Decimal(7, 4)
   taxableAmountMinor     BigInt?       @map("taxable_amount_minor") @db.BigInt
   taxAmountMinor         BigInt?       @map("tax_amount_minor") @db.BigInt
-  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
-  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  journal        Journal       @relation(fields: [journalId], references: [id], onDelete: Cascade)
-  account        LedgerAccount @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  createdAt              DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  organization           Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  journal                Journal       @relation(fields: [journalId], references: [id], onDelete: Cascade)
+  account                LedgerAccount @relation(fields: [accountId], references: [id], onDelete: Restrict)
   taxCode                TaxCode?      @relation(fields: [taxCodeId], references: [id], onDelete: Restrict)
 
   @@unique([journalId, lineNumber])
