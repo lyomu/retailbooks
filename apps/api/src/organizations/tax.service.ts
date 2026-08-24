@@ -259,8 +259,8 @@ export class TaxService {
           organizationId: context.id,
           taxCodeId,
           ratePercent: input.ratePercent,
-          effectiveFrom: input.effectiveFrom,
-          effectiveTo: input.effectiveTo,
+          effectiveFrom: isoDate(input.effectiveFrom),
+          effectiveTo: input.effectiveTo ? isoDate(input.effectiveTo) : undefined,
         },
       });
       await taxEvent(tx, user.id, context.id, 'tax.rate_added', metadata, {
@@ -382,6 +382,10 @@ export class TaxService {
       throw new BadRequestException('Tax account mappings must reference organization accounts.');
     }
   }
+}
+
+function isoDate(value: string): Date {
+  return new Date(`${value}T00:00:00.000Z`);
 }
 
 function computeTax(

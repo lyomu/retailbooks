@@ -87,15 +87,15 @@ export class FiscalPeriodsService {
           data: {
             organizationId: context.id,
             label: draft.label,
-            startsOn: draft.startsOn,
-            endsOn: draft.endsOn,
+            startsOn: isoDate(draft.startsOn),
+            endsOn: isoDate(draft.endsOn),
             periods: {
               create: draft.periods.map((period) => ({
                 organizationId: context.id,
                 code: period.code,
                 name: period.name,
-                startsOn: period.startsOn,
-                endsOn: period.endsOn,
+                startsOn: isoDate(period.startsOn),
+                endsOn: isoDate(period.endsOn),
               })),
             },
           },
@@ -220,6 +220,10 @@ export class FiscalPeriodsService {
       reopenedAt: updated.reopenedAt?.toISOString() ?? null,
     };
   }
+}
+
+function isoDate(value: string): Date {
+  return new Date(`${value}T00:00:00.000Z`);
 }
 
 function assertTransition(current: FiscalPeriodStatus, next: FiscalPeriodStatus): void {

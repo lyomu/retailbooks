@@ -235,6 +235,26 @@ export class OrganizationMembersService {
     input: InviteMemberDto,
     metadata: RequestMetadata,
   ) {
+    const issued = await this.issueInvitation(context, user, input, metadata);
+    return issued.invitation;
+  }
+
+  /** Internal bootstrap seam: controllers never expose invitation bearer tokens. */
+  async issueInvitationForBootstrap(
+    context: OrganizationContext,
+    user: PublicUser,
+    input: InviteMemberDto,
+    metadata: RequestMetadata,
+  ) {
+    return this.issueInvitation(context, user, input, metadata);
+  }
+
+  private async issueInvitation(
+    context: OrganizationContext,
+    user: PublicUser,
+    input: InviteMemberDto,
+    metadata: RequestMetadata,
+  ) {
     this.requireVerifiedEmail(user);
 
     if (input.email === user.email.toLowerCase()) {
@@ -320,17 +340,20 @@ export class OrganizationMembersService {
     }
 
     return {
-      id: invitation.id,
-      email: invitation.email,
-      roleId: role.id,
-      roleKey: role.key,
-      roleName: role.name,
-      status: invitation.status,
-      expiresAt: invitation.expiresAt.toISOString(),
-      createdAt: invitation.createdAt.toISOString(),
-      delivered: Boolean(invitation.notifiedAt),
-      expired: false,
-      invitedBy: user.displayName,
+      rawToken,
+      invitation: {
+        id: invitation.id,
+        email: invitation.email,
+        roleId: role.id,
+        roleKey: role.key,
+        roleName: role.name,
+        status: invitation.status,
+        expiresAt: invitation.expiresAt.toISOString(),
+        createdAt: invitation.createdAt.toISOString(),
+        delivered: Boolean(invitation.notifiedAt),
+        expired: false,
+        invitedBy: user.displayName,
+      },
     };
   }
 

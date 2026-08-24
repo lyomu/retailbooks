@@ -58,6 +58,53 @@ export class AuthService {
     return this.securityPepper;
   }
 
+  /**
+   * Internal bootstrap path for deterministic fixtures. It is deliberately not exposed by an HTTP
+   * controller: normal accounts must prove possession of their email through `verifyEmail`.
+   */
+  async provisionVerifiedUserForBootstrap(
+    input: SignupDto,
+    metadata: RequestMetadata,
+  ): Promise<PublicUser> {
+    const passwordHash = await hashPassword(input.password);
+    const verifiedAt = new Date();
+    return this.prisma.$transaction(async (tx) => {
+      const user = await tx.user.upsert({
+        where: { email: input.email },
+        create: {
+          email: input.email,
+          displayName: input.displayName,
+          emailVerifiedAt: verifiedAt,
+          status: UserStatus.ACTIVE,
+        },
+        update: {
+          displayName: input.displayName,
+          emailVerifiedAt: verifiedAt,
+          status: UserStatus.ACTIVE,
+        },
+      });
+      await tx.authMethod.upsert({
+        where: { userId_provider: { userId: user.id, provider: AuthProvider.PASSWORD } },
+        create: { userId: user.id, provider: AuthProvider.PASSWORD, passwordHash },
+        update: { passwordHash },
+      });
+      await tx.actionToken.updateMany({
+        where: { userId: user.id, consumedAt: null },
+        data: { consumedAt: verifiedAt },
+      });
+      await this.securityEvent(tx, user.id, 'auth.bootstrap_verified', metadata, {
+        outcome: 'provisioned',
+      });
+      return {
+        id: user.id,
+        email: user.email,
+        displayName: user.displayName,
+        emailVerified: true,
+        status: user.status,
+      };
+    });
+  }
+
   async signup(input: SignupDto, metadata: RequestMetadata): Promise<{ message: string }> {
     const existing = await this.prisma.user.findUnique({ where: { email: input.email } });
 
