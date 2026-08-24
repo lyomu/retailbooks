@@ -70,21 +70,41 @@ API boots on freshly built code with `postgres`, `redis`, and `minio` all report
 A `services: postgres` block and the shadow-database drift check are now wired into
 `.github/workflows/ci.yml`, which also resolves D3 ahead of stage 1.
 
-## Stage 1 — Integration test harness
+## Stage 1 — Integration test harness — COMPLETE
 
-`packages/test-utils` currently exports one function, `fixedClock`. This stage builds the capability
-to write a DB-backed test at all, and is the prerequisite for stages 2–4.
+The API can now be exercised over HTTP against a real PostgreSQL database. `npm test` remains the
+fast, DB-free suite (74 tests, no infrastructure required); `npm run test:integration` is new and
+runs specs named `*.int.test.ts`.
 
-- Database lifecycle: `retailbooks_test` on the existing Compose PostgreSQL, migrated once per run,
-  truncated between tests.
-- App bootstrap: `Test.createTestingModule` against `apps/api/src/app.module.ts` wrapped with
-  `supertest`, yielding an authenticated HTTP client for a given user and role. Session auth is
-  cookie-based — reuse `apps/api/src/auth/session-cookie.ts` rather than reimplementing it.
-- Fixture factories: verified user, organization with a membership at a chosen role, ledger accounts,
-  draft and posted journals, tax codes. Seed through the real services where practical so fixtures
-  cannot drift from production paths.
-- Add `apps/api/vitest.config.ts` separating the DB-free suite from the integration suite. `npm test`
-  stays fast and DB-free; `npm run test:integration` is new.
+**Where the harness lives.** In `apps/api/test/support/`, not `packages/test-utils` as originally
+sketched. The harness depends on the API's Nest modules and its generated Prisma client, so hosting
+it in a shared package would have inverted the dependency direction. `packages/test-utils` stays for
+genuinely shared, dependency-free helpers such as `fixedClock`.
+
+- `database.ts` creates `retailbooks_test` on the existing Compose PostgreSQL if absent, applies
+  every migration, and truncates all application tables between tests while preserving
+  `_prisma_migrations`. The development database is never touched.
+- `app.ts` boots the real `AppModule` through `Test.createTestingModule` and returns a `supertest`
+  agent.
+- `global-setup.ts` provisions and migrates once per run; `setup-env.ts` points `DATABASE_URL` at the
+  test database before any Prisma client is constructed.
+
+**Two things this stage had to fix to work at all:**
+
+1. `bootstrap()` in `main.ts` was neither exported nor separable — it created the app, configured it,
+   and listened in one function. Replicating that configuration in the harness would have guaranteed
+   drift, so the global prefix, CORS, exception filter, validation pipe, and origin check were
+   extracted into `configureApp()` in `src/app-setup.ts`, which `main.ts` and the harness now share.
+   A test therefore exercises the same HTTP configuration production serves.
+2. Nest resolves constructor dependencies from `emitDecoratorMetadata`, which vitest's default
+   esbuild transform does not emit — every injected dependency arrived as `undefined`. The
+   integration config runs through `unplugin-swc` instead. The existing DB-free specs never hit this
+   because they test pure functions rather than DI-constructed services.
+
+Verified by `test/harness.int.test.ts` (6 tests): the app serves under the production `api/v1`
+prefix, the production validation pipe rejects unknown fields, the connection really is
+`retailbooks_test`, all six migrations are applied, and truncation clears data while preserving the
+schema. CI runs the integration suite against its own PostgreSQL service.
 
 ## Stage 2 — Identity and tenancy
 

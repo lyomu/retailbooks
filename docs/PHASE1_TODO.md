@@ -264,6 +264,22 @@ and the migration files replayed from scratch into a shadow database against dat
 boots on freshly built code with postgres, redis, and minio all reporting up. A `services: postgres`
 block and the shadow-database drift check are wired into `.github/workflows/ci.yml`.
 
+**Stage 1 — integration harness (2026-08-24).** The API can now be exercised over HTTP against a
+real database. `npm test` remains the fast DB-free suite (74 tests, no infrastructure needed) and
+`npm run test:integration` is new, running `*.int.test.ts` specs against a dedicated
+`retailbooks_test` database that is created, migrated, and truncated automatically. The harness
+lives in `apps/api/test/support/` rather than `packages/test-utils`, because it depends on the API's
+Nest modules and generated Prisma client.
+
+Two blockers were fixed to make this possible. The global HTTP configuration was extracted from
+`main.ts` into `configureApp()` in `src/app-setup.ts`, shared by the production bootstrap and the
+harness, so tests exercise the same prefix, validation, error shaping, and origin rules production
+serves. The integration suite also runs through `unplugin-swc`, because Nest resolves constructor
+dependencies from `emitDecoratorMetadata`, which vitest's default esbuild transform does not emit.
+
+Proven by `apps/api/test/harness.int.test.ts` (6 tests). This is infrastructure only — no milestone
+checkbox closes here; stages 2–4 consume it.
+
 ## Milestone 1J — Hardening and Phase 1 acceptance
 
 - [ ] Complete end-to-end journeys for identity, onboarding, teams, periods, journals, and tax

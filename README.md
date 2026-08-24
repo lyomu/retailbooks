@@ -43,9 +43,16 @@ environment-specific `SECURITY_PEPPER` before using non-local environments.
 npm.cmd run lint
 npm.cmd run typecheck
 npm.cmd test
+npm.cmd run test:integration
 npm.cmd run build
 docker compose config
 ```
+
+`npm test` is the fast, DB-free suite and needs no running infrastructure.
+`npm run test:integration` boots the real API against PostgreSQL and requires
+`docker compose up -d`; it creates and migrates a dedicated `retailbooks_test`
+database, leaving the development database untouched. Integration specs are
+named `*.int.test.ts`.
 
 RetailBooks is currently an implementation project, not a certified accounting, tax, or statutory
 compliance service. Country packs encode configurable defaults and validation rules; professional

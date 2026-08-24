@@ -10,7 +10,8 @@
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.1.6",
@@ -31,8 +32,13 @@
   },
   "devDependencies": {
     "@nestjs/cli": "^11.0.10",
+    "@nestjs/testing": "^11.2.1",
+    "@swc/core": "^1.16.1",
     "@types/express": "^5.0.6",
     "@types/nodemailer": "^8.0.1",
-    "@types/pg": "^8.15.5"
+    "@types/pg": "^8.15.5",
+    "@types/supertest": "^7.2.1",
+    "supertest": "^7.2.2",
+    "unplugin-swc": "^1.5.11"
   }
 }
