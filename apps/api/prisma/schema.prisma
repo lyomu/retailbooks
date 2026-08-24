@@ -423,6 +423,8 @@ model LedgerAccount {
   status         LedgerAccountStatus @default(ACTIVE)
   description    String?             @db.VarChar(240)
   systemSeed     Boolean             @default(false) @map("system_seed")
+  systemKey      String?             @map("system_key") @db.VarChar(40)
+  isControl      Boolean             @default(false) @map("is_control")
   archivedAt     DateTime?           @map("archived_at") @db.Timestamptz(6)
   createdAt      DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt      DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -432,6 +434,7 @@ model LedgerAccount {
   taxCodesAsPurchaseAccount TaxCode[] @relation("TaxCodePurchaseAccount")
 
   @@unique([organizationId, code])
+  @@unique([organizationId, systemKey])
   @@index([organizationId, status])
   @@index([organizationId, type])
   @@map("ledger_accounts")

@@ -27,7 +27,7 @@ import {
   UpdateAccountDto,
   UpsertJournalDto,
 } from './ledger.dto.js';
-import { starterChartForTemplate } from './ledger-starter-chart.js';
+import { starterChartForTemplate, type SystemAccountKey } from './ledger-starter-chart.js';
 import { isSupportedCurrency } from './jurisdiction-catalog.js';
 import type { OrganizationContext } from './organization-context.js';
 import { TaxService } from './tax.service.js';
@@ -59,9 +59,28 @@ export class LedgerService {
         normalBalance: account.normalBalance,
         description: account.description,
         systemSeed: true,
+        systemKey: account.systemKey ?? null,
+        isControl: account.isControl ?? false,
       })),
       skipDuplicates: true,
     });
+  }
+
+  /**
+   * Resolves an organization's account for a stable system key.
+   *
+   * This is the supported way for later modules to reach control accounts. Never match on code or
+   * name: codes are editable by the organization, and templates renumber them.
+   */
+  async accountBySystemKey(organizationId: string, systemKey: SystemAccountKey) {
+    await this.ensureStarterChartForOrganization(organizationId);
+    const account = await this.prisma.ledgerAccount.findFirst({
+      where: { organizationId, systemKey },
+    });
+    if (!account) {
+      throw new NotFoundException(`No account is bound to the system key "${systemKey}".`);
+    }
+    return account;
   }
 
   async listAccounts(organizationId: string) {
@@ -132,11 +151,15 @@ export class LedgerService {
     if (existing.status === LedgerAccountStatus.ARCHIVED) {
       throw new ConflictException('Archived accounts cannot be edited.');
     }
-    if (
-      ((input.type && input.type !== existing.type) ||
-        (input.normalBalance && input.normalBalance !== existing.normalBalance)) &&
-      (await this.hasPostedAccountHistory(context.id, accountId))
-    ) {
+    const changesSemantics =
+      (input.type && input.type !== existing.type) ||
+      (input.normalBalance && input.normalBalance !== existing.normalBalance);
+    if (changesSemantics && existing.systemKey) {
+      throw new ConflictException(
+        'System accounts cannot change type or normal balance; other modules depend on their meaning.',
+      );
+    }
+    if (changesSemantics && (await this.hasPostedAccountHistory(context.id, accountId))) {
       throw new ConflictException(
         'Accounts with posted history cannot change type or normal balance.',
       );
@@ -179,6 +202,11 @@ export class LedgerService {
       where: { id: accountId, organizationId: context.id },
     });
     if (!existing) throw new NotFoundException('Account not found.');
+    if (existing.systemKey || existing.isControl) {
+      throw new ConflictException(
+        'System and control accounts cannot be archived while the organization exists.',
+      );
+    }
     if (existing.status === LedgerAccountStatus.ARCHIVED) return;
 
     await this.prisma.$transaction(async (tx) => {
@@ -756,6 +784,8 @@ function accountSummary(account: LedgerAccount, balanceMinor: bigint) {
     status: account.status,
     description: account.description,
     systemSeed: account.systemSeed,
+    systemKey: account.systemKey,
+    isControl: account.isControl,
     balanceMinor: balanceMinor.toString(),
   };
 }

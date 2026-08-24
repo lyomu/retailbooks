@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import dotenv from 'dotenv';
@@ -109,4 +109,11 @@ export async function truncateAll(client: {
   await client.$executeRawUnsafe(
     `TRUNCATE TABLE ${cachedTables.join(', ')} RESTART IDENTITY CASCADE`,
   );
+}
+
+/** How many migrations exist on disk. Tests assert against this rather than a hard-coded count. */
+export function migrationCount(): number {
+  return readdirSync(resolve(apiRoot, 'prisma/migrations'), { withFileTypes: true }).filter(
+    (entry) => entry.isDirectory(),
+  ).length;
 }

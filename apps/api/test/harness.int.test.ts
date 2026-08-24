@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { API, createTestHarness, type TestHarness } from './support/app.js';
+import { migrationCount } from './support/database.js';
 
 describe('integration harness', () => {
   let harness: TestHarness;
@@ -46,7 +47,7 @@ describe('integration harness', () => {
       SELECT count(*) AS count FROM _prisma_migrations WHERE finished_at IS NOT NULL
     `;
 
-    expect(Number(rows[0]?.count ?? 0)).toBe(6);
+    expect(Number(rows[0]?.count ?? 0)).toBe(migrationCount());
   });
 
   it('applies the production validation pipe, rejecting unknown fields', async () => {
@@ -69,6 +70,6 @@ describe('integration harness', () => {
     const migrations = await harness.prisma.$queryRaw<{ count: bigint }[]>`
       SELECT count(*) AS count FROM _prisma_migrations
     `;
-    expect(Number(migrations[0]?.count ?? 0)).toBe(6);
+    expect(Number(migrations[0]?.count ?? 0)).toBe(migrationCount());
   });
 });
