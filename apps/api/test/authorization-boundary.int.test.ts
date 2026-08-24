@@ -137,6 +137,17 @@ const ENDPOINTS: readonly EndpointCase[] = [
   },
   {
     method: 'get',
+    path: 'organizations/:organizationId/numbering/:documentType',
+    permission: 'numbering.view',
+  },
+  {
+    method: 'patch',
+    path: 'organizations/:organizationId/numbering/:documentType',
+    permission: 'numbering.manage',
+    body: {},
+  },
+  {
+    method: 'get',
     path: 'organizations/:organizationId/currencies',
     permission: 'organization.view',
   },
@@ -469,7 +480,8 @@ describe('organization authorization boundary over HTTP', () => {
       .replace(':currencyCode', 'USD')
       .replace(':accountId', ID)
       .replace(':journalId', ID)
-      .replace(':taxCodeId', ID);
+      .replace(':taxCodeId', ID)
+      .replace(':documentType', 'INVOICE');
     const test = harness.http()[endpoint.method](path).set('Cookie', cookie);
     if (endpoint.body !== undefined) test.send(endpoint.body);
     return test;

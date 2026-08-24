@@ -42,6 +42,7 @@ declaring the phase done.
 
 Two things don't get deferred even under this approach, because they're cheap now and expensive to
 discover late in an accounting product:
+
 - **Money-invariant checks as you build them**, not after: posting always balances, reversal is exact,
   payment/credit allocation can never over-apply, stock can never go negative without a traceable
   movement. Write these as you implement the posting logic itself, not as a follow-up task.

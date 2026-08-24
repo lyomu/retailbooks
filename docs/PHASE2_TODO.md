@@ -16,21 +16,33 @@ three send-capable document types exist, rather than folded into 2D. 2I (Recurri
 depend on Invoices/Payments/CreditNotes. 2K (verification pass) is a hard gate: nothing in Phase 6
 (Inventory) may build on unverified Phase 2 posting.
 
-## Milestone 2A — Document numbering generalization
+## Milestone 2A — Document numbering generalization ✅
 
-- [ ] Add `DocumentNumberingConfig` model (organizationId, documentType, prefix, numberPadding,
+- [x] Add `DocumentNumberingConfig` model (organizationId, documentType, prefix, numberPadding,
       nextNumber, numberingReset; unique on `[organizationId, documentType]`), lazily seeded per
-      document type
-- [ ] Add `allocateDocumentNumberWithClient(client, orgId, documentType, at)` to
-      `document-numbering.service.ts`, generalizing the existing atomic upsert; keep
-      `allocateJournalNumberWithClient` as a thin wrapper so `ledger.service.ts` call sites don't change
-- [ ] Add `INVOICE_DOCUMENT_TYPE`, `CREDIT_NOTE_DOCUMENT_TYPE`, `QUOTE_DOCUMENT_TYPE`,
-      `SALES_ORDER_DOCUMENT_TYPE`, `PAYMENT_RECEIVED_DOCUMENT_TYPE` constants
-- [ ] Add permission-gated config endpoints generalized to `documentType` (reuse `numbering.view` /
-      `numbering.manage`, no new permission keys)
-- [ ] Migration written, applied, and drift-checked in CI
-- [ ] Test: parallel-allocation gap-free numbering for a non-journal document type, mirroring
-      `accounting-invariants.int.test.ts`'s numbering test
+      document type via an atomic `INSERT ... ON CONFLICT` (Prisma's `.upsert()` was not safe under
+      genuinely concurrent seeding — see the test note below)
+- [x] Add `allocateDocumentNumberWithClient(client, orgId, documentType, at)` to
+      `document-numbering.service.ts`, generalizing the existing atomic upsert; kept
+      `allocateJournalNumberWithClient` as a thin wrapper so `ledger.service.ts` call sites didn't change
+- [x] Add `INVOICE_DOCUMENT_TYPE`, `CREDIT_NOTE_DOCUMENT_TYPE`, `QUOTE_DOCUMENT_TYPE`,
+      `SALES_ORDER_DOCUMENT_TYPE`, `PAYMENT_RECEIVED_DOCUMENT_TYPE` constants, plus
+      `GENERALIZED_DOCUMENT_TYPES`/`isGeneralizedDocumentType` to keep JOURNAL on its own dedicated
+      path and reject unknown types
+- [x] Add permission-gated config endpoints generalized to `documentType`
+      (`GET/PATCH organizations/:organizationId/numbering/:documentType`, reusing `numbering.view` /
+      `numbering.manage` — no new permission keys), registered after the literal `numbering/journal`
+      route so it keeps matching first
+- [x] Migration `20260824180500_add_document_numbering_config` written, applied, and drift-checked
+      (`prisma migrate diff --exit-code`: no difference)
+- [x] Test: parallel-allocation gap-free numbering for a non-journal document type, added to
+      `accounting-invariants.int.test.ts` — this test caught a real concurrency bug (Prisma's
+      `documentNumberingConfig.upsert()` isn't atomic under concurrent first-time seeding of the same
+      row; 10 parallel calls threw unique-constraint violations), fixed by seeding via raw SQL
+      `INSERT ... ON CONFLICT DO UPDATE` instead, matching the existing `document_number_sequences`
+      pattern
+- [x] Added matching entries to `authorization-boundary.int.test.ts`'s endpoint matrix; full
+      integration suite (54 tests) and unit suite (72 tests) green, typecheck/lint/format clean
 
 ## Milestone 2B — Customers/Contacts
 
@@ -204,13 +216,13 @@ depend on Invoices/Payments/CreditNotes. 2K (verification pass) is a hard gate: 
 ## Cross-cutting rules for every milestone
 
 - Standard tenancy shape on every new model: `organizationId` cascade FK, `@@index([organizationId,
-  ...])`, org-scoped compound uniqueness
+...])`, org-scoped compound uniqueness
 - Every money-mutating service method wraps in `$transaction` and calls `writeAuditEvent` inside that
   same transaction
 - Every new permission key lands in three places: `permission-catalog.ts` (keys + catalog entry),
   `roles-catalog.ts` (role wiring), and `packages/contracts/src/index.ts`'s `permissionKeySchema` enum
 - Every new controller: `@Controller('organizations/:organizationId/<resource>')
-  @UseGuards(SessionGuard, OrganizationGuard)` + per-handler `@RequirePermission(...)`, matching
+@UseGuards(SessionGuard, OrganizationGuard)` + per-handler `@RequirePermission(...)`, matching
   `LedgerController`
 - Every new screen reuses `packages/ui`'s `EmptyState`/`ForbiddenState`/`Skeleton`/`Toast` and the
   `hasPermission()` gate from `apps/web/src/lib/workspace.ts`

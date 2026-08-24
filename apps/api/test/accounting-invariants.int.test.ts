@@ -2,6 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { createOpaqueToken, hashToken } from '../src/auth/auth.crypto.js';
 import type { PublicUser } from '../src/auth/auth.service.js';
+import { DocumentNumberingService } from '../src/organizations/document-numbering.service.js';
 import { FiscalPeriodsService } from '../src/organizations/fiscal-periods.service.js';
 import { LedgerService } from '../src/organizations/ledger.service.js';
 import { OrganizationAccessService } from '../src/organizations/organization-access.service.js';
@@ -22,6 +23,7 @@ describe('accounting, period, numbering, and tax invariants', () => {
   let periods: FiscalPeriodsService;
   let ledger: LedgerService;
   let tax: TaxService;
+  let numbering: DocumentNumberingService;
   let owner: PublicUser;
   let context: OrganizationContext;
   let cookie: string;
@@ -35,6 +37,7 @@ describe('accounting, period, numbering, and tax invariants', () => {
     periods = harness.app.get(FiscalPeriodsService);
     ledger = harness.app.get(LedgerService);
     tax = harness.app.get(TaxService);
+    numbering = harness.app.get(DocumentNumberingService);
   });
 
   afterAll(async () => {
@@ -121,6 +124,22 @@ describe('accounting, period, numbering, and tax invariants', () => {
     expect(references.map(referenceNumber).sort((a, b) => a - b)).toEqual([
       1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
     ]);
+  });
+
+  it('allocates gap-free unique numbers for a non-journal document type under parallel allocation', async () => {
+    const allocations = await Promise.all(
+      Array.from({ length: 10 }, () =>
+        numbering.allocateDocumentNumberWithClient(harness.prisma, context.id, 'INVOICE'),
+      ),
+    );
+    const sequenceNumbers = allocations.map((allocation) => allocation.sequenceNumber);
+    expect(new Set(sequenceNumbers)).toHaveLength(10);
+    expect(sequenceNumbers.sort((a, b) => a - b)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+    expect(new Set(allocations.map((allocation) => allocation.value))).toHaveLength(10);
+    for (const allocation of allocations) {
+      expect(allocation.documentType).toBe('INVOICE');
+      expect(allocation.value.startsWith('INV-')).toBe(true);
+    }
   });
 
   it('atomically replays concurrent requests sharing one idempotency key', async () => {

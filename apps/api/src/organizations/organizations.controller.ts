@@ -31,6 +31,7 @@ import {
   InvitationTokenDto,
   InviteMemberDto,
   PeriodTransitionDto,
+  UpdateDocumentNumberingDto,
   UpdateJournalNumberingDto,
   UpdateMemberDto,
   UpdateOrganizationDto,
@@ -406,6 +407,38 @@ export class OrganizationsController {
       data: await this.numbering.updateJournalConfig(
         request.organization,
         request.auth.user,
+        input,
+        metadata,
+      ),
+    };
+  }
+
+  @Get(':organizationId/numbering/:documentType')
+  @UseGuards(OrganizationGuard)
+  @RequirePermission('numbering.view')
+  async documentNumberingDetail(
+    @Param('documentType') documentType: string,
+    @Req() request: OrganizationRequest,
+  ) {
+    return {
+      data: await this.numbering.documentConfigDetail(request.organization.id, documentType),
+    };
+  }
+
+  @Patch(':organizationId/numbering/:documentType')
+  @UseGuards(OrganizationGuard)
+  @RequirePermission('numbering.manage')
+  async updateDocumentNumbering(
+    @Param('documentType') documentType: string,
+    @Body() input: UpdateDocumentNumberingDto,
+    @Req() request: OrganizationRequest,
+  ) {
+    const metadata = requestMetadata(request, this.auth.pepper);
+    return {
+      data: await this.numbering.updateDocumentConfig(
+        request.organization,
+        request.auth.user,
+        documentType,
         input,
         metadata,
       ),

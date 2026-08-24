@@ -246,41 +246,42 @@ model SecurityEvent {
 /// Tenant root. Every organization-owned row carries `organization_id` and is only reachable
 /// through a validated membership of the authenticated user.
 model Organization {
-  id                    String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  legalName             String                   @map("legal_name") @db.VarChar(180)
-  tradingName           String?                  @map("trading_name") @db.VarChar(180)
-  slug                  String                   @unique @db.VarChar(96)
-  businessType          BusinessType             @default(OTHER) @map("business_type")
-  countryCode           String                   @map("country_code") @db.Char(2)
-  baseCurrency          String                   @map("base_currency") @db.Char(3)
-  timeZone              String                   @map("time_zone") @db.VarChar(64)
-  locale                String                   @db.VarChar(16)
-  fiscalYearStartMonth  Int                      @default(1) @map("fiscal_year_start_month") @db.SmallInt
-  fiscalYearStartDay    Int                      @default(1) @map("fiscal_year_start_day") @db.SmallInt
-  status                OrganizationStatus       @default(DRAFT)
-  onboardingStep        OnboardingStep           @default(JURISDICTION) @map("onboarding_step")
-  onboardingCompletedAt DateTime?                @map("onboarding_completed_at") @db.Timestamptz(6)
-  createdByUserId       String                   @map("created_by_user_id") @db.Uuid
-  createdAt             DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt             DateTime                 @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  createdBy             User                     @relation("OrganizationCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
-  preferences           OrganizationPreference?
-  members               OrganizationMember[]
-  invitations           OrganizationInvitation[]
-  securityEvents        SecurityEvent[]
-  auditEvents           AuditEvent[]
-  roles                 Role[]
-  fiscalYears           FiscalYear[]
-  fiscalPeriods         FiscalPeriod[]
-  documentNumbers       DocumentNumberSequence[]
-  accounts              LedgerAccount[]
-  journals              Journal[]
-  journalLines          JournalLine[]
-  ledgerIdempotencyKeys LedgerIdempotencyKey[]
-  enabledCurrencies     OrganizationCurrency[]
-  exchangeRates         ExchangeRate[]
-  taxCodes              TaxCode[]
-  taxRates              TaxRate[]
+  id                       String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  legalName                String                    @map("legal_name") @db.VarChar(180)
+  tradingName              String?                   @map("trading_name") @db.VarChar(180)
+  slug                     String                    @unique @db.VarChar(96)
+  businessType             BusinessType              @default(OTHER) @map("business_type")
+  countryCode              String                    @map("country_code") @db.Char(2)
+  baseCurrency             String                    @map("base_currency") @db.Char(3)
+  timeZone                 String                    @map("time_zone") @db.VarChar(64)
+  locale                   String                    @db.VarChar(16)
+  fiscalYearStartMonth     Int                       @default(1) @map("fiscal_year_start_month") @db.SmallInt
+  fiscalYearStartDay       Int                       @default(1) @map("fiscal_year_start_day") @db.SmallInt
+  status                   OrganizationStatus        @default(DRAFT)
+  onboardingStep           OnboardingStep            @default(JURISDICTION) @map("onboarding_step")
+  onboardingCompletedAt    DateTime?                 @map("onboarding_completed_at") @db.Timestamptz(6)
+  createdByUserId          String                    @map("created_by_user_id") @db.Uuid
+  createdAt                DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                DateTime                  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdBy                User                      @relation("OrganizationCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  preferences              OrganizationPreference?
+  members                  OrganizationMember[]
+  invitations              OrganizationInvitation[]
+  securityEvents           SecurityEvent[]
+  auditEvents              AuditEvent[]
+  roles                    Role[]
+  fiscalYears              FiscalYear[]
+  fiscalPeriods            FiscalPeriod[]
+  documentNumbers          DocumentNumberSequence[]
+  documentNumberingConfigs DocumentNumberingConfig[]
+  accounts                 LedgerAccount[]
+  journals                 Journal[]
+  journalLines             JournalLine[]
+  ledgerIdempotencyKeys    LedgerIdempotencyKey[]
+  enabledCurrencies        OrganizationCurrency[]
+  exchangeRates            ExchangeRate[]
+  taxCodes                 TaxCode[]
+  taxRates                 TaxRate[]
 
   @@index([createdByUserId])
   @@index([status])
@@ -409,6 +410,26 @@ model DocumentNumberSequence {
   @@unique([organizationId, documentType, scopeKey], map: "document_number_sequences_org_type_scope_key")
   @@index([organizationId, documentType])
   @@map("document_number_sequences")
+}
+
+/// Per-document-type numbering defaults (prefix, padding, next number, reset policy), lazily seeded
+/// the first time a document type other than JOURNAL allocates a number. Journal numbering keeps its
+/// dedicated columns on organization_preferences; this table generalizes the same shape for every
+/// document type that follows.
+model DocumentNumberingConfig {
+  id             String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String         @map("organization_id") @db.Uuid
+  documentType   String         @map("document_type") @db.VarChar(40)
+  prefix         String         @db.VarChar(16)
+  numberPadding  Int            @map("number_padding") @db.SmallInt
+  nextNumber     Int            @default(1) @map("next_number")
+  numberingReset NumberingReset @default(ANNUAL) @map("numbering_reset")
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, documentType])
+  @@map("document_numbering_configs")
 }
 
 /// Organization-scoped accounting, tax, numbering, and country-pack defaults. Configurable

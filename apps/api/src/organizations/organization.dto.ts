@@ -326,3 +326,32 @@ export class UpdateJournalNumberingDto {
   @IsEnum(NumberingReset)
   numberingReset?: NumberingReset;
 }
+
+export class UpdateDocumentNumberingDto {
+  @IsOptional()
+  @IsString()
+  @Length(1, 16)
+  @Matches(/^[A-Z0-9-]+$/, {
+    message: 'prefix may contain uppercase letters, numbers, and hyphens only',
+  })
+  @Transform(trimUpper)
+  prefix?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(10)
+  numberPadding?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(1_000_000_000)
+  nextNumber?: number;
+
+  @IsOptional()
+  @IsEnum(NumberingReset)
+  numberingReset?: NumberingReset;
+}

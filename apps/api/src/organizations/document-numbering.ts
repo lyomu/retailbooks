@@ -3,6 +3,30 @@ import type { NumberingReset } from '@prisma/client';
 import { currentFiscalYearStart } from './fiscal-periods.calendar.js';
 
 export const JOURNAL_DOCUMENT_TYPE = 'JOURNAL';
+export const INVOICE_DOCUMENT_TYPE = 'INVOICE';
+export const CREDIT_NOTE_DOCUMENT_TYPE = 'CREDIT_NOTE';
+export const QUOTE_DOCUMENT_TYPE = 'QUOTE';
+export const SALES_ORDER_DOCUMENT_TYPE = 'SALES_ORDER';
+export const PAYMENT_RECEIVED_DOCUMENT_TYPE = 'PAYMENT_RECEIVED';
+
+/**
+ * Document types managed through the generalized `DocumentNumberingConfig` table
+ * (`DocumentNumberingService#allocateDocumentNumberWithClient`). JOURNAL is deliberately excluded:
+ * it keeps its dedicated `OrganizationPreference` columns and its own endpoints.
+ */
+export const GENERALIZED_DOCUMENT_TYPES = [
+  INVOICE_DOCUMENT_TYPE,
+  CREDIT_NOTE_DOCUMENT_TYPE,
+  QUOTE_DOCUMENT_TYPE,
+  SALES_ORDER_DOCUMENT_TYPE,
+  PAYMENT_RECEIVED_DOCUMENT_TYPE,
+] as const;
+
+export type GeneralizedDocumentType = (typeof GENERALIZED_DOCUMENT_TYPES)[number];
+
+export function isGeneralizedDocumentType(value: string): value is GeneralizedDocumentType {
+  return (GENERALIZED_DOCUMENT_TYPES as readonly string[]).includes(value);
+}
 
 export interface NumberingConfig {
   readonly prefix: string;
