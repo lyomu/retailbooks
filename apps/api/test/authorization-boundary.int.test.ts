@@ -15,6 +15,7 @@ import { OrganizationsController } from '../src/organizations/organizations.cont
 import type { PermissionKey } from '../src/organizations/permission-catalog.js';
 import { SYSTEM_ROLE_KEYS, type SystemRoleKey } from '../src/organizations/roles-catalog.js';
 import { TaxController } from '../src/organizations/tax.controller.js';
+import { CatalogController } from '../src/sales/catalog.controller.js';
 import { CustomersController } from '../src/sales/customers.controller.js';
 import { API, createTestHarness, type TestHarness } from './support/app.js';
 
@@ -314,6 +315,72 @@ const ENDPOINTS: readonly EndpointCase[] = [
     path: 'organizations/:organizationId/customers/:contactId/reactivate',
     permission: 'customers.manage',
   },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/catalog/units',
+    permission: 'catalog.view',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/catalog/units',
+    permission: 'catalog.manage',
+    body: {},
+  },
+  {
+    method: 'patch',
+    path: 'organizations/:organizationId/catalog/units/:unitId',
+    permission: 'catalog.manage',
+    body: {},
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/catalog/categories',
+    permission: 'catalog.view',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/catalog/categories',
+    permission: 'catalog.manage',
+    body: {},
+  },
+  {
+    method: 'patch',
+    path: 'organizations/:organizationId/catalog/categories/:categoryId',
+    permission: 'catalog.manage',
+    body: {},
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/catalog/items',
+    permission: 'catalog.view',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/catalog/items/:itemId',
+    permission: 'catalog.view',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/catalog/items',
+    permission: 'catalog.manage',
+    body: {},
+  },
+  {
+    method: 'patch',
+    path: 'organizations/:organizationId/catalog/items/:itemId',
+    permission: 'catalog.manage',
+    body: {},
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/catalog/items/:itemId/deactivate',
+    permission: 'catalog.manage',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/catalog/items/:itemId/reactivate',
+    permission: 'catalog.manage',
+  },
 ];
 
 const CONTROLLERS: readonly Type[] = [
@@ -323,6 +390,7 @@ const CONTROLLERS: readonly Type[] = [
   TaxController,
   AuditLogController,
   CustomersController,
+  CatalogController,
 ];
 
 describe('organization authorization boundary over HTTP', () => {
@@ -516,7 +584,10 @@ describe('organization authorization boundary over HTTP', () => {
       .replace(':journalId', ID)
       .replace(':taxCodeId', ID)
       .replace(':documentType', 'INVOICE')
-      .replace(':contactId', ID);
+      .replace(':contactId', ID)
+      .replace(':unitId', ID)
+      .replace(':categoryId', ID)
+      .replace(':itemId', ID);
     const test = harness.http()[endpoint.method](path).set('Cookie', cookie);
     if (endpoint.body !== undefined) test.send(endpoint.body);
     return test;

@@ -41,6 +41,7 @@ const READ_ONLY_BASELINE: readonly PermissionKey[] = [
   'journals.view',
   'tax.codes.view',
   'customers.view',
+  'catalog.view',
 ];
 
 export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freeze([
@@ -94,6 +95,8 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
       'customers.view',
       'customers.manage',
       'customers.currency_override',
+      'catalog.view',
+      'catalog.manage',
     ],
   },
   {
@@ -121,6 +124,8 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
       'audit.export',
       'customers.view',
       'customers.manage',
+      'catalog.view',
+      'catalog.manage',
     ],
   },
   {
@@ -133,6 +138,8 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
       'customers.view',
       'customers.manage',
       'customers.currency_override',
+      'catalog.view',
+      'catalog.manage',
     ],
   },
   {

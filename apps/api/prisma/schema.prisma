@@ -140,6 +140,17 @@ enum ContactAddressKind {
   SHIPPING
 }
 
+enum ItemType {
+  GOODS
+  SERVICE
+  NON_STOCK
+}
+
+enum ItemStatus {
+  ACTIVE
+  INACTIVE
+}
+
 model User {
   id                   String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   email                String                   @unique @db.Citext
@@ -300,6 +311,10 @@ model Organization {
   contacts                 Contact[]
   contactAddresses         ContactAddress[]
   contactTaxIds            ContactTaxId[]
+  units                    Unit[]
+  categories               Category[]
+  items                    Item[]
+  itemPrices               ItemPrice[]
 
   @@index([createdByUserId])
   @@index([status])
@@ -453,24 +468,25 @@ model DocumentNumberingConfig {
 /// Organization-scoped accounting, tax, numbering, and country-pack defaults. Configurable
 /// software defaults only; they are not a statutory certification.
 model OrganizationPreference {
-  id                  String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  organizationId      String          @unique @map("organization_id") @db.Uuid
-  accountingBasis     AccountingBasis @default(ACCRUAL) @map("accounting_basis")
-  chartTemplate       String          @default("general-business") @map("chart_template") @db.VarChar(60)
-  booksStartDate      DateTime?       @map("books_start_date") @db.Date
-  taxRegistered       Boolean         @default(false) @map("tax_registered")
-  taxIdentifier       String?         @map("tax_identifier") @db.VarChar(60)
-  defaultTaxTreatment TaxTreatment    @default(EXCLUSIVE) @map("default_tax_treatment")
-  defaultTaxRate      Decimal         @default(0) @map("default_tax_rate") @db.Decimal(7, 4)
-  journalPrefix       String          @default("JRN") @map("journal_prefix") @db.VarChar(12)
-  numberPadding       Int             @default(5) @map("number_padding") @db.SmallInt
-  nextJournalNumber   Int             @default(1) @map("next_journal_number")
-  numberingReset      NumberingReset  @default(ANNUAL) @map("numbering_reset")
-  countryPackCode     String          @map("country_pack_code") @db.VarChar(8)
-  countryPackVersion  String          @map("country_pack_version") @db.VarChar(24)
-  createdAt           DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt           DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  organization        Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  id                          String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId              String          @unique @map("organization_id") @db.Uuid
+  accountingBasis             AccountingBasis @default(ACCRUAL) @map("accounting_basis")
+  chartTemplate               String          @default("general-business") @map("chart_template") @db.VarChar(60)
+  booksStartDate              DateTime?       @map("books_start_date") @db.Date
+  taxRegistered               Boolean         @default(false) @map("tax_registered")
+  taxIdentifier               String?         @map("tax_identifier") @db.VarChar(60)
+  defaultTaxTreatment         TaxTreatment    @default(EXCLUSIVE) @map("default_tax_treatment")
+  defaultTaxRate              Decimal         @default(0) @map("default_tax_rate") @db.Decimal(7, 4)
+  journalPrefix               String          @default("JRN") @map("journal_prefix") @db.VarChar(12)
+  numberPadding               Int             @default(5) @map("number_padding") @db.SmallInt
+  nextJournalNumber           Int             @default(1) @map("next_journal_number")
+  numberingReset              NumberingReset  @default(ANNUAL) @map("numbering_reset")
+  countryPackCode             String          @map("country_pack_code") @db.VarChar(8)
+  countryPackVersion          String          @map("country_pack_version") @db.VarChar(24)
+  salesFreeDescriptionDefault Boolean         @default(true) @map("sales_free_description_default")
+  createdAt                   DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                   DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization                Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@map("organization_preferences")
 }
@@ -583,6 +599,7 @@ model LedgerAccount {
   taxCodesAsSalesAccount      TaxCode[]           @relation("TaxCodeSalesAccount")
   taxCodesAsPurchaseAccount   TaxCode[]           @relation("TaxCodePurchaseAccount")
   contactsAsReceivableAccount Contact[]           @relation("ContactReceivableAccount")
+  itemsAsRevenueAccount       Item[]              @relation("ItemRevenueAccount")
 
   @@unique([organizationId, code])
   @@unique([organizationId, systemKey])
@@ -672,25 +689,26 @@ model LedgerIdempotencyKey {
 /// Organization-scoped tax code catalog, seeded from the country pack and then fully editable.
 /// Codes are archived rather than hard-deleted once they have posted journal-line history.
 model TaxCode {
-  id                   String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  organizationId       String         @map("organization_id") @db.Uuid
-  code                 String         @db.VarChar(24)
-  name                 String         @db.VarChar(120)
-  treatment            TaxTreatment
-  recoverable          Boolean        @default(false)
-  status               TaxCodeStatus  @default(ACTIVE)
-  description          String?        @db.VarChar(240)
-  salesTaxAccountId    String?        @map("sales_tax_account_id") @db.Uuid
-  purchaseTaxAccountId String?        @map("purchase_tax_account_id") @db.Uuid
-  systemSeed           Boolean        @default(false) @map("system_seed")
-  archivedAt           DateTime?      @map("archived_at") @db.Timestamptz(6)
-  createdAt            DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt            DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  organization         Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  salesTaxAccount      LedgerAccount? @relation("TaxCodeSalesAccount", fields: [salesTaxAccountId], references: [id], onDelete: SetNull)
-  purchaseTaxAccount   LedgerAccount? @relation("TaxCodePurchaseAccount", fields: [purchaseTaxAccountId], references: [id], onDelete: SetNull)
-  rates                TaxRate[]
-  journalLines         JournalLine[]
+  id                    String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId        String         @map("organization_id") @db.Uuid
+  code                  String         @db.VarChar(24)
+  name                  String         @db.VarChar(120)
+  treatment             TaxTreatment
+  recoverable           Boolean        @default(false)
+  status                TaxCodeStatus  @default(ACTIVE)
+  description           String?        @db.VarChar(240)
+  salesTaxAccountId     String?        @map("sales_tax_account_id") @db.Uuid
+  purchaseTaxAccountId  String?        @map("purchase_tax_account_id") @db.Uuid
+  systemSeed            Boolean        @default(false) @map("system_seed")
+  archivedAt            DateTime?      @map("archived_at") @db.Timestamptz(6)
+  createdAt             DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization          Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  salesTaxAccount       LedgerAccount? @relation("TaxCodeSalesAccount", fields: [salesTaxAccountId], references: [id], onDelete: SetNull)
+  purchaseTaxAccount    LedgerAccount? @relation("TaxCodePurchaseAccount", fields: [purchaseTaxAccountId], references: [id], onDelete: SetNull)
+  rates                 TaxRate[]
+  journalLines          JournalLine[]
+  itemsAsDefaultTaxCode Item[]
 
   @@unique([organizationId, code])
   @@index([organizationId, status])
@@ -778,4 +796,75 @@ model ContactTaxId {
 
   @@index([organizationId, contactId])
   @@map("contact_tax_ids")
+}
+
+model Unit {
+  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  code           String       @db.VarChar(16)
+  name           String       @db.VarChar(80)
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  items          Item[]
+
+  @@unique([organizationId, code])
+  @@map("units")
+}
+
+model Category {
+  id               String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId   String       @map("organization_id") @db.Uuid
+  name             String       @db.VarChar(120)
+  parentCategoryId String?      @map("parent_category_id") @db.Uuid
+  createdAt        DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  parentCategory   Category?    @relation("CategoryParent", fields: [parentCategoryId], references: [id], onDelete: SetNull)
+  childCategories  Category[]   @relation("CategoryParent")
+  items            Item[]
+
+  @@unique([organizationId, name])
+  @@map("categories")
+}
+
+/// Sellable item or service. `freeDescriptionAllowed` overrides
+/// `OrganizationPreference.salesFreeDescriptionDefault` per item.
+model Item {
+  id                     String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId         String         @map("organization_id") @db.Uuid
+  sku                    String?        @db.VarChar(60)
+  name                   String         @db.VarChar(160)
+  itemType               ItemType       @map("item_type")
+  categoryId             String?        @map("category_id") @db.Uuid
+  defaultUnitId          String?        @map("default_unit_id") @db.Uuid
+  revenueAccountId       String?        @map("revenue_account_id") @db.Uuid
+  defaultTaxCodeId       String?        @map("default_tax_code_id") @db.Uuid
+  freeDescriptionAllowed Boolean        @default(true) @map("free_description_allowed")
+  status                 ItemStatus     @default(ACTIVE)
+  createdAt              DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization           Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  category               Category?      @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  defaultUnit            Unit?          @relation(fields: [defaultUnitId], references: [id], onDelete: SetNull)
+  revenueAccount         LedgerAccount? @relation("ItemRevenueAccount", fields: [revenueAccountId], references: [id], onDelete: SetNull)
+  defaultTaxCode         TaxCode?       @relation(fields: [defaultTaxCodeId], references: [id], onDelete: SetNull)
+  prices                 ItemPrice[]
+
+  @@index([organizationId, status])
+  @@map("items")
+}
+
+model ItemPrice {
+  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  itemId         String       @map("item_id") @db.Uuid
+  priceListKey   String       @default("default") @map("price_list_key") @db.VarChar(40)
+  currency       String       @db.Char(3)
+  unitPriceMinor BigInt       @map("unit_price_minor") @db.BigInt
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  item           Item         @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, itemId, priceListKey, currency])
+  @@map("item_prices")
 }

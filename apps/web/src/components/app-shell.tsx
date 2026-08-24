@@ -26,6 +26,7 @@ import {
   Landmark,
   LayoutDashboard,
   Menu,
+  Package,
   Search,
   Settings,
   ShieldCheck,
@@ -61,7 +62,10 @@ const navigationGroups: NavigationGroup[] = [
   },
   {
     label: 'Sales',
-    items: [{ label: 'Customers', icon: Users, href: '/customers' }],
+    items: [
+      { label: 'Customers', icon: Users, href: '/customers' },
+      { label: 'Items & services', icon: Package, href: '/catalog/items' },
+    ],
   },
   {
     label: 'General ledger',

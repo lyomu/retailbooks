@@ -58,6 +58,8 @@ export const PERMISSION_KEYS = [
   'customers.view',
   'customers.manage',
   'customers.currency_override',
+  'catalog.view',
+  'catalog.manage',
 ] as const;
 
 export type PermissionKey = (typeof PERMISSION_KEYS)[number];
@@ -445,6 +447,20 @@ export const PERMISSION_CATALOG: readonly PermissionDefinition[] = Object.freeze
     label: 'Override customer currency',
     description:
       "Set a customer's currency to something other than the organization's base currency.",
+    group: 'Sales',
+    protected: false,
+  },
+  {
+    key: 'catalog.view',
+    label: 'View catalog',
+    description: 'See items, services, units, and categories.',
+    group: 'Sales',
+    protected: false,
+  },
+  {
+    key: 'catalog.manage',
+    label: 'Manage catalog',
+    description: 'Create, edit, and deactivate items, services, units, and categories.',
     group: 'Sales',
     protected: false,
   },

@@ -124,6 +124,8 @@ export const permissionKeySchema = z.enum([
   'customers.view',
   'customers.manage',
   'customers.currency_override',
+  'catalog.view',
+  'catalog.manage',
 ]);
 
 export const organizationSummarySchema = z.object({
@@ -626,6 +628,85 @@ export const createContactDto = z.object({
 
 export const updateContactDto = createContactDto.partial().omit({ type: true });
 
+// --- Sales: Catalog ---
+
+export const itemTypeSchema = z.enum(['GOODS', 'SERVICE', 'NON_STOCK']);
+export const itemStatusSchema = z.enum(['ACTIVE', 'INACTIVE']);
+
+export const unitSchema = z.object({
+  id: z.uuid(),
+  code: z.string().min(1),
+  name: z.string().min(1),
+});
+
+export const categorySchema = z.object({
+  id: z.uuid(),
+  name: z.string().min(1),
+  parentCategoryId: z.uuid().nullable(),
+});
+
+export const itemPriceSchema = z.object({
+  id: z.uuid(),
+  priceListKey: z.string().min(1),
+  currency: z.string().length(3),
+  unitPriceMinor: z.string().regex(/^\d+$/),
+});
+
+export const itemSchema = z.object({
+  id: z.uuid(),
+  sku: z.string().nullable(),
+  name: z.string().min(1),
+  itemType: itemTypeSchema,
+  categoryId: z.uuid().nullable(),
+  defaultUnitId: z.uuid().nullable(),
+  revenueAccountId: z.uuid().nullable(),
+  defaultTaxCodeId: z.uuid().nullable(),
+  freeDescriptionAllowed: z.boolean(),
+  status: itemStatusSchema,
+  prices: z.array(itemPriceSchema),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+});
+
+export const unitListResponseSchema = z.object({ data: z.array(unitSchema) });
+export const categoryListResponseSchema = z.object({ data: z.array(categorySchema) });
+export const itemListResponseSchema = z.object({ data: z.array(itemSchema) });
+export const itemResponseSchema = z.object({ data: itemSchema });
+
+export const createUnitDto = z.object({
+  code: z.string().min(1).max(16),
+  name: z.string().min(1).max(80),
+});
+
+export const updateUnitDto = createUnitDto.partial();
+
+export const createCategoryDto = z.object({
+  name: z.string().min(1).max(120),
+  parentCategoryId: z.uuid().optional(),
+});
+
+export const updateCategoryDto = createCategoryDto.partial();
+
+export const itemPriceDto = z.object({
+  priceListKey: z.string().min(1).max(40).optional(),
+  currency: z.string().length(3),
+  unitPriceMinor: z.string().regex(/^\d+$/),
+});
+
+export const createItemDto = z.object({
+  sku: z.string().max(60).optional(),
+  name: z.string().min(1).max(160),
+  itemType: itemTypeSchema,
+  categoryId: z.uuid().optional(),
+  defaultUnitId: z.uuid().optional(),
+  revenueAccountId: z.uuid().optional(),
+  defaultTaxCodeId: z.uuid().optional(),
+  freeDescriptionAllowed: z.boolean().optional(),
+  prices: z.array(itemPriceDto).max(10).optional(),
+});
+
+export const updateItemDto = createItemDto.partial();
+
 export const apiErrorSchema = z.object({
   error: z.object({
     code: z.string().min(1),
@@ -690,6 +771,23 @@ export type ContactListResponse = z.infer<typeof contactListResponseSchema>;
 export type ContactResponse = z.infer<typeof contactResponseSchema>;
 export type CreateContactDto = z.infer<typeof createContactDto>;
 export type UpdateContactDto = z.infer<typeof updateContactDto>;
+
+export type ItemType = z.infer<typeof itemTypeSchema>;
+export type ItemStatus = z.infer<typeof itemStatusSchema>;
+export type Unit = z.infer<typeof unitSchema>;
+export type Category = z.infer<typeof categorySchema>;
+export type ItemPrice = z.infer<typeof itemPriceSchema>;
+export type Item = z.infer<typeof itemSchema>;
+export type UnitListResponse = z.infer<typeof unitListResponseSchema>;
+export type CategoryListResponse = z.infer<typeof categoryListResponseSchema>;
+export type ItemListResponse = z.infer<typeof itemListResponseSchema>;
+export type ItemResponse = z.infer<typeof itemResponseSchema>;
+export type CreateUnitDto = z.infer<typeof createUnitDto>;
+export type UpdateUnitDto = z.infer<typeof updateUnitDto>;
+export type CreateCategoryDto = z.infer<typeof createCategoryDto>;
+export type UpdateCategoryDto = z.infer<typeof updateCategoryDto>;
+export type CreateItemDto = z.infer<typeof createItemDto>;
+export type UpdateItemDto = z.infer<typeof updateItemDto>;
 
 /** Shape of `GET /organizations/reference-data`. Values stay configurable per organization. */
 export interface OrganizationReferenceData {

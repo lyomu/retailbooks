@@ -68,20 +68,35 @@ depend on Invoices/Payments/CreditNotes. 2K (verification pass) is a hard gate: 
       `authorization-boundary.int.test.ts`'s endpoint matrix; full suite green (73 unit + 59
       integration), typecheck/lint/format clean, both API and web production builds succeed
 
-## Milestone 2C — Catalog
+## Milestone 2C — Catalog ✅
 
-- [ ] `Unit`, `Category` models
-- [ ] `Item` model (sku, name, itemType: GOODS/SERVICE/NON_STOCK, categoryId, defaultUnitId,
+- [x] `Unit`, `Category` models (Category has a self-relation `parentCategoryId` for nesting)
+- [x] `Item` model (sku, name, itemType: GOODS/SERVICE/NON_STOCK, categoryId, defaultUnitId,
       revenueAccountId override, defaultTaxCodeId, freeDescriptionAllowed, status); SKU uniqueness
-      enforced at service layer (optional field)
-- [ ] `ItemPrice` model (priceListKey, currency, unitPriceMinor)
-- [ ] Add `salesFreeDescriptionDefault` to `OrganizationPreference`
-- [ ] Migration written, applied, and drift-checked in CI
-- [ ] `apps/api/src/sales/catalog.{service,controller}.ts`
-- [ ] New permission keys `catalog.view`, `catalog.manage`, same role wiring pattern as 2B
-- [ ] Zod schemas in `packages/contracts/src/index.ts`; extend `permissionKeySchema`
-- [ ] UI: `apps/web/src/app/catalog/**`
-- [ ] Test: `ItemPrice.unitPriceMinor` must be non-negative
+      enforced at service layer (optional field, `assertSkuAvailable`)
+- [x] `ItemPrice` model (priceListKey default `"default"`, currency, unitPriceMinor)
+- [x] Added `salesFreeDescriptionDefault` to `OrganizationPreference`; new items default to it unless
+      overridden per item
+- [x] Migration `20260824184500_add_catalog` written, applied, and drift-checked
+      (`prisma migrate diff --exit-code`: no difference)
+- [x] `apps/api/src/sales/catalog.{service,controller,dto}.ts`: units/categories/items CRUD,
+      item active/inactive toggle; registered in `SalesModule` alongside customers
+- [x] New permission keys `catalog.view`, `catalog.manage`; same role wiring pattern as 2B (SALES +
+      ADMIN: both; ACCOUNTANT: both; VIEWER: view via `READ_ONLY_BASELINE`)
+- [x] Zod schemas in `packages/contracts/src/index.ts`; extended `permissionKeySchema` (caught a real
+      gap: the 2B commit added `customers.*` to the API's permission catalog but missed adding it to
+      the contracts package's separately-maintained `permissionKeySchema` enum for `catalog.*` — the
+      web typecheck failure surfaced it immediately)
+- [x] UI: `apps/web/src/components/catalog-workbench.tsx` + `apps/web/src/app/catalog/items/page.tsx`
+      (list, inline create/edit with a single default-price field, deactivate/reactivate); added to
+      the Sales sidebar nav group. Unit/Category management UI deferred — the backend and contracts
+      support them, but no screen exists yet; items can be created without a unit or category today
+- [x] Tests (`apps/api/test/catalog.int.test.ts`, 5 tests): SKU-uniqueness rejection, two items with
+      no SKU both succeed, free-description-default inheritance, and `ItemPrice.unitPriceMinor`
+      non-negative validation at the HTTP boundary (both the rejection and the zero/positive
+      acceptance side); added matching entries to `authorization-boundary.int.test.ts`'s endpoint
+      matrix; full suite green (73 unit + 64 integration), typecheck/lint/format clean, both API and
+      web production builds succeed
 
 ## Milestone 2D — Invoices (posting slice)
 
