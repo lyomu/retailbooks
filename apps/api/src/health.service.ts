@@ -1,12 +1,17 @@
 import { Injectable } from '@nestjs/common';
-import type { HealthResponse, ServiceStatus } from '@retailbooks/contracts';
+import type { HealthResponse, QueueStatus, ServiceStatus } from '@retailbooks/contracts';
 import { Client as PostgresClient } from 'pg';
 import { createClient as createRedisClient } from 'redis';
+
+import { EMAIL_QUEUE_NAME } from './jobs/email-job.js';
+import { EmailQueueService } from './jobs/email-queue.service.js';
 
 const version = process.env.npm_package_version ?? '0.1.0';
 
 @Injectable()
 export class HealthService {
+  constructor(private readonly emailQueue: EmailQueueService) {}
+
   liveness(): HealthResponse {
     return {
       status: 'ok',
@@ -17,17 +22,63 @@ export class HealthService {
   }
 
   async readiness(): Promise<HealthResponse> {
-    const dependencies = await Promise.all([
+    const [postgres, redis, minio, emailQueue] = await Promise.all([
       this.checkPostgres(),
       this.checkRedis(),
       this.checkMinio(),
+      this.checkEmailQueue(),
     ]);
+    const dependencies = [postgres, redis, minio, emailQueue.dependency];
+    const queues = [emailQueue.queue];
 
     return {
       ...this.liveness(),
-      status: dependencies.every((dependency) => dependency.status === 'up') ? 'ok' : 'degraded',
+      status:
+        dependencies.every((dependency) => dependency.status === 'up') &&
+        queues.every((queue) => queue.status === 'up')
+          ? 'ok'
+          : 'degraded',
       dependencies,
+      queues,
     };
+  }
+
+  private async checkEmailQueue(): Promise<{ dependency: ServiceStatus; queue: QueueStatus }> {
+    const startedAt = performance.now();
+    try {
+      const counts = await this.emailQueue.counts();
+      const depth = counts.waiting + counts.active + counts.delayed;
+      return {
+        dependency: {
+          name: EMAIL_QUEUE_NAME,
+          status: 'up',
+          latencyMs: Math.round(performance.now() - startedAt),
+        },
+        queue: {
+          name: EMAIL_QUEUE_NAME,
+          status: counts.failed > 0 ? 'degraded' : 'up',
+          depth,
+          ...counts,
+        },
+      };
+    } catch {
+      return {
+        dependency: {
+          name: EMAIL_QUEUE_NAME,
+          status: 'down',
+          latencyMs: Math.round(performance.now() - startedAt),
+        },
+        queue: {
+          name: EMAIL_QUEUE_NAME,
+          status: 'down',
+          depth: 0,
+          waiting: 0,
+          active: 0,
+          delayed: 0,
+          failed: 0,
+        },
+      };
+    }
   }
 
   private async checkPostgres(): Promise<ServiceStatus> {

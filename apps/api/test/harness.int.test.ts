@@ -32,6 +32,15 @@ describe('integration harness', () => {
     ).dependencies.find((dependency) => dependency.name === 'postgres');
 
     expect(postgres?.status).toBe('up');
+    const queues = (response.body as { queues: unknown[] }).queues;
+    expect(queues).toEqual([
+      expect.objectContaining({
+        name: 'email-delivery',
+        status: 'up',
+        depth: 0,
+        failed: 0,
+      }),
+    ]);
   });
 
   it('is connected to the dedicated test database, not the development one', async () => {

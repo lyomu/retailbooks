@@ -8,6 +8,7 @@ import { ObservabilityModule } from './common/logging/observability.module.js';
 import { DatabaseModule } from './database/database.module.js';
 import { HealthController } from './health.controller.js';
 import { HealthService } from './health.service.js';
+import { JobsModule } from './jobs/jobs.module.js';
 import { OrganizationsModule } from './organizations/organizations.module.js';
 
 @Module({
@@ -15,6 +16,7 @@ import { OrganizationsModule } from './organizations/organizations.module.js';
     ConfigModule.forRoot({ isGlobal: true }),
     ObservabilityModule,
     DatabaseModule,
+    JobsModule,
     AuthModule,
     OrganizationsModule,
   ],

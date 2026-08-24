@@ -1,30 +1,24 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import nodemailer, { type Transporter } from 'nodemailer';
+
+import { EMAIL_JOB_NAMES, type EmailDeliveryJob, type EmailJobName } from '../jobs/email-job.js';
+import { EmailQueueService } from '../jobs/email-queue.service.js';
 
 @Injectable()
 export class AuthMailerService {
   private readonly logger = new Logger(AuthMailerService.name);
-  private readonly transporter: Transporter;
-  private readonly from: string;
   private readonly webUrl: string;
 
-  constructor(config: ConfigService) {
-    this.transporter = nodemailer.createTransport({
-      host: config.get('SMTP_HOST') ?? 'localhost',
-      port: Number(config.get('SMTP_PORT') ?? 51025),
-      secure: false,
-      connectionTimeout: 1_500,
-      greetingTimeout: 1_500,
-      socketTimeout: 3_000,
-    });
-    this.from = config.get('EMAIL_FROM') ?? 'RetailBooks <no-reply@retailbooks.local>';
+  constructor(
+    config: ConfigService,
+    private readonly emailQueue: EmailQueueService,
+  ) {
     this.webUrl = (config.get<string>('WEB_APP_URL') ?? 'http://localhost:3000').replace(/\/$/, '');
   }
 
   async sendVerification(email: string, displayName: string, token: string): Promise<void> {
     const url = `${this.webUrl}/verify-email?token=${encodeURIComponent(token)}`;
-    await this.send({
+    await this.send(EMAIL_JOB_NAMES.verification, {
       to: email,
       subject: 'Verify your RetailBooks email',
       text: `Hello ${displayName},\n\nVerify your email to continue setting up RetailBooks:\n${url}\n\nThis link expires in 24 hours. If you did not create this account, you can ignore this email.`,
@@ -40,7 +34,7 @@ export class AuthMailerService {
 
   async sendPasswordReset(email: string, displayName: string, token: string): Promise<void> {
     const url = `${this.webUrl}/reset-password?token=${encodeURIComponent(token)}`;
-    await this.send({
+    await this.send(EMAIL_JOB_NAMES.passwordReset, {
       to: email,
       subject: 'Reset your RetailBooks password',
       text: `Hello ${displayName},\n\nUse this link to reset your RetailBooks password:\n${url}\n\nThis link expires in 30 minutes. If you did not request this, no action is needed.`,
@@ -65,7 +59,7 @@ export class AuthMailerService {
   }): Promise<void> {
     const url = `${this.webUrl}/accept-invitation?token=${encodeURIComponent(invitation.token)}`;
     const expiry = invitation.expiresAt.toISOString().slice(0, 10);
-    await this.send({
+    await this.send(EMAIL_JOB_NAMES.organizationInvitation, {
       to: invitation.email,
       subject: `Join ${invitation.organizationName} on RetailBooks`,
       text: `${invitation.inviterName} invited you to join ${invitation.organizationName} on RetailBooks as ${invitation.roleName}.\n\nAccept the invitation:\n${url}\n\nThis invitation expires on ${expiry}. If you were not expecting it, you can ignore this email.`,
@@ -79,17 +73,12 @@ export class AuthMailerService {
     });
   }
 
-  private async send(message: {
-    to: string;
-    subject: string;
-    text: string;
-    html: string;
-  }): Promise<void> {
+  private async send(name: EmailJobName, message: EmailDeliveryJob): Promise<void> {
     try {
-      await this.transporter.sendMail({ ...message, from: this.from });
+      await this.emailQueue.enqueue(name, message);
     } catch (error) {
       this.logger.error(
-        `Transactional email delivery failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        `Transactional email enqueue failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
       );
     }
   }

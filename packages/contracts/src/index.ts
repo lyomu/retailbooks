@@ -6,15 +6,27 @@ export const serviceStatusSchema = z.object({
   latencyMs: z.number().nonnegative(),
 });
 
+export const queueStatusSchema = z.object({
+  name: z.string().min(1),
+  status: z.enum(['up', 'degraded', 'down']),
+  depth: z.number().int().nonnegative(),
+  waiting: z.number().int().nonnegative(),
+  active: z.number().int().nonnegative(),
+  delayed: z.number().int().nonnegative(),
+  failed: z.number().int().nonnegative(),
+});
+
 export const healthResponseSchema = z.object({
   status: z.enum(['ok', 'degraded']),
   service: z.literal('retailbooks-api'),
   version: z.string(),
   timestamp: z.iso.datetime(),
   dependencies: z.array(serviceStatusSchema).optional(),
+  queues: z.array(queueStatusSchema).optional(),
 });
 
 export type ServiceStatus = z.infer<typeof serviceStatusSchema>;
+export type QueueStatus = z.infer<typeof queueStatusSchema>;
 export type HealthResponse = z.infer<typeof healthResponseSchema>;
 
 export const publicUserSchema = z.object({
