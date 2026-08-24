@@ -1,14 +1,12 @@
 'use client';
 
-import type { OrganizationRole, PermissionKey, RoleMatrixResponse } from '@retailbooks/contracts';
+import type { PermissionKey, RoleListResponse, RoleSummary } from '@retailbooks/contracts';
 import { Button, EmptyState, Skeleton } from '@retailbooks/ui';
 import { Lock, ShieldCheck } from 'lucide-react';
 import { Fragment, useEffect, useState } from 'react';
 
 import { ApiError, apiRequest } from '../lib/api';
-import { hasPermission, roleLabel, useWorkspace } from '../lib/workspace';
-
-const EDITABLE_ROLES: readonly OrganizationRole[] = ['ADMIN', 'ACCOUNTANT', 'STAFF'];
+import { hasPermission, useWorkspace } from '../lib/workspace';
 
 export function RolePermissionsMatrix() {
   const workspace = useWorkspace({ requireOrganization: true });
@@ -16,18 +14,18 @@ export function RolePermissionsMatrix() {
   const organizationId = organization?.id ?? null;
   const canManage = hasPermission(organization, 'roles.manage');
 
-  const [matrix, setMatrix] = useState<RoleMatrixResponse['data'] | null>(null);
+  const [matrix, setMatrix] = useState<RoleListResponse['data'] | null>(null);
   const [drafts, setDrafts] = useState<Record<string, Set<PermissionKey>>>({});
   const [error, setError] = useState<string | null>(null);
   const [forbidden, setForbidden] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
-  const [savingRole, setSavingRole] = useState<OrganizationRole | null>(null);
+  const [savingRoleId, setSavingRoleId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!organizationId) return;
     let cancelled = false;
 
-    apiRequest<{ data: RoleMatrixResponse['data'] }>(`/organizations/${organizationId}/roles`)
+    apiRequest<{ data: RoleListResponse['data'] }>(`/organizations/${organizationId}/roles`)
       .then((response) => {
         if (cancelled) return;
         setMatrix(response.data);
@@ -51,56 +49,52 @@ export function RolePermissionsMatrix() {
     };
   }, [organizationId]);
 
-  function toggle(role: OrganizationRole, key: PermissionKey) {
+  function toggle(roleId: string, key: PermissionKey) {
     setDrafts((current) => {
       const next = { ...current };
-      const set = new Set(current[role]);
+      const set = new Set(current[roleId]);
       if (set.has(key)) set.delete(key);
       else set.add(key);
-      next[role] = set;
+      next[roleId] = set;
       return next;
     });
   }
 
-  function isDirty(role: OrganizationRole): boolean {
-    if (!matrix) return false;
-    const original = originalPermissions(matrix, role);
-    const draft = drafts[role];
+  function isDirty(role: RoleSummary): boolean {
+    const draft = drafts[role.id];
     if (!draft) return false;
-    if (original.size !== draft.size) return true;
-    for (const key of original) if (!draft.has(key)) return true;
-    return false;
+    if (role.permissions.length !== draft.size) return true;
+    return role.permissions.some((key) => !draft.has(key));
   }
 
-  async function save(role: OrganizationRole) {
+  async function save(role: RoleSummary) {
     if (!organizationId || !matrix) return;
-    const original = originalPermissions(matrix, role);
-    const draft = drafts[role] ?? new Set<PermissionKey>();
-    const changes = matrix.catalog
-      .filter((permission) => !permission.protected)
-      .map((permission) => permission.key)
-      .filter((key) => original.has(key) !== draft.has(key))
-      .map((key) => ({ permissionKey: key, granted: draft.has(key) }));
+    const draft = drafts[role.id] ?? new Set<PermissionKey>();
 
-    if (changes.length === 0) return;
-
-    setSavingRole(role);
+    setSavingRoleId(role.id);
     setError(null);
     setNotice(null);
     try {
-      const response = await apiRequest<{ data: RoleMatrixResponse['data'] }>(
-        `/organizations/${organizationId}/roles/${role}`,
-        { method: 'PATCH', body: JSON.stringify({ changes }) },
+      const response = await apiRequest<{ data: RoleSummary }>(
+        `/organizations/${organizationId}/roles/${role.id}`,
+        { method: 'PATCH', body: JSON.stringify({ permissions: Array.from(draft) }) },
       );
-      setMatrix(response.data);
-      setDrafts(toDraftMap(response.data));
-      setNotice(`${roleLabel(role)} permissions updated.`);
+      setMatrix((current) =>
+        current
+          ? {
+              ...current,
+              roles: current.roles.map((entry) => (entry.id === role.id ? response.data : entry)),
+            }
+          : current,
+      );
+      setDrafts((current) => ({ ...current, [role.id]: new Set(response.data.permissions) }));
+      setNotice(`${response.data.name} permissions updated.`);
     } catch (caught) {
       setError(
         caught instanceof ApiError ? caught.message : 'Those permissions could not be saved.',
       );
     } finally {
-      setSavingRole(null);
+      setSavingRoleId(null);
     }
   }
 
@@ -132,7 +126,10 @@ export function RolePermissionsMatrix() {
     );
   }
 
+  const owner = matrix.roles.find((role) => role.isOwnerRole);
+  const editableRoles = matrix.roles.filter((role) => !role.isOwnerRole);
   const groups = Array.from(new Set(matrix.catalog.map((permission) => permission.group)));
+  const columnCount = 1 + matrix.roles.length;
 
   return (
     <div className="rb-security-stack">
@@ -153,8 +150,8 @@ export function RolePermissionsMatrix() {
             <h2 id="role-matrix-title">Permission matrix</h2>
             <p>
               {canManage
-                ? 'Owner always has every permission. Adjust what Administrator, Accountant, and Staff can do.'
-                : 'Owner always has every permission. This view reflects what your organization currently grants.'}
+                ? `${owner?.name ?? 'Owner'} always has every permission. Adjust what every other role can do.`
+                : `${owner?.name ?? 'Owner'} always has every permission. This view reflects what your organization currently grants.`}
             </p>
           </div>
         </div>
@@ -165,12 +162,14 @@ export function RolePermissionsMatrix() {
             <thead>
               <tr>
                 <th scope="col">Permission</th>
-                <th scope="col" className="rb-table--center">
-                  Owner
-                </th>
-                {EDITABLE_ROLES.map((role) => (
-                  <th scope="col" className="rb-table--center" key={role}>
-                    {roleLabel(role)}
+                {owner ? (
+                  <th scope="col" className="rb-table--center">
+                    {owner.name}
+                  </th>
+                ) : null}
+                {editableRoles.map((role) => (
+                  <th scope="col" className="rb-table--center" key={role.id}>
+                    {role.name}
                   </th>
                 ))}
               </tr>
@@ -179,7 +178,11 @@ export function RolePermissionsMatrix() {
               {groups.map((group) => (
                 <Fragment key={group}>
                   <tr>
-                    <th scope="rowgroup" colSpan={5} className="rb-permission-matrix__group">
+                    <th
+                      scope="rowgroup"
+                      colSpan={columnCount}
+                      className="rb-permission-matrix__group"
+                    >
                       {group}
                     </th>
                   </tr>
@@ -191,17 +194,22 @@ export function RolePermissionsMatrix() {
                           <strong>{permission.label}</strong>
                           <span className="rb-table-secondary">{permission.description}</span>
                         </td>
-                        <td className="rb-table--center">
-                          <span className="rb-permission-cell" aria-label="Always granted to Owner">
-                            <ShieldCheck aria-hidden="true" />
-                          </span>
-                        </td>
-                        {EDITABLE_ROLES.map((role) => (
-                          <td className="rb-table--center" key={role}>
+                        {owner ? (
+                          <td className="rb-table--center">
+                            <span
+                              className="rb-permission-cell"
+                              aria-label={`Always granted to ${owner.name}`}
+                            >
+                              <ShieldCheck aria-hidden="true" />
+                            </span>
+                          </td>
+                        ) : null}
+                        {editableRoles.map((role) => (
+                          <td className="rb-table--center" key={role.id}>
                             {permission.protected ? (
                               <span
                                 className="rb-permission-cell"
-                                aria-label={`${permission.label} cannot be changed for ${roleLabel(role)}`}
+                                aria-label={`${permission.label} cannot be changed for ${role.name}`}
                               >
                                 <Lock aria-hidden="true" />
                               </span>
@@ -209,10 +217,10 @@ export function RolePermissionsMatrix() {
                               <span className="rb-permission-cell">
                                 <input
                                   type="checkbox"
-                                  disabled={!canManage || savingRole === role}
-                                  checked={drafts[role]?.has(permission.key) ?? false}
-                                  onChange={() => toggle(role, permission.key)}
-                                  aria-label={`${permission.label} for ${roleLabel(role)}`}
+                                  disabled={!canManage || savingRoleId === role.id}
+                                  checked={drafts[role.id]?.has(permission.key) ?? false}
+                                  onChange={() => toggle(role.id, permission.key)}
+                                  aria-label={`${permission.label} for ${role.name}`}
                                 />
                               </span>
                             )}
@@ -228,16 +236,16 @@ export function RolePermissionsMatrix() {
 
         {canManage ? (
           <div className="rb-permission-matrix__actions">
-            {EDITABLE_ROLES.map((role) =>
+            {editableRoles.map((role) =>
               isDirty(role) ? (
                 <Button
-                  key={role}
+                  key={role.id}
                   type="button"
                   size="sm"
                   onClick={() => void save(role)}
-                  loading={savingRole === role}
+                  loading={savingRoleId === role.id}
                 >
-                  Save {roleLabel(role)} changes
+                  Save {role.name} changes
                 </Button>
               ) : null,
             )}
@@ -248,16 +256,6 @@ export function RolePermissionsMatrix() {
   );
 }
 
-function originalPermissions(
-  matrix: RoleMatrixResponse['data'],
-  role: OrganizationRole,
-): Set<PermissionKey> {
-  const entry = matrix.effective.find((item) => item.role === role);
-  return new Set(entry?.permissions ?? []);
-}
-
-function toDraftMap(matrix: RoleMatrixResponse['data']): Record<string, Set<PermissionKey>> {
-  return Object.fromEntries(
-    matrix.effective.map((entry) => [entry.role, new Set(entry.permissions)]),
-  );
+function toDraftMap(matrix: RoleListResponse['data']): Record<string, Set<PermissionKey>> {
+  return Object.fromEntries(matrix.roles.map((role) => [role.id, new Set(role.permissions)]));
 }

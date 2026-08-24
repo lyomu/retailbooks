@@ -40,7 +40,6 @@ export const sessionSummarySchema = z.object({
   current: z.boolean(),
 });
 
-export const organizationRoleSchema = z.enum(['OWNER', 'ADMIN', 'ACCOUNTANT', 'STAFF']);
 export const organizationStatusSchema = z.enum(['DRAFT', 'ACTIVE', 'SUSPENDED']);
 export const onboardingStepSchema = z.enum([
   'PROFILE',
@@ -64,15 +63,28 @@ export const businessTypeSchema = z.enum([
 export const permissionKeySchema = z.enum([
   'organization.view',
   'organization.update',
+  'organization.delete',
   'organization.finalize',
+  'organization.transfer_ownership',
   'members.view',
   'members.invite',
   'members.update',
   'members.remove',
+  'members.resend_invite',
   'invitations.view',
   'invitations.revoke',
   'roles.view',
+  'roles.create',
+  'roles.update',
+  'roles.delete',
+  'roles.assign',
   'roles.manage',
+  'settings.localization.manage',
+  'settings.currency.manage',
+  'settings.tax.manage',
+  'settings.fiscal.manage',
+  'settings.numbering.manage',
+  'settings.accounting.manage',
   'periods.view',
   'periods.manage',
   'periods.close',
@@ -80,15 +92,23 @@ export const permissionKeySchema = z.enum([
   'numbering.view',
   'numbering.manage',
   'accounts.view',
-  'accounts.manage',
+  'accounts.create',
+  'accounts.update',
+  'accounts.deactivate',
+  'accounts.opening_balances.manage',
   'journals.view',
   'journals.create',
   'journals.post',
   'journals.reverse',
+  'journals.approve',
   'reports.view',
   'tax.codes.view',
   'tax.codes.manage',
   'audit.view',
+  'audit.export',
+  'security.view',
+  'security.sessions.manage',
+  'security.mfa.manage',
 ]);
 
 export const organizationSummarySchema = z.object({
@@ -100,7 +120,8 @@ export const organizationSummarySchema = z.object({
   onboardingStep: onboardingStepSchema,
   countryCode: z.string().length(2),
   baseCurrency: z.string().length(3),
-  role: organizationRoleSchema,
+  /** The member's role name, e.g. "Administrator" or a custom role's name -- already display-ready. */
+  role: z.string().min(1),
   joinedAt: z.iso.datetime(),
   permissions: z.array(permissionKeySchema),
 });
@@ -139,7 +160,7 @@ export const organizationDetailSchema = z.object({
   onboardingStep: onboardingStepSchema,
   onboardingCompletedAt: z.iso.datetime().nullable(),
   createdAt: z.iso.datetime(),
-  role: organizationRoleSchema,
+  role: z.string().min(1),
   preferences: organizationPreferencesSchema.nullable(),
 });
 
@@ -148,7 +169,12 @@ export const organizationMemberSchema = z.object({
   userId: z.uuid(),
   displayName: z.string().min(1),
   email: z.email(),
-  role: organizationRoleSchema,
+  roleId: z.uuid(),
+  /** Stable key, e.g. `OWNER`, `ADMIN`, or a custom role's generated key. */
+  roleKey: z.string().min(1),
+  /** Display-ready name, e.g. "Administrator". */
+  roleName: z.string().min(1),
+  isOwnerRole: z.boolean(),
   status: z.enum(['ACTIVE', 'SUSPENDED']),
   emailVerified: z.boolean(),
   joinedAt: z.iso.datetime(),
@@ -157,7 +183,9 @@ export const organizationMemberSchema = z.object({
 export const organizationInvitationSchema = z.object({
   id: z.uuid(),
   email: z.email(),
-  role: organizationRoleSchema,
+  roleId: z.uuid(),
+  roleKey: z.string().min(1),
+  roleName: z.string().min(1),
   status: z.enum(['PENDING', 'ACCEPTED', 'REVOKED']),
   expiresAt: z.iso.datetime(),
   createdAt: z.iso.datetime(),
@@ -168,7 +196,8 @@ export const organizationInvitationSchema = z.object({
 
 export const invitationPreviewSchema = z.object({
   email: z.email(),
-  role: organizationRoleSchema,
+  /** Display-ready role name; there is no id to mutate by from an unauthenticated preview. */
+  role: z.string().min(1),
   expiresAt: z.iso.datetime(),
   organizationName: z.string().min(1),
   organizationReady: z.boolean(),
@@ -192,6 +221,7 @@ export const permissionDefinitionSchema = z.object({
     'Members',
     'Invitations',
     'Roles',
+    'Settings',
     'Periods',
     'Numbering',
     'Accounts',
@@ -199,31 +229,37 @@ export const permissionDefinitionSchema = z.object({
     'Reports',
     'Tax',
     'Audit',
+    'Security',
   ]),
   protected: z.boolean(),
 });
 
-export const rolePermissionOverrideSchema = z.object({
-  role: organizationRoleSchema,
-  permissionKey: permissionKeySchema,
-  granted: z.boolean(),
-  updatedAt: z.iso.datetime(),
-  updatedBy: z.string().min(1),
-});
-
-export const roleEffectivePermissionsSchema = z.object({
-  role: organizationRoleSchema,
-  overridable: z.boolean(),
+/**
+ * One organization-scoped role. Its `permissions` array is the role's complete, effective
+ * permission set -- there is no separate defaults/overrides distinction to reconcile, unlike the
+ * sparse-override model this replaced.
+ */
+export const roleSummarySchema = z.object({
+  id: z.uuid(),
+  key: z.string().min(1),
+  name: z.string().min(1),
+  description: z.string().nullable(),
+  isSystem: z.boolean(),
+  isOwnerRole: z.boolean(),
   permissions: z.array(permissionKeySchema),
 });
 
-export const roleMatrixResponseSchema = z.object({
+export const roleListResponseSchema = z.object({
   data: z.object({
+    roles: z.array(roleSummarySchema),
     catalog: z.array(permissionDefinitionSchema),
-    defaults: z.record(organizationRoleSchema, z.array(permissionKeySchema)),
-    overrides: z.array(rolePermissionOverrideSchema),
-    effective: z.array(roleEffectivePermissionsSchema),
   }),
+});
+
+export const roleResponseSchema = z.object({ data: roleSummarySchema });
+
+export const permissionCatalogResponseSchema = z.object({
+  data: z.array(permissionDefinitionSchema),
 });
 
 export const fiscalPeriodStatusSchema = z.enum(['OPEN', 'CLOSED', 'LOCKED']);
@@ -475,7 +511,6 @@ export type PublicUser = z.infer<typeof publicUserSchema>;
 export type SessionSummary = z.infer<typeof sessionSummarySchema>;
 export type ApiError = z.infer<typeof apiErrorSchema>;
 
-export type OrganizationRole = z.infer<typeof organizationRoleSchema>;
 export type OrganizationStatus = z.infer<typeof organizationStatusSchema>;
 export type OnboardingStep = z.infer<typeof onboardingStepSchema>;
 export type BusinessType = z.infer<typeof businessTypeSchema>;
@@ -488,9 +523,10 @@ export type InvitationPreview = z.infer<typeof invitationPreviewSchema>;
 
 export type PermissionKey = z.infer<typeof permissionKeySchema>;
 export type PermissionDefinition = z.infer<typeof permissionDefinitionSchema>;
-export type RolePermissionOverride = z.infer<typeof rolePermissionOverrideSchema>;
-export type RoleEffectivePermissions = z.infer<typeof roleEffectivePermissionsSchema>;
-export type RoleMatrixResponse = z.infer<typeof roleMatrixResponseSchema>;
+export type RoleSummary = z.infer<typeof roleSummarySchema>;
+export type RoleListResponse = z.infer<typeof roleListResponseSchema>;
+export type RoleResponse = z.infer<typeof roleResponseSchema>;
+export type PermissionCatalogResponse = z.infer<typeof permissionCatalogResponseSchema>;
 export type FiscalPeriodStatus = z.infer<typeof fiscalPeriodStatusSchema>;
 export type FiscalPeriod = z.infer<typeof fiscalPeriodSchema>;
 export type FiscalYear = z.infer<typeof fiscalYearSchema>;
@@ -552,7 +588,6 @@ export interface OrganizationReferenceData {
   locales: { code: string; name: string }[];
   chartTemplates: { code: string; name: string; description: string }[];
   businessTypes: { code: BusinessType; name: string }[];
-  roles: { code: OrganizationRole; name: string; description: string }[];
   accountingBases: { code: 'ACCRUAL' | 'CASH'; name: string; description: string }[];
   taxTreatments: { code: 'EXCLUSIVE' | 'INCLUSIVE'; name: string; description: string }[];
   numberingResets: { code: 'NEVER' | 'ANNUAL' | 'MONTHLY'; name: string }[];

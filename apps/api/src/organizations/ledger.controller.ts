@@ -46,7 +46,7 @@ export class LedgerController {
 
   @Post('accounts')
   @HttpCode(201)
-  @RequirePermission('accounts.manage')
+  @RequirePermission('accounts.create')
   async createAccount(@Body() input: CreateAccountDto, @Req() request: OrganizationRequest) {
     const metadata = requestMetadata(request, this.auth.pepper);
     return {
@@ -60,7 +60,7 @@ export class LedgerController {
   }
 
   @Patch('accounts/:accountId')
-  @RequirePermission('accounts.manage')
+  @RequirePermission('accounts.update')
   async updateAccount(
     @Param('accountId', new ParseUUIDPipe()) accountId: string,
     @Body() input: UpdateAccountDto,
@@ -80,7 +80,7 @@ export class LedgerController {
 
   @Delete('accounts/:accountId')
   @HttpCode(204)
-  @RequirePermission('accounts.manage')
+  @RequirePermission('accounts.deactivate')
   async archiveAccount(
     @Param('accountId', new ParseUUIDPipe()) accountId: string,
     @Req() request: OrganizationRequest,

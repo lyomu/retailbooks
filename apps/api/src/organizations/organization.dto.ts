@@ -3,13 +3,11 @@ import {
   BusinessType,
   MembershipStatus,
   NumberingReset,
-  OrganizationRole,
   TaxTreatment,
 } from '@prisma/client';
 import { Transform, Type } from 'class-transformer';
 import {
   ArrayMaxSize,
-  ArrayMinSize,
   IsArray,
   IsBoolean,
   IsEmail,
@@ -20,12 +18,13 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  IsUUID,
   Length,
   Matches,
   Max,
   MaxLength,
   Min,
-  ValidateNested,
+  MinLength,
 } from 'class-validator';
 
 import { PERMISSION_KEYS, type PermissionKey } from './permission-catalog.js';
@@ -211,13 +210,13 @@ export class InviteMemberDto {
   email!: string;
 
   /**
-   * Ownership is granted only by creating an organization; an invitation can never mint a second
-   * owner.
+   * Roles are organization-scoped rows rather than a closed set, so validity (does this role exist
+   * in this organization, and is it not the owner role) is checked in
+   * `RolesService.resolveAssignableRole`, not here. Ownership is granted only by creating an
+   * organization; an invitation can never mint a second owner.
    */
-  @IsIn([OrganizationRole.ADMIN, OrganizationRole.ACCOUNTANT, OrganizationRole.STAFF], {
-    message: 'role must be one of ADMIN, ACCOUNTANT, STAFF',
-  })
-  role!: OrganizationRole;
+  @IsUUID()
+  roleId!: string;
 }
 
 export class InvitationTokenDto {
@@ -227,33 +226,57 @@ export class InvitationTokenDto {
 }
 
 export class UpdateMemberDto {
-  /** The organization owner can never be set here — there is no grant path to OWNER after creation. */
+  /** The organization owner can never be set here — `resolveAssignableRole` rejects the owner role. */
   @IsOptional()
-  @IsIn([OrganizationRole.ADMIN, OrganizationRole.ACCOUNTANT, OrganizationRole.STAFF], {
-    message: 'role must be one of ADMIN, ACCOUNTANT, STAFF',
-  })
-  role?: OrganizationRole;
+  @IsUUID()
+  roleId?: string;
 
   @IsOptional()
   @IsEnum(MembershipStatus)
   status?: MembershipStatus;
 }
 
-export class PermissionChangeDto {
-  @IsIn(PERMISSION_KEYS)
-  permissionKey!: PermissionKey;
+export class CreateRoleDto {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(80)
+  @Transform(trim)
+  name!: string;
 
-  @IsBoolean()
-  granted!: boolean;
+  @IsOptional()
+  @IsString()
+  @MaxLength(240)
+  @Transform(trimOrUndefined)
+  description?: string;
+
+  /** The role's complete permission set, not a diff -- creating a role always states it in full. */
+  @IsArray()
+  @ArrayMaxSize(PERMISSION_KEYS.length)
+  @IsIn(PERMISSION_KEYS, { each: true })
+  permissions!: PermissionKey[];
 }
 
-export class UpdateRolePermissionsDto {
+export class UpdateRoleDto {
+  /** Rejected for system roles -- their name is what makes them recognizable across organizations. */
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(80)
+  @Transform(trim)
+  name?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(240)
+  @Transform(trimOrUndefined)
+  description?: string;
+
+  /** Replaces the role's permission set entirely when supplied; omit to leave it unchanged. */
+  @IsOptional()
   @IsArray()
-  @ArrayMinSize(1)
   @ArrayMaxSize(PERMISSION_KEYS.length)
-  @ValidateNested({ each: true })
-  @Type(() => PermissionChangeDto)
-  changes!: PermissionChangeDto[];
+  @IsIn(PERMISSION_KEYS, { each: true })
+  permissions?: PermissionKey[];
 }
 
 export class GenerateFiscalYearDto {

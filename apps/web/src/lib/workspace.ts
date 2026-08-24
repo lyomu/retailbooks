@@ -1,6 +1,11 @@
 'use client';
 
-import type { OrganizationSummary, PermissionKey, PublicUser } from '@retailbooks/contracts';
+import type {
+  OrganizationSummary,
+  PermissionKey,
+  PublicUser,
+  RoleSummary,
+} from '@retailbooks/contracts';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 
@@ -93,13 +98,43 @@ export function organizationDisplayName(organization: {
   return organization.tradingName ?? organization.legalName;
 }
 
-const ROLE_LABELS: Record<string, string> = {
-  OWNER: 'Owner',
-  ADMIN: 'Administrator',
-  ACCOUNTANT: 'Accountant',
-  STAFF: 'Staff',
-};
+/**
+ * Fetches the organization's roles for an invite or role-change select. Excludes the owner role --
+ * every caller of this hook is choosing a role to assign, and ownership is never assignable that
+ * way.
+ */
+export function useAssignableRoles(organizationId: string | null): {
+  roles: RoleSummary[];
+  loading: boolean;
+} {
+  const [roles, setRoles] = useState<RoleSummary[]>([]);
+  const [loading, setLoading] = useState(true);
 
-export function roleLabel(role: string): string {
-  return ROLE_LABELS[role] ?? role;
+  useEffect(() => {
+    if (!organizationId) {
+      setRoles([]);
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+
+    apiRequest<{ data: { roles: RoleSummary[] } }>(`/organizations/${organizationId}/roles`)
+      .then((response) => {
+        if (cancelled) return;
+        setRoles(response.data.roles.filter((role) => !role.isOwnerRole));
+      })
+      .catch(() => {
+        if (!cancelled) setRoles([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [organizationId]);
+
+  return { roles, loading };
 }

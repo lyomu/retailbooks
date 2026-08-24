@@ -26,6 +26,7 @@ import { RequirePermission, type OrganizationRequest } from './organization-cont
 import { ACTIVE_ORGANIZATION_COOKIE, setActiveOrganizationCookie } from './organization-cookie.js';
 import {
   CreateOrganizationDto,
+  CreateRoleDto,
   GenerateFiscalYearDto,
   InvitationTokenDto,
   InviteMemberDto,
@@ -33,11 +34,12 @@ import {
   UpdateJournalNumberingDto,
   UpdateMemberDto,
   UpdateOrganizationDto,
-  UpdateRolePermissionsDto,
+  UpdateRoleDto,
 } from './organization.dto.js';
 import { OrganizationGuard } from './organization.guard.js';
 import { OrganizationService } from './organization.service.js';
-import { PermissionsService } from './permissions.service.js';
+import { PERMISSION_CATALOG } from './permission-catalog.js';
+import { RolesService } from './roles.service.js';
 
 @Controller('organizations')
 @UseGuards(SessionGuard)
@@ -45,7 +47,7 @@ export class OrganizationsController {
   constructor(
     private readonly organizations: OrganizationService,
     private readonly members: OrganizationMembersService,
-    private readonly permissions: PermissionsService,
+    private readonly roles: RolesService,
     private readonly periods: FiscalPeriodsService,
     private readonly numbering: DocumentNumberingService,
     private readonly auth: AuthService,
@@ -218,28 +220,61 @@ export class OrganizationsController {
   @Get(':organizationId/roles')
   @UseGuards(OrganizationGuard)
   @RequirePermission('roles.view')
-  async roleMatrix(@Req() request: OrganizationRequest) {
-    return { data: await this.permissions.getRoleMatrix(request.organization.id) };
+  async listRoles(@Req() request: OrganizationRequest) {
+    return { data: await this.roles.listRoles(request.organization.id) };
   }
 
-  @Patch(':organizationId/roles/:role')
+  @Post(':organizationId/roles')
+  @HttpCode(201)
+  @UseGuards(OrganizationGuard)
+  @RequirePermission('roles.create')
+  async createRole(@Body() input: CreateRoleDto, @Req() request: OrganizationRequest) {
+    const metadata = requestMetadata(request, this.auth.pepper);
+    return {
+      data: await this.roles.createRole(
+        request.organization.id,
+        request.auth.user,
+        input,
+        metadata,
+      ),
+    };
+  }
+
+  /**
+   * Renaming a custom role and changing any role's permission set are both gated by `roles.manage`
+   * rather than split across `roles.update`/`roles.manage`, matching this API's existing convention
+   * of one permission key per handler.
+   */
+  @Patch(':organizationId/roles/:roleId')
   @UseGuards(OrganizationGuard)
   @RequirePermission('roles.manage')
-  async updateRolePermissions(
-    @Param('role') role: string,
-    @Body() input: UpdateRolePermissionsDto,
+  async updateRole(
+    @Param('roleId', new ParseUUIDPipe()) roleId: string,
+    @Body() input: UpdateRoleDto,
     @Req() request: OrganizationRequest,
   ) {
     const metadata = requestMetadata(request, this.auth.pepper);
     return {
-      data: await this.permissions.updateRolePermissions(
+      data: await this.roles.updateRole(
         request.organization.id,
-        role,
-        input.changes,
+        roleId,
         request.auth.user,
+        input,
         metadata,
       ),
     };
+  }
+
+  @Delete(':organizationId/roles/:roleId')
+  @HttpCode(204)
+  @UseGuards(OrganizationGuard)
+  @RequirePermission('roles.delete')
+  async deleteRole(
+    @Param('roleId', new ParseUUIDPipe()) roleId: string,
+    @Req() request: OrganizationRequest,
+  ) {
+    const metadata = requestMetadata(request, this.auth.pepper);
+    await this.roles.deleteRole(request.organization.id, roleId, request.auth.user, metadata);
   }
 
   @Get(':organizationId/periods')
@@ -415,5 +450,18 @@ export class InvitationsController {
     );
     setActiveOrganizationCookie(response, result.organizationId);
     return { data: result };
+  }
+}
+
+/**
+ * The permission catalog is global, not organization-scoped -- what a permission key means is the
+ * same everywhere, only which roles hold it varies -- so this needs no `OrganizationGuard`.
+ */
+@Controller('permissions')
+@UseGuards(SessionGuard)
+export class PermissionsController {
+  @Get()
+  list() {
+    return { data: PERMISSION_CATALOG };
   }
 }

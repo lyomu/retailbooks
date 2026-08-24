@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { DEFAULT_ROLE_PERMISSIONS, PERMISSION_KEYS } from '../src/organizations/permission-catalog';
 import { starterChartForTemplate } from '../src/organizations/ledger-starter-chart';
+import { SYSTEM_ROLE_TEMPLATES } from '../src/organizations/roles-catalog';
 
 describe('starterChartForTemplate', () => {
   it('seeds a broad general-business starter chart', () => {
@@ -36,12 +36,23 @@ describe('starterChartForTemplate', () => {
 });
 
 describe('ledger permission defaults', () => {
-  it('grants owner every current key and keeps chart management away from accountant/staff', () => {
-    expect(DEFAULT_ROLE_PERMISSIONS.OWNER).toEqual(PERMISSION_KEYS);
-    expect(DEFAULT_ROLE_PERMISSIONS.ADMIN).toContain('accounts.manage');
-    expect(DEFAULT_ROLE_PERMISSIONS.ACCOUNTANT).not.toContain('accounts.manage');
-    expect(DEFAULT_ROLE_PERMISSIONS.STAFF).not.toContain('accounts.manage');
-    expect(DEFAULT_ROLE_PERMISSIONS.ACCOUNTANT).toContain('journals.post');
-    expect(DEFAULT_ROLE_PERMISSIONS.STAFF).toContain('journals.view');
+  it('grants owner every current key and keeps chart management away from accountant/viewer', () => {
+    const owner = SYSTEM_ROLE_TEMPLATES.find((t) => t.key === 'OWNER');
+    const admin = SYSTEM_ROLE_TEMPLATES.find((t) => t.key === 'ADMIN');
+    const accountant = SYSTEM_ROLE_TEMPLATES.find((t) => t.key === 'ACCOUNTANT');
+    const viewer = SYSTEM_ROLE_TEMPLATES.find((t) => t.key === 'VIEWER');
+
+    // The owner template's own permissions list is ignored at seed time -- RolesService.
+    // seedSystemRoles always grants it the full catalog regardless -- so what is asserted here is
+    // that the owner template is flagged correctly, the seeding behavior itself is proven in the
+    // system-accounts integration suite.
+    expect(owner?.isOwnerRole).toBe(true);
+    expect(admin?.permissions).toContain('accounts.create');
+    expect(admin?.permissions).toContain('accounts.update');
+    expect(admin?.permissions).toContain('accounts.deactivate');
+    expect(accountant?.permissions).not.toContain('accounts.create');
+    expect(viewer?.permissions).not.toContain('accounts.create');
+    expect(accountant?.permissions).toContain('journals.post');
+    expect(viewer?.permissions).toContain('journals.view');
   });
 });

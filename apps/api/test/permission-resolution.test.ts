@@ -1,113 +1,118 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  DEFAULT_ROLE_PERMISSIONS,
   PERMISSION_CATALOG,
   PERMISSION_KEYS,
+  PROTECTED_PERMISSION_KEYS,
 } from '../src/organizations/permission-catalog';
 import {
+  assertNotProtected,
   canChangeMemberRole,
   canRemoveMember,
-  effectivePermissions,
+  ProtectedPermissionError,
 } from '../src/organizations/permission-resolution';
+import { SYSTEM_ROLE_TEMPLATES } from '../src/organizations/roles-catalog';
 
-describe('effectivePermissions', () => {
-  it('grants OWNER every catalog key regardless of overrides', () => {
-    const permissions = effectivePermissions('OWNER', [
-      { permissionKey: 'organization.view', granted: false },
-      { permissionKey: 'roles.manage', granted: false },
-    ]);
-
-    for (const key of PERMISSION_KEYS) {
-      expect(permissions.has(key)).toBe(true);
-    }
+describe('SYSTEM_ROLE_TEMPLATES', () => {
+  it('defines exactly the eight roles the specification requires', () => {
+    expect(SYSTEM_ROLE_TEMPLATES.map((template) => template.key).sort()).toEqual(
+      [
+        'ACCOUNTANT',
+        'ADMIN',
+        'INVENTORY_MANAGER',
+        'OWNER',
+        'PROJECT_MANAGER',
+        'PURCHASES',
+        'SALES',
+        'VIEWER',
+      ].sort(),
+    );
   });
 
-  it('matches the catalog default for ADMIN with no overrides', () => {
-    const permissions = effectivePermissions('ADMIN', []);
-    expect(Array.from(permissions).sort()).toEqual([...DEFAULT_ROLE_PERMISSIONS.ADMIN].sort());
+  it('marks exactly one template as the owner role', () => {
+    const owners = SYSTEM_ROLE_TEMPLATES.filter((template) => template.isOwnerRole);
+    expect(owners.map((o) => o.key)).toEqual(['OWNER']);
   });
 
-  it('matches the catalog default for STAFF with no overrides', () => {
-    const permissions = effectivePermissions('STAFF', []);
-    expect(Array.from(permissions).sort()).toEqual([...DEFAULT_ROLE_PERMISSIONS.STAFF].sort());
-  });
-
-  it('grants an extra key via override without disturbing the rest of the default set', () => {
-    const permissions = effectivePermissions('STAFF', [
-      { permissionKey: 'members.invite', granted: true },
-    ]);
-
-    expect(permissions.has('members.invite')).toBe(true);
-    for (const key of DEFAULT_ROLE_PERMISSIONS.STAFF) {
-      expect(permissions.has(key)).toBe(true);
-    }
-  });
-
-  it('revokes a default key via override without disturbing the rest of the default set', () => {
-    const permissions = effectivePermissions('ADMIN', [
-      { permissionKey: 'members.remove', granted: false },
-    ]);
-
-    expect(permissions.has('members.remove')).toBe(false);
-    for (const key of DEFAULT_ROLE_PERMISSIONS.ADMIN) {
-      if (key !== 'members.remove') expect(permissions.has(key)).toBe(true);
-    }
-  });
-
-  it('ignores an override that targets a protected key', () => {
-    const grantAttempt = effectivePermissions('ADMIN', [
-      { permissionKey: 'roles.manage', granted: true },
-    ]);
-    expect(grantAttempt.has('roles.manage')).toBe(false);
-
-    const revokeAttempt = effectivePermissions('OWNER', [
-      { permissionKey: 'organization.finalize', granted: false },
-    ]);
-    expect(revokeAttempt.has('organization.finalize')).toBe(true);
-  });
-
-  it('ignores an override naming a key outside the current catalog', () => {
-    expect(() =>
-      effectivePermissions('STAFF', [{ permissionKey: 'banking.reconcile', granted: true }]),
-    ).not.toThrow();
-
-    const permissions = effectivePermissions('STAFF', [
-      { permissionKey: 'banking.reconcile', granted: true },
-    ]);
-    expect(Array.from(permissions).sort()).toEqual([...DEFAULT_ROLE_PERMISSIONS.STAFF].sort());
-  });
-
-  it('never lets a non-OWNER default set include a protected key', () => {
-    for (const role of ['ADMIN', 'ACCOUNTANT', 'STAFF'] as const) {
-      for (const key of DEFAULT_ROLE_PERMISSIONS[role]) {
-        const definition = PERMISSION_CATALOG.find((permission) => permission.key === key);
-        expect(definition?.protected).toBe(false);
+  it('never lets a non-owner template list a protected key', () => {
+    for (const template of SYSTEM_ROLE_TEMPLATES) {
+      if (template.isOwnerRole) continue;
+      for (const key of template.permissions) {
+        expect(PROTECTED_PERMISSION_KEYS.has(key)).toBe(false);
       }
+    }
+  });
+
+  it('lists only permission keys that exist in the current catalog', () => {
+    for (const template of SYSTEM_ROLE_TEMPLATES) {
+      for (const key of template.permissions) {
+        expect((PERMISSION_KEYS as readonly string[]).includes(key)).toBe(true);
+      }
+    }
+  });
+
+  it('keeps each template free of duplicate keys', () => {
+    for (const template of SYSTEM_ROLE_TEMPLATES) {
+      expect(new Set(template.permissions).size).toBe(template.permissions.length);
+    }
+  });
+
+  it('gives every non-owner role only organization.view or a documented, broader read set', () => {
+    const admin = SYSTEM_ROLE_TEMPLATES.find((t) => t.key === 'ADMIN');
+    const accountant = SYSTEM_ROLE_TEMPLATES.find((t) => t.key === 'ACCOUNTANT');
+    const viewer = SYSTEM_ROLE_TEMPLATES.find((t) => t.key === 'VIEWER');
+
+    expect(admin?.permissions).toContain('accounts.create');
+    expect(admin?.permissions).toContain('accounts.update');
+    expect(admin?.permissions).toContain('accounts.deactivate');
+    expect(accountant?.permissions).not.toContain('accounts.create');
+    expect(accountant?.permissions).toContain('journals.post');
+    expect(viewer?.permissions).toContain('audit.view');
+    expect(viewer?.permissions).toContain('reports.view');
+  });
+
+  it('gives the four Phase-1-minimal roles only organization.view', () => {
+    for (const key of ['SALES', 'PURCHASES', 'INVENTORY_MANAGER', 'PROJECT_MANAGER'] as const) {
+      const template = SYSTEM_ROLE_TEMPLATES.find((t) => t.key === key);
+      expect(template?.permissions).toEqual(['organization.view']);
+    }
+  });
+});
+
+describe('assertNotProtected', () => {
+  it('rejects every protected key', () => {
+    for (const key of PERMISSION_CATALOG.filter((p) => p.protected).map((p) => p.key)) {
+      expect(() => assertNotProtected(key)).toThrow(ProtectedPermissionError);
+    }
+  });
+
+  it('accepts every unprotected key without throwing', () => {
+    for (const key of PERMISSION_CATALOG.filter((p) => !p.protected).map((p) => p.key)) {
+      expect(() => assertNotProtected(key)).not.toThrow();
     }
   });
 });
 
 describe('canChangeMemberRole', () => {
-  it('rejects OWNER as the current role', () => {
-    expect(canChangeMemberRole('OWNER', 'ADMIN')).toBe(false);
+  it('rejects the owner role as the current role', () => {
+    expect(canChangeMemberRole(true, false)).toBe(false);
   });
 
-  it('rejects OWNER as the requested role', () => {
-    expect(canChangeMemberRole('ADMIN', 'OWNER')).toBe(false);
+  it('rejects the owner role as the requested role', () => {
+    expect(canChangeMemberRole(false, true)).toBe(false);
   });
 
-  it('allows a change between non-owner roles', () => {
-    expect(canChangeMemberRole('ADMIN', 'STAFF')).toBe(true);
+  it('allows a change between two non-owner roles', () => {
+    expect(canChangeMemberRole(false, false)).toBe(true);
   });
 });
 
 describe('canRemoveMember', () => {
-  it('rejects OWNER', () => {
-    expect(canRemoveMember('OWNER')).toBe(false);
+  it('rejects the owner role', () => {
+    expect(canRemoveMember(true)).toBe(false);
   });
 
   it('allows removing a non-owner member', () => {
-    expect(canRemoveMember('STAFF')).toBe(true);
+    expect(canRemoveMember(false)).toBe(true);
   });
 });

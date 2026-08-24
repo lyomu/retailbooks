@@ -11,8 +11,12 @@ import { OrganizationAccessService } from './organization-access.service.js';
 import { OrganizationMembersService } from './organization-members.service.js';
 import { OrganizationGuard } from './organization.guard.js';
 import { OrganizationService } from './organization.service.js';
-import { InvitationsController, OrganizationsController } from './organizations.controller.js';
-import { PermissionsService } from './permissions.service.js';
+import {
+  InvitationsController,
+  OrganizationsController,
+  PermissionsController,
+} from './organizations.controller.js';
+import { RolesService } from './roles.service.js';
 import { TaxController } from './tax.controller.js';
 import { TaxService } from './tax.service.js';
 
@@ -21,6 +25,7 @@ import { TaxService } from './tax.service.js';
   controllers: [
     OrganizationsController,
     InvitationsController,
+    PermissionsController,
     LedgerController,
     TaxController,
     AuditLogController,
@@ -28,7 +33,7 @@ import { TaxService } from './tax.service.js';
   providers: [
     OrganizationService,
     OrganizationMembersService,
-    PermissionsService,
+    RolesService,
     FiscalPeriodsService,
     DocumentNumberingService,
     LedgerService,

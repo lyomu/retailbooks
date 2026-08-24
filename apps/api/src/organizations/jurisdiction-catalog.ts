@@ -405,30 +405,6 @@ export const businessTypes: readonly { code: string; name: string }[] = Object.f
   { code: 'OTHER', name: 'Other' },
 ]);
 
-export const organizationRoles: readonly { code: string; name: string; description: string }[] =
-  Object.freeze([
-    {
-      code: 'OWNER',
-      name: 'Owner',
-      description: 'Full control, including organization settings and finalization.',
-    },
-    {
-      code: 'ADMIN',
-      name: 'Administrator',
-      description: 'Manages the team, settings, and day-to-day accounting operations.',
-    },
-    {
-      code: 'ACCOUNTANT',
-      name: 'Accountant',
-      description: 'Works with journals, periods, taxes, and reporting.',
-    },
-    {
-      code: 'STAFF',
-      name: 'Staff',
-      description: 'Limited operational access for everyday recording tasks.',
-    },
-  ]);
-
 const countriesByCode = new Map(countries.map((country) => [country.code, country]));
 const packsByCode = new Map(countryPacks.map((pack) => [pack.code, pack]));
 const currencyCodes = new Set(currencies.map((currency) => currency.code));
@@ -479,7 +455,6 @@ export const referenceData = Object.freeze({
   locales,
   chartTemplates,
   businessTypes,
-  roles: organizationRoles,
   accountingBases: [
     {
       code: 'ACCRUAL',

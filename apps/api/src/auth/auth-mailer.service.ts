@@ -58,20 +58,20 @@ export class AuthMailerService {
     email: string;
     organizationName: string;
     inviterName: string;
-    role: string;
+    /** Human-readable role name, e.g. "Administrator" or "Sales" -- the role's own `name` column. */
+    roleName: string;
     token: string;
     expiresAt: Date;
   }): Promise<void> {
     const url = `${this.webUrl}/accept-invitation?token=${encodeURIComponent(invitation.token)}`;
-    const roleLabel = describeRole(invitation.role);
     const expiry = invitation.expiresAt.toISOString().slice(0, 10);
     await this.send({
       to: invitation.email,
       subject: `Join ${invitation.organizationName} on RetailBooks`,
-      text: `${invitation.inviterName} invited you to join ${invitation.organizationName} on RetailBooks as ${roleLabel}.\n\nAccept the invitation:\n${url}\n\nThis invitation expires on ${expiry}. If you were not expecting it, you can ignore this email.`,
+      text: `${invitation.inviterName} invited you to join ${invitation.organizationName} on RetailBooks as ${invitation.roleName}.\n\nAccept the invitation:\n${url}\n\nThis invitation expires on ${expiry}. If you were not expecting it, you can ignore this email.`,
       html: this.template(
         `Join ${escapeHtml(invitation.organizationName)}`,
-        `${escapeHtml(invitation.inviterName)} invited you to work in ${escapeHtml(invitation.organizationName)} on RetailBooks as <strong>${escapeHtml(roleLabel)}</strong>.`,
+        `${escapeHtml(invitation.inviterName)} invited you to work in ${escapeHtml(invitation.organizationName)} on RetailBooks as <strong>${escapeHtml(invitation.roleName)}</strong>.`,
         'Accept invitation',
         url,
         `This invitation expires on ${expiry} and can only be used once.`,
@@ -103,16 +103,6 @@ export class AuthMailerService {
   ): string {
     return `<!doctype html><html><body style="margin:0;background:#f6f8fb;font-family:Arial,sans-serif;color:#061c3d"><table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td style="padding:32px 16px"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;margin:auto;background:#fff;border:1px solid #dfe6ef;border-radius:14px"><tr><td style="padding:28px"><div style="font-weight:700;font-size:18px;margin-bottom:28px">RetailBooks</div><h1 style="font-size:26px;line-height:1.2;margin:0 0 12px">${escapeHtml(title)}</h1><p style="color:#526681;line-height:1.6;margin:0 0 24px">${copy}</p><a href="${escapeHtml(url)}" style="display:inline-block;background:#0879e8;color:#fff;text-decoration:none;font-weight:700;padding:12px 18px;border-radius:9px">${escapeHtml(button)}</a><p style="color:#718096;font-size:13px;line-height:1.5;margin:24px 0 0">${escapeHtml(footnote)}</p></td></tr></table></td></tr></table></body></html>`;
   }
-}
-
-function describeRole(role: string): string {
-  const labels: Record<string, string> = {
-    OWNER: 'an owner',
-    ADMIN: 'an administrator',
-    ACCOUNTANT: 'an accountant',
-    STAFF: 'a staff member',
-  };
-  return labels[role] ?? 'a team member';
 }
 
 function escapeHtml(value: string): string {

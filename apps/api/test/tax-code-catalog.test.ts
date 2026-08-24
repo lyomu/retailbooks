@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { DEFAULT_ROLE_PERMISSIONS, PERMISSION_KEYS } from '../src/organizations/permission-catalog';
 import { starterTaxCodesForCountryPack } from '../src/organizations/tax-code-catalog';
+import { SYSTEM_ROLE_TEMPLATES } from '../src/organizations/roles-catalog';
 
 describe('starterTaxCodesForCountryPack', () => {
   it('seeds Kenya standard, zero-rated, and exempt VAT codes', () => {
@@ -36,10 +36,15 @@ describe('starterTaxCodesForCountryPack', () => {
 
 describe('tax permission defaults', () => {
   it('adds tax.codes.* keys without disturbing existing owner totality', () => {
-    expect(DEFAULT_ROLE_PERMISSIONS.OWNER).toEqual(PERMISSION_KEYS);
-    expect(DEFAULT_ROLE_PERMISSIONS.ADMIN).toContain('tax.codes.manage');
-    expect(DEFAULT_ROLE_PERMISSIONS.ACCOUNTANT).toContain('tax.codes.manage');
-    expect(DEFAULT_ROLE_PERMISSIONS.STAFF).toContain('tax.codes.view');
-    expect(DEFAULT_ROLE_PERMISSIONS.STAFF).not.toContain('tax.codes.manage');
+    const owner = SYSTEM_ROLE_TEMPLATES.find((t) => t.key === 'OWNER');
+    const admin = SYSTEM_ROLE_TEMPLATES.find((t) => t.key === 'ADMIN');
+    const accountant = SYSTEM_ROLE_TEMPLATES.find((t) => t.key === 'ACCOUNTANT');
+    const viewer = SYSTEM_ROLE_TEMPLATES.find((t) => t.key === 'VIEWER');
+
+    expect(owner?.isOwnerRole).toBe(true);
+    expect(admin?.permissions).toContain('tax.codes.manage');
+    expect(accountant?.permissions).toContain('tax.codes.manage');
+    expect(viewer?.permissions).toContain('tax.codes.view');
+    expect(viewer?.permissions).not.toContain('tax.codes.manage');
   });
 });

@@ -3,7 +3,7 @@ import { MembershipStatus, OrganizationStatus } from '@prisma/client';
 
 import { PrismaService } from '../database/prisma.service.js';
 import type { OrganizationContext } from './organization-context.js';
-import { PermissionsService } from './permissions.service.js';
+import { isPermissionKey } from './permission-catalog.js';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -21,10 +21,7 @@ const NOT_FOUND = 'Organization not found.';
  */
 @Injectable()
 export class OrganizationAccessService {
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly permissions: PermissionsService,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   async requireMembership(userId: string, organizationId: string): Promise<OrganizationContext> {
     if (!UUID_PATTERN.test(organizationId)) throw new NotFoundException(NOT_FOUND);
@@ -34,6 +31,15 @@ export class OrganizationAccessService {
       include: {
         organization: {
           select: { id: true, legalName: true, slug: true, status: true, onboardingStep: true },
+        },
+        role: {
+          select: {
+            id: true,
+            key: true,
+            name: true,
+            isOwnerRole: true,
+            permissions: { select: { permissionKey: true } },
+          },
         },
       },
     });
@@ -45,19 +51,23 @@ export class OrganizationAccessService {
       throw new ForbiddenException('This organization is suspended.');
     }
 
-    const permissions = await this.permissions.resolveEffectivePermissions(
-      membership.organization.id,
-      membership.role,
-    );
-
     return {
       id: membership.organization.id,
       legalName: membership.organization.legalName,
       slug: membership.organization.slug,
       status: membership.organization.status,
       onboardingStep: membership.organization.onboardingStep,
-      role: membership.role,
-      permissions,
+      role: {
+        id: membership.role.id,
+        key: membership.role.key,
+        name: membership.role.name,
+        isOwnerRole: membership.role.isOwnerRole,
+      },
+      permissions: new Set(
+        membership.role.permissions
+          .map((permission) => permission.permissionKey)
+          .filter(isPermissionKey),
+      ),
     };
   }
 

@@ -11,7 +11,6 @@ import {
   InvitationStatus,
   MembershipStatus,
   OnboardingStep,
-  OrganizationRole,
   OrganizationStatus,
   type Prisma,
 } from '@prisma/client';
@@ -31,13 +30,13 @@ import {
 } from './jurisdiction-catalog.js';
 import { LedgerService } from './ledger.service.js';
 import { OrganizationAccessService } from './organization-access.service.js';
-import type { OrganizationContext } from './organization-context.js';
+import type { MemberRole, OrganizationContext } from './organization-context.js';
 import type {
   CreateOrganizationDto,
   OrganizationSection,
   UpdateOrganizationDto,
 } from './organization.dto.js';
-import { PermissionsService } from './permissions.service.js';
+import { RolesService } from './roles.service.js';
 
 /** Wizard order. A saved section advances the draft, never rewinds it. */
 const ONBOARDING_ORDER: readonly OnboardingStep[] = [
@@ -90,7 +89,7 @@ export class OrganizationService {
     private readonly prisma: PrismaService,
     private readonly access: OrganizationAccessService,
     private readonly mailer: AuthMailerService,
-    private readonly permissions: PermissionsService,
+    private readonly roles: RolesService,
     private readonly ledger: LedgerService,
   ) {}
 
@@ -99,8 +98,10 @@ export class OrganizationService {
       where: { userId, status: MembershipStatus.ACTIVE },
       orderBy: { joinedAt: 'asc' },
       select: {
-        role: true,
         joinedAt: true,
+        role: {
+          select: { name: true, permissions: { select: { permissionKey: true } } },
+        },
         organization: {
           select: {
             id: true,
@@ -116,18 +117,11 @@ export class OrganizationService {
       },
     });
 
-    const permissionsByOrg = await this.permissions.resolveEffectivePermissionsBatch(
-      memberships.map((membership) => ({
-        organizationId: membership.organization.id,
-        role: membership.role,
-      })),
-    );
-
     const organizations = memberships.map((membership) => ({
       ...membership.organization,
-      role: membership.role,
+      role: membership.role.name,
       joinedAt: membership.joinedAt.toISOString(),
-      permissions: Array.from(permissionsByOrg.get(membership.organization.id) ?? []),
+      permissions: membership.role.permissions.map((permission) => permission.permissionKey),
     }));
 
     return {
@@ -154,7 +148,7 @@ export class OrganizationService {
     const draftCount = await this.prisma.organization.count({
       where: {
         status: OrganizationStatus.DRAFT,
-        members: { some: { userId: user.id, role: OrganizationRole.OWNER } },
+        members: { some: { userId: user.id, role: { isOwnerRole: true } } },
       },
     });
     if (draftCount >= 3) {
@@ -163,48 +157,63 @@ export class OrganizationService {
       );
     }
 
-    const organization = await this.prisma.$transaction(async (tx) => {
-      const created = await tx.organization.create({
-        data: {
-          legalName: input.legalName,
-          ...(input.tradingName ? { tradingName: input.tradingName } : {}),
-          slug: await uniqueSlug(tx, input.legalName),
-          businessType: input.businessType,
+    const { organization, ownerRole } = await this.prisma.$transaction(
+      async (
+        tx,
+      ): Promise<{
+        organization: OrganizationDetailRow;
+        ownerRole: { id: string; key: string; name: string; isOwnerRole: boolean };
+      }> => {
+        const created = await tx.organization.create({
+          data: {
+            legalName: input.legalName,
+            ...(input.tradingName ? { tradingName: input.tradingName } : {}),
+            slug: await uniqueSlug(tx, input.legalName),
+            businessType: input.businessType,
+            countryCode: country.code,
+            baseCurrency: country.defaultCurrency,
+            timeZone: country.defaultTimeZone,
+            locale: country.defaultLocale,
+            fiscalYearStartMonth: country.defaultFiscalStartMonth,
+            fiscalYearStartDay: country.defaultFiscalStartDay,
+            status: OrganizationStatus.DRAFT,
+            onboardingStep: OnboardingStep.JURISDICTION,
+            createdByUserId: user.id,
+            preferences: {
+              create: {
+                countryPackCode: country.countryPackCode,
+                countryPackVersion: country.countryPackVersion,
+                journalPrefix: 'JRN',
+              },
+            },
+          },
+          select: organizationDetailSelect,
+        });
+
+        // Roles must exist before the owner membership can reference one -- roleId is a required
+        // foreign key, so this cannot be deferred to first read the way the starter chart is.
+        const seededRoles = await this.roles.seedSystemRoles(tx, created.id);
+        const owner = seededRoles.get('OWNER');
+        if (!owner) throw new Error('Owner role was not seeded.');
+
+        await tx.organizationMember.create({
+          data: {
+            organizationId: created.id,
+            userId: user.id,
+            roleId: owner.id,
+            status: MembershipStatus.ACTIVE,
+          },
+        });
+
+        await this.event(tx, user.id, created.id, 'organization.created', metadata, {
           countryCode: country.code,
-          baseCurrency: country.defaultCurrency,
-          timeZone: country.defaultTimeZone,
-          locale: country.defaultLocale,
-          fiscalYearStartMonth: country.defaultFiscalStartMonth,
-          fiscalYearStartDay: country.defaultFiscalStartDay,
-          status: OrganizationStatus.DRAFT,
-          onboardingStep: OnboardingStep.JURISDICTION,
-          createdByUserId: user.id,
-          members: {
-            create: {
-              userId: user.id,
-              role: OrganizationRole.OWNER,
-              status: MembershipStatus.ACTIVE,
-            },
-          },
-          preferences: {
-            create: {
-              countryPackCode: country.countryPackCode,
-              countryPackVersion: country.countryPackVersion,
-              journalPrefix: 'JRN',
-            },
-          },
-        },
-        select: organizationDetailSelect,
-      });
+        });
 
-      await this.event(tx, user.id, created.id, 'organization.created', metadata, {
-        countryCode: country.code,
-      });
+        return { organization: created, ownerRole: owner };
+      },
+    );
 
-      return created;
-    });
-
-    return toOrganizationDetail(organization, OrganizationRole.OWNER);
+    return toOrganizationDetail(organization, ownerRole);
   }
 
   async detail(context: OrganizationContext) {
@@ -377,7 +386,7 @@ export class OrganizationService {
       const owner = await tx.organizationMember.findFirst({
         where: {
           organizationId: context.id,
-          role: OrganizationRole.OWNER,
+          role: { isOwnerRole: true },
           status: MembershipStatus.ACTIVE,
         },
         select: { id: true },
@@ -415,7 +424,7 @@ export class OrganizationService {
           status: InvitationStatus.PENDING,
           notifiedAt: null,
         },
-        select: { id: true, email: true, role: true },
+        select: { id: true, email: true },
       });
       if (pending.length > 0) {
         await tx.organizationInvitation.updateMany({
@@ -449,9 +458,9 @@ export class OrganizationService {
       where: { tokenHash: hashToken(rawToken) },
       select: {
         email: true,
-        role: true,
         status: true,
         expiresAt: true,
+        role: { select: { name: true } },
         organization: { select: { legalName: true, tradingName: true, status: true } },
       },
     });
@@ -471,7 +480,7 @@ export class OrganizationService {
 
     return {
       email: invitation.email,
-      role: invitation.role,
+      role: invitation.role.name,
       expiresAt: invitation.expiresAt.toISOString(),
       organizationName: invitation.organization.tradingName ?? invitation.organization.legalName,
       organizationReady: invitation.organization.status === OrganizationStatus.ACTIVE,
@@ -486,10 +495,11 @@ export class OrganizationService {
       select: {
         id: true,
         email: true,
-        role: true,
         status: true,
         expiresAt: true,
         organizationId: true,
+        roleId: true,
+        role: { select: { name: true } },
         organization: { select: { legalName: true, status: true } },
       },
     });
@@ -532,7 +542,7 @@ export class OrganizationService {
         create: {
           organizationId: invitation.organizationId,
           userId: user.id,
-          role: invitation.role,
+          roleId: invitation.roleId,
           status: MembershipStatus.ACTIVE,
         },
         update: { status: MembershipStatus.ACTIVE },
@@ -544,14 +554,14 @@ export class OrganizationService {
         invitation.organizationId,
         'organization.invitation_accepted',
         metadata,
-        { role: invitation.role },
+        { role: invitation.role.name },
       );
     });
 
     return {
       organizationId: invitation.organizationId,
       organizationName: invitation.organization.legalName,
-      role: invitation.role,
+      role: invitation.role.name,
     };
   }
 
@@ -564,14 +574,14 @@ export class OrganizationService {
     const invitation = await this.prisma.organizationInvitation.update({
       where: { id: invitationId },
       data: { tokenHash: hashToken(rawToken), notifiedAt: new Date() },
-      select: { email: true, role: true, expiresAt: true },
+      select: { email: true, expiresAt: true, role: { select: { name: true } } },
     });
 
     await this.mailer.sendOrganizationInvitation({
       email: invitation.email,
       organizationName,
       inviterName: inviter.displayName,
-      role: invitation.role,
+      roleName: invitation.role.name,
       token: rawToken,
       expiresAt: invitation.expiresAt,
     });
@@ -623,7 +633,7 @@ function missingFinalizationFields(organization: OrganizationDetailRow): string[
   return missing;
 }
 
-function toOrganizationDetail(organization: OrganizationDetailRow, role: OrganizationRole) {
+function toOrganizationDetail(organization: OrganizationDetailRow, role: MemberRole) {
   const preferences = organization.preferences;
   return {
     id: organization.id,
@@ -641,7 +651,7 @@ function toOrganizationDetail(organization: OrganizationDetailRow, role: Organiz
     onboardingStep: organization.onboardingStep,
     onboardingCompletedAt: organization.onboardingCompletedAt?.toISOString() ?? null,
     createdAt: organization.createdAt.toISOString(),
-    role,
+    role: role.name,
     preferences: preferences
       ? {
           accountingBasis: preferences.accountingBasis,

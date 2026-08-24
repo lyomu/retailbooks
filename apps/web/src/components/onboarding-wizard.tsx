@@ -24,7 +24,7 @@ import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 're
 
 import { ApiError, apiRequest } from '../lib/api';
 import { formValue } from '../lib/forms';
-import { roleLabel } from '../lib/workspace';
+import { useAssignableRoles } from '../lib/workspace';
 
 type WizardStep =
   'PROFILE' | 'JURISDICTION' | 'ACCOUNTING' | 'TAX' | 'NUMBERING' | 'TEAM' | 'REVIEW';
@@ -299,7 +299,6 @@ export function OnboardingWizard() {
 
         {step === 'TEAM' && organization ? (
           <TeamStep
-            reference={reference}
             organizationId={organization.id}
             invitations={invitations}
             saving={saving}
@@ -940,7 +939,6 @@ function NumberingStep({
 }
 
 function TeamStep({
-  reference,
   organizationId,
   invitations,
   saving,
@@ -949,7 +947,6 @@ function TeamStep({
   onBack,
   onContinue,
 }: {
-  reference: OrganizationReferenceData;
   organizationId: string;
   invitations: OrganizationInvitation[];
   saving: boolean;
@@ -959,6 +956,7 @@ function TeamStep({
   onContinue: () => void;
 }) {
   const [inviting, setInviting] = useState(false);
+  const { roles: assignableRoles } = useAssignableRoles(organizationId);
 
   async function invite(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -970,7 +968,7 @@ function TeamStep({
         method: 'POST',
         body: JSON.stringify({
           email: formValue(data, 'email').toLowerCase(),
-          role: data.get('role'),
+          roleId: data.get('roleId'),
         }),
       });
       form.reset();
@@ -1013,14 +1011,12 @@ function TeamStep({
           <Input id="inviteEmail" name="email" type="email" required maxLength={254} />
         </Field>
         <Field id="inviteRole" label="Role">
-          <Select id="inviteRole" name="role" defaultValue="ACCOUNTANT">
-            {reference.roles
-              .filter((role) => role.code !== 'OWNER')
-              .map((role) => (
-                <option key={role.code} value={role.code}>
-                  {role.name}
-                </option>
-              ))}
+          <Select id="inviteRole" name="roleId">
+            {assignableRoles.map((role) => (
+              <option key={role.id} value={role.id}>
+                {role.name}
+              </option>
+            ))}
           </Select>
         </Field>
         <Button type="submit" variant="secondary" loading={inviting}>
@@ -1035,7 +1031,7 @@ function TeamStep({
               <div className="rb-invite-list__copy">
                 <strong>{invitation.email}</strong>
                 <span>
-                  {roleLabel(invitation.role)} ·{' '}
+                  {invitation.roleName} ·{' '}
                   {invitation.delivered ? 'Invitation sent' : 'Sends when setup finishes'}
                 </span>
               </div>

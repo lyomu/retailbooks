@@ -1,23 +1,36 @@
-import type { OrganizationRole } from '@prisma/client';
-
 /**
  * Stable, machine-readable permission keys.
  *
- * Scoped only to endpoints that exist today. A future module (journals, tax, periods, ...) adds its
- * own keys when it ships rather than reserving them in advance.
+ * Scoped only to endpoints that exist today, plus the specification's forward-looking keys that
+ * name a capability without yet having an enforcement point (`accounts.opening_balances.manage`,
+ * `journals.approve`, `security.mfa.manage`) -- a future module wires its `@RequirePermission`
+ * decorator to the key that already exists here rather than inventing a new one.
  */
 export const PERMISSION_KEYS = [
   'organization.view',
   'organization.update',
+  'organization.delete',
   'organization.finalize',
+  'organization.transfer_ownership',
   'members.view',
   'members.invite',
   'members.update',
   'members.remove',
+  'members.resend_invite',
   'invitations.view',
   'invitations.revoke',
   'roles.view',
+  'roles.create',
+  'roles.update',
+  'roles.delete',
+  'roles.assign',
   'roles.manage',
+  'settings.localization.manage',
+  'settings.currency.manage',
+  'settings.tax.manage',
+  'settings.fiscal.manage',
+  'settings.numbering.manage',
+  'settings.accounting.manage',
   'periods.view',
   'periods.manage',
   'periods.close',
@@ -25,16 +38,23 @@ export const PERMISSION_KEYS = [
   'numbering.view',
   'numbering.manage',
   'accounts.view',
-  'accounts.manage',
+  'accounts.create',
+  'accounts.update',
+  'accounts.deactivate',
+  'accounts.opening_balances.manage',
   'journals.view',
   'journals.create',
   'journals.post',
   'journals.reverse',
+  'journals.approve',
   'reports.view',
   'tax.codes.view',
   'tax.codes.manage',
   'audit.view',
   'audit.export',
+  'security.view',
+  'security.sessions.manage',
+  'security.mfa.manage',
 ] as const;
 
 export type PermissionKey = (typeof PERMISSION_KEYS)[number];
@@ -48,14 +68,19 @@ export interface PermissionDefinition {
     | 'Members'
     | 'Invitations'
     | 'Roles'
+    | 'Settings'
     | 'Periods'
     | 'Numbering'
     | 'Accounts'
     | 'Journals'
     | 'Reports'
     | 'Tax'
-    | 'Audit';
-  /** Permanently OWNER-only. No override can grant or revoke a protected key. */
+    | 'Audit'
+    | 'Security';
+  /**
+   * Permanently OWNER-only. No role -- system or custom -- can hold a protected key; there is no
+   * grant path for it anywhere, which is the entire privilege-escalation defence.
+   */
   readonly protected: boolean;
 }
 
@@ -75,9 +100,23 @@ export const PERMISSION_CATALOG: readonly PermissionDefinition[] = Object.freeze
     protected: false,
   },
   {
+    key: 'organization.delete',
+    label: 'Delete organization',
+    description: 'Permanently delete this organization and its data.',
+    group: 'Organization',
+    protected: true,
+  },
+  {
     key: 'organization.finalize',
     label: 'Finalize onboarding',
     description: 'Activate the organization once setup is complete.',
+    group: 'Organization',
+    protected: true,
+  },
+  {
+    key: 'organization.transfer_ownership',
+    label: 'Transfer ownership',
+    description: 'Make another member the organization owner.',
     group: 'Organization',
     protected: true,
   },
@@ -110,6 +149,13 @@ export const PERMISSION_CATALOG: readonly PermissionDefinition[] = Object.freeze
     protected: false,
   },
   {
+    key: 'members.resend_invite',
+    label: 'Resend invitations',
+    description: 'Send a pending invitation again with a fresh link.',
+    group: 'Members',
+    protected: false,
+  },
+  {
     key: 'invitations.view',
     label: 'View invitations',
     description: 'See pending invitations.',
@@ -126,16 +172,86 @@ export const PERMISSION_CATALOG: readonly PermissionDefinition[] = Object.freeze
   {
     key: 'roles.view',
     label: 'View roles & permissions',
-    description: 'See the permission matrix for this organization.',
+    description: 'See the roles defined for this organization and what each can do.',
+    group: 'Roles',
+    protected: false,
+  },
+  {
+    key: 'roles.create',
+    label: 'Create custom roles',
+    description: 'Define a new role with its own permission set.',
+    group: 'Roles',
+    protected: false,
+  },
+  {
+    key: 'roles.update',
+    label: 'Rename custom roles',
+    description: "Change a custom role's name or description.",
+    group: 'Roles',
+    protected: false,
+  },
+  {
+    key: 'roles.delete',
+    label: 'Delete custom roles',
+    description: 'Remove a custom role that no member currently holds.',
+    group: 'Roles',
+    protected: false,
+  },
+  {
+    key: 'roles.assign',
+    label: 'Assign roles',
+    description: 'Assign any non-owner role to a member.',
     group: 'Roles',
     protected: false,
   },
   {
     key: 'roles.manage',
-    label: 'Manage roles & permissions',
-    description: 'Change which permissions Administrator, Accountant, and Staff hold.',
+    label: 'Manage role permissions',
+    description: 'Change which permissions a role holds.',
     group: 'Roles',
     protected: true,
+  },
+  {
+    key: 'settings.localization.manage',
+    label: 'Manage localization',
+    description: 'Change locale, time zone, and date-format defaults.',
+    group: 'Settings',
+    protected: false,
+  },
+  {
+    key: 'settings.currency.manage',
+    label: 'Manage currencies',
+    description: 'Enable currencies and manage exchange rates.',
+    group: 'Settings',
+    protected: false,
+  },
+  {
+    key: 'settings.tax.manage',
+    label: 'Manage tax settings',
+    description: 'Change tax registration and default tax behavior.',
+    group: 'Settings',
+    protected: false,
+  },
+  {
+    key: 'settings.fiscal.manage',
+    label: 'Manage fiscal settings',
+    description: "Change the organization's fiscal-year structure.",
+    group: 'Settings',
+    protected: false,
+  },
+  {
+    key: 'settings.numbering.manage',
+    label: 'Manage numbering settings',
+    description: 'Change document numbering defaults at the organization level.',
+    group: 'Settings',
+    protected: false,
+  },
+  {
+    key: 'settings.accounting.manage',
+    label: 'Manage accounting settings',
+    description: 'Change accounting basis and chart-of-accounts defaults.',
+    group: 'Settings',
+    protected: false,
   },
   {
     key: 'periods.view',
@@ -187,9 +303,30 @@ export const PERMISSION_CATALOG: readonly PermissionDefinition[] = Object.freeze
     protected: false,
   },
   {
-    key: 'accounts.manage',
-    label: 'Manage chart of accounts',
-    description: 'Create, edit, and archive organization accounts.',
+    key: 'accounts.create',
+    label: 'Create accounts',
+    description: 'Add new accounts to the chart of accounts.',
+    group: 'Accounts',
+    protected: false,
+  },
+  {
+    key: 'accounts.update',
+    label: 'Edit accounts',
+    description: 'Change account names, types, and normal balances.',
+    group: 'Accounts',
+    protected: false,
+  },
+  {
+    key: 'accounts.deactivate',
+    label: 'Archive accounts',
+    description: 'Archive an account so it can no longer be selected.',
+    group: 'Accounts',
+    protected: false,
+  },
+  {
+    key: 'accounts.opening_balances.manage',
+    label: 'Manage opening balances',
+    description: 'Set or change account opening balances.',
     group: 'Accounts',
     protected: false,
   },
@@ -218,6 +355,13 @@ export const PERMISSION_CATALOG: readonly PermissionDefinition[] = Object.freeze
     key: 'journals.reverse',
     label: 'Reverse posted journals',
     description: 'Create explicit reversal journals for posted entries.',
+    group: 'Journals',
+    protected: false,
+  },
+  {
+    key: 'journals.approve',
+    label: 'Approve journals',
+    description: 'Approve a draft journal before it can be posted.',
     group: 'Journals',
     protected: false,
   },
@@ -257,6 +401,27 @@ export const PERMISSION_CATALOG: readonly PermissionDefinition[] = Object.freeze
     group: 'Audit',
     protected: false,
   },
+  {
+    key: 'security.view',
+    label: 'View security settings',
+    description: "See the organization's session and security policy settings.",
+    group: 'Security',
+    protected: false,
+  },
+  {
+    key: 'security.sessions.manage',
+    label: 'Manage sessions',
+    description: 'Revoke sessions belonging to other members.',
+    group: 'Security',
+    protected: false,
+  },
+  {
+    key: 'security.mfa.manage',
+    label: 'Manage MFA policy',
+    description: 'Change multi-factor authentication requirements for this organization.',
+    group: 'Security',
+    protected: false,
+  },
 ]);
 
 export const PROTECTED_PERMISSION_KEYS: ReadonlySet<PermissionKey> = new Set(
@@ -264,73 +429,6 @@ export const PROTECTED_PERMISSION_KEYS: ReadonlySet<PermissionKey> = new Set(
     (permission) => permission.key,
   ),
 );
-
-/** Roles an organization may adjust. OWNER's permission set is total and immutable. */
-export const OVERRIDABLE_ROLES: readonly OrganizationRole[] = ['ADMIN', 'ACCOUNTANT', 'STAFF'];
-
-/** Starting point before any organization-scoped override is applied. */
-export const DEFAULT_ROLE_PERMISSIONS: Readonly<
-  Record<OrganizationRole, readonly PermissionKey[]>
-> = Object.freeze({
-  OWNER: PERMISSION_KEYS,
-  ADMIN: [
-    'organization.view',
-    'organization.update',
-    'members.view',
-    'members.invite',
-    'members.update',
-    'members.remove',
-    'invitations.view',
-    'invitations.revoke',
-    'roles.view',
-    'periods.view',
-    'periods.manage',
-    'periods.close',
-    'periods.unlock',
-    'numbering.view',
-    'numbering.manage',
-    'accounts.view',
-    'accounts.manage',
-    'journals.view',
-    'journals.create',
-    'journals.post',
-    'journals.reverse',
-    'reports.view',
-    'tax.codes.view',
-    'tax.codes.manage',
-    'audit.view',
-    'audit.export',
-  ],
-  ACCOUNTANT: [
-    'organization.view',
-    'members.view',
-    'invitations.view',
-    'roles.view',
-    'periods.view',
-    'periods.close',
-    'numbering.view',
-    'accounts.view',
-    'journals.view',
-    'journals.create',
-    'journals.post',
-    'journals.reverse',
-    'reports.view',
-    'tax.codes.view',
-    'tax.codes.manage',
-    'audit.view',
-    'audit.export',
-  ],
-  STAFF: [
-    'organization.view',
-    'members.view',
-    'roles.view',
-    'periods.view',
-    'numbering.view',
-    'accounts.view',
-    'journals.view',
-    'tax.codes.view',
-  ],
-});
 
 export function isPermissionKey(value: string): value is PermissionKey {
   return (PERMISSION_KEYS as readonly string[]).includes(value);

@@ -4,19 +4,23 @@ import type { PublicUser } from '../src/auth/auth.service.js';
 import { AuditLogService } from '../src/organizations/audit-log.service.js';
 import type { OrganizationContext } from '../src/organizations/organization-context.js';
 import { OrganizationMembersService } from '../src/organizations/organization-members.service.js';
+import { RolesService } from '../src/organizations/roles.service.js';
 import { createTestHarness, type TestHarness } from './support/app.js';
 
 describe('audit log against a real database', () => {
   let harness: TestHarness;
   let members: OrganizationMembersService;
   let auditLogService: AuditLogService;
+  let roles: RolesService;
   let organizationId: string;
+  let organizationRoles: ReadonlyMap<string, { id: string }>;
   let ownerUser: PublicUser;
 
   beforeAll(async () => {
     harness = await createTestHarness();
     members = harness.app.get(OrganizationMembersService);
     auditLogService = harness.app.get(AuditLogService);
+    roles = harness.app.get(RolesService);
   });
 
   afterAll(async () => {
@@ -55,14 +59,20 @@ describe('audit log against a real database', () => {
       },
     });
     organizationId = organization.id;
+    organizationRoles = await harness.prisma.$transaction((tx) =>
+      roles.seedSystemRoles(tx, organizationId),
+    );
   });
 
   it('records before/after values on a role change and reads them back merged with security events', async () => {
+    const viewerRoleId = organizationRoles.get('VIEWER')!.id;
+    const accountantRoleId = organizationRoles.get('ACCOUNTANT')!.id;
+
     const staffUser = await harness.prisma.user.create({
       data: { email: 'staff@example.com', displayName: 'Staff', emailVerifiedAt: new Date() },
     });
     const member = await harness.prisma.organizationMember.create({
-      data: { organizationId, userId: staffUser.id, role: 'STAFF', status: 'ACTIVE' },
+      data: { organizationId, userId: staffUser.id, roleId: viewerRoleId, status: 'ACTIVE' },
     });
 
     const context: OrganizationContext = { id: organizationId } as OrganizationContext;
@@ -70,7 +80,7 @@ describe('audit log against a real database', () => {
       context,
       ownerUser,
       member.id,
-      { role: 'ACCOUNTANT' },
+      { roleId: accountantRoleId },
       { ipHash: 'test-ip-hash', userAgent: null },
     );
 
@@ -81,8 +91,8 @@ describe('audit log against a real database', () => {
       eventKey: 'organization.member_updated',
       entityType: 'OrganizationMember',
       action: 'UPDATE',
-      before: { role: 'STAFF', status: 'ACTIVE' },
-      after: { role: 'ACCOUNTANT', status: 'ACTIVE' },
+      before: { roleKey: 'VIEWER', status: 'ACTIVE' },
+      after: { roleKey: 'ACCOUNTANT', status: 'ACTIVE' },
     });
 
     // The pre-existing SecurityEvent write is untouched -- the two streams coexist.
@@ -95,8 +105,8 @@ describe('audit log against a real database', () => {
 
     expect(page.events.map((e) => e.source).sort()).toEqual(['audit', 'security']);
     const merged = page.events.find((e) => e.source === 'audit');
-    expect(merged?.before).toEqual({ role: 'STAFF', status: 'ACTIVE' });
-    expect(merged?.after).toEqual({ role: 'ACCOUNTANT', status: 'ACTIVE' });
+    expect(merged?.before).toEqual({ roleKey: 'VIEWER', status: 'ACTIVE' });
+    expect(merged?.after).toEqual({ roleKey: 'ACCOUNTANT', status: 'ACTIVE' });
   });
 
   it('paginates the merged stream with a stable keyset cursor and no duplicates or gaps', async () => {

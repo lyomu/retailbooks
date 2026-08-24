@@ -8,7 +8,6 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 
 import { ApiError, apiRequest } from '../lib/api';
-import { roleLabel } from '../lib/workspace';
 
 type State = 'loading' | 'ready' | 'joined' | 'error';
 
@@ -107,7 +106,7 @@ export function AcceptInvitationClient({ token }: { token: string }) {
       </span>
       <h2>{preview?.organizationName}</h2>
       <p>
-        You were invited to join as <strong>{roleLabel(preview?.role ?? 'STAFF')}</strong> using{' '}
+        You were invited to join as <strong>{preview?.role ?? 'a member'}</strong> using{' '}
         <strong>{preview?.email}</strong>.
       </p>
 

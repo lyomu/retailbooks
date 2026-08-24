@@ -101,7 +101,9 @@ export function ChartOfAccountsPage() {
   const organization = workspace.activeOrganization;
   const organizationId = organization?.id ?? null;
   const currency = organization?.baseCurrency ?? 'KES';
-  const canManage = hasPermission(organization, 'accounts.manage');
+  const canCreate = hasPermission(organization, 'accounts.create');
+  const canUpdate = hasPermission(organization, 'accounts.update');
+  const canDeactivate = hasPermission(organization, 'accounts.deactivate');
   const [accounts, setAccounts] = useState<LedgerAccount[] | null>(null);
   const [query, setQuery] = useState('');
   const [editing, setEditing] = useState<LedgerAccount | null>(null);
@@ -185,14 +187,23 @@ export function ChartOfAccountsPage() {
               <FileClock aria-hidden="true" /> Ledger
             </Link>
           </Button>
-          {canManage && account.status === 'ACTIVE' ? (
+          {account.status === 'ACTIVE' ? (
             <>
-              <Button variant="ghost" size="sm" type="button" onClick={() => setEditing(account)}>
-                Edit
-              </Button>
-              <Button variant="ghost" size="sm" type="button" onClick={() => void archive(account)}>
-                <Archive aria-hidden="true" /> Archive
-              </Button>
+              {canUpdate ? (
+                <Button variant="ghost" size="sm" type="button" onClick={() => setEditing(account)}>
+                  Edit
+                </Button>
+              ) : null}
+              {canDeactivate ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  type="button"
+                  onClick={() => void archive(account)}
+                >
+                  <Archive aria-hidden="true" /> Archive
+                </Button>
+              ) : null}
             </>
           ) : null}
         </div>
@@ -206,7 +217,7 @@ export function ChartOfAccountsPage() {
         title="Chart of accounts"
         description="A broad editable starter chart, scoped to this organization."
         actions={
-          canManage ? (
+          canCreate ? (
             <Button type="button" onClick={() => setShowCreate((value) => !value)}>
               <Plus aria-hidden="true" /> Add account
             </Button>
@@ -226,7 +237,7 @@ export function ChartOfAccountsPage() {
           </div>
         ) : null}
 
-        {showCreate && canManage ? (
+        {showCreate && canCreate ? (
           <AccountForm
             organizationId={organizationId}
             title="Add account"
@@ -238,7 +249,7 @@ export function ChartOfAccountsPage() {
           />
         ) : null}
 
-        {editing && canManage ? (
+        {editing && canUpdate ? (
           <AccountForm
             organizationId={organizationId}
             account={editing}

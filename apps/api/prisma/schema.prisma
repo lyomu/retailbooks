@@ -35,13 +35,6 @@ enum OrganizationStatus {
   SUSPENDED
 }
 
-enum OrganizationRole {
-  OWNER
-  ADMIN
-  ACCOUNTANT
-  STAFF
-}
-
 enum MembershipStatus {
   ACTIVE
   SUSPENDED
@@ -128,25 +121,24 @@ enum TaxCodeStatus {
 }
 
 model User {
-  id                    String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  email                 String                       @unique @db.Citext
-  displayName           String                       @map("display_name") @db.VarChar(120)
-  emailVerifiedAt       DateTime?                    @map("email_verified_at") @db.Timestamptz(6)
-  status                UserStatus                   @default(PENDING_VERIFICATION)
-  createdAt             DateTime                     @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt             DateTime                     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  authMethods           AuthMethod[]
-  sessions              Session[]
-  actionTokens          ActionToken[]
-  securityEvents        SecurityEvent[]
-  auditEvents           AuditEvent[]
-  memberships           OrganizationMember[]
-  organizationsCreated  Organization[]               @relation("OrganizationCreatedBy")
-  invitationsSent       OrganizationInvitation[]     @relation("InvitationInvitedBy")
-  invitationsAccepted   OrganizationInvitation[]     @relation("InvitationAcceptedBy")
-  rolePermissionChanges OrganizationRolePermission[] @relation("RolePermissionUpdatedBy")
-  journalsCreated       Journal[]                    @relation("JournalCreatedBy")
-  journalsPosted        Journal[]                    @relation("JournalPostedBy")
+  id                   String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email                String                   @unique @db.Citext
+  displayName          String                   @map("display_name") @db.VarChar(120)
+  emailVerifiedAt      DateTime?                @map("email_verified_at") @db.Timestamptz(6)
+  status               UserStatus               @default(PENDING_VERIFICATION)
+  createdAt            DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime                 @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  authMethods          AuthMethod[]
+  sessions             Session[]
+  actionTokens         ActionToken[]
+  securityEvents       SecurityEvent[]
+  auditEvents          AuditEvent[]
+  memberships          OrganizationMember[]
+  organizationsCreated Organization[]           @relation("OrganizationCreatedBy")
+  invitationsSent      OrganizationInvitation[] @relation("InvitationInvitedBy")
+  invitationsAccepted  OrganizationInvitation[] @relation("InvitationAcceptedBy")
+  journalsCreated      Journal[]                @relation("JournalCreatedBy")
+  journalsPosted       Journal[]                @relation("JournalPostedBy")
 
   @@map("users")
 }
@@ -249,30 +241,30 @@ model SecurityEvent {
 /// Tenant root. Every organization-owned row carries `organization_id` and is only reachable
 /// through a validated membership of the authenticated user.
 model Organization {
-  id                    String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  legalName             String                       @map("legal_name") @db.VarChar(180)
-  tradingName           String?                      @map("trading_name") @db.VarChar(180)
-  slug                  String                       @unique @db.VarChar(96)
-  businessType          BusinessType                 @default(OTHER) @map("business_type")
-  countryCode           String                       @map("country_code") @db.Char(2)
-  baseCurrency          String                       @map("base_currency") @db.Char(3)
-  timeZone              String                       @map("time_zone") @db.VarChar(64)
-  locale                String                       @db.VarChar(16)
-  fiscalYearStartMonth  Int                          @default(1) @map("fiscal_year_start_month") @db.SmallInt
-  fiscalYearStartDay    Int                          @default(1) @map("fiscal_year_start_day") @db.SmallInt
-  status                OrganizationStatus           @default(DRAFT)
-  onboardingStep        OnboardingStep               @default(JURISDICTION) @map("onboarding_step")
-  onboardingCompletedAt DateTime?                    @map("onboarding_completed_at") @db.Timestamptz(6)
-  createdByUserId       String                       @map("created_by_user_id") @db.Uuid
-  createdAt             DateTime                     @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt             DateTime                     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  createdBy             User                         @relation("OrganizationCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  id                    String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  legalName             String                   @map("legal_name") @db.VarChar(180)
+  tradingName           String?                  @map("trading_name") @db.VarChar(180)
+  slug                  String                   @unique @db.VarChar(96)
+  businessType          BusinessType             @default(OTHER) @map("business_type")
+  countryCode           String                   @map("country_code") @db.Char(2)
+  baseCurrency          String                   @map("base_currency") @db.Char(3)
+  timeZone              String                   @map("time_zone") @db.VarChar(64)
+  locale                String                   @db.VarChar(16)
+  fiscalYearStartMonth  Int                      @default(1) @map("fiscal_year_start_month") @db.SmallInt
+  fiscalYearStartDay    Int                      @default(1) @map("fiscal_year_start_day") @db.SmallInt
+  status                OrganizationStatus       @default(DRAFT)
+  onboardingStep        OnboardingStep           @default(JURISDICTION) @map("onboarding_step")
+  onboardingCompletedAt DateTime?                @map("onboarding_completed_at") @db.Timestamptz(6)
+  createdByUserId       String                   @map("created_by_user_id") @db.Uuid
+  createdAt             DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime                 @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdBy             User                     @relation("OrganizationCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
   preferences           OrganizationPreference?
   members               OrganizationMember[]
   invitations           OrganizationInvitation[]
   securityEvents        SecurityEvent[]
   auditEvents           AuditEvent[]
-  rolePermissions       OrganizationRolePermission[]
+  roles                 Role[]
   fiscalYears           FiscalYear[]
   fiscalPeriods         FiscalPeriod[]
   documentNumbers       DocumentNumberSequence[]
@@ -384,17 +376,18 @@ model OrganizationMember {
   id             String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   organizationId String           @map("organization_id") @db.Uuid
   userId         String           @map("user_id") @db.Uuid
-  role           OrganizationRole @default(STAFF)
+  roleId         String           @map("role_id") @db.Uuid
   status         MembershipStatus @default(ACTIVE)
   joinedAt       DateTime         @default(now()) @map("joined_at") @db.Timestamptz(6)
   createdAt      DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt      DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role           Role             @relation(fields: [roleId], references: [id], onDelete: Restrict)
 
   @@unique([organizationId, userId])
   @@index([userId, status])
-  @@index([organizationId, role])
+  @@index([organizationId, roleId])
   @@map("organization_members")
 }
 
@@ -402,7 +395,7 @@ model OrganizationInvitation {
   id               String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   organizationId   String           @map("organization_id") @db.Uuid
   email            String           @db.Citext
-  role             OrganizationRole @default(STAFF)
+  roleId           String           @map("role_id") @db.Uuid
   status           InvitationStatus @default(PENDING)
   tokenHash        String           @unique @map("token_hash") @db.Char(64)
   invitedByUserId  String           @map("invited_by_user_id") @db.Uuid
@@ -416,6 +409,7 @@ model OrganizationInvitation {
   organization     Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   invitedBy        User             @relation("InvitationInvitedBy", fields: [invitedByUserId], references: [id], onDelete: Cascade)
   acceptedBy       User?            @relation("InvitationAcceptedBy", fields: [acceptedByUserId], references: [id], onDelete: SetNull)
+  role             Role             @relation(fields: [roleId], references: [id], onDelete: Restrict)
 
   @@index([organizationId, status])
   @@index([email, status])
@@ -423,24 +417,45 @@ model OrganizationInvitation {
   @@map("organization_invitations")
 }
 
-/// Sparse per-organization overrides to the default role permission baseline. Absence of a row for
-/// a (role, permissionKey) pair means "use the default". OWNER is never represented here — its
-/// permission set is total and resolved without consulting this table.
-model OrganizationRolePermission {
-  id              String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  organizationId  String           @map("organization_id") @db.Uuid
-  role            OrganizationRole
-  permissionKey   String           @map("permission_key") @db.VarChar(60)
-  granted         Boolean
-  updatedByUserId String           @map("updated_by_user_id") @db.Uuid
-  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  organization    Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  updatedBy       User             @relation("RolePermissionUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: Restrict)
+/// Every organization holds its own copies of the system role templates (isSystem: true) plus any
+/// custom roles it creates, so a role's permission set can be adjusted per organization without
+/// affecting any other -- the same tenant-isolation shape the rest of the schema uses. There is
+/// deliberately no separate "default vs override" table: a role's own RolePermission rows are its
+/// complete, effective permission set.
+model Role {
+  id             String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String                   @map("organization_id") @db.Uuid
+  key            String                   @db.VarChar(40)
+  name           String                   @db.VarChar(80)
+  description    String?                  @db.VarChar(240)
+  isSystem       Boolean                  @default(false) @map("is_system")
+  isOwnerRole    Boolean                  @default(false) @map("is_owner_role")
+  createdAt      DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime                 @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization   Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  members        OrganizationMember[]
+  invitations    OrganizationInvitation[]
+  permissions    RolePermission[]
 
-  @@unique([organizationId, role, permissionKey], map: "organization_role_permissions_org_role_key_key")
-  @@index([organizationId, role])
-  @@map("organization_role_permissions")
+  @@unique([organizationId, key])
+  @@index([organizationId, isSystem])
+  @@map("roles")
+}
+
+/// A role's granted permission keys. The permission catalog itself is not a database table -- like
+/// every other global, static reference catalog in this schema (countries, currencies, business
+/// types in `jurisdiction-catalog.ts`), it lives in code as `PERMISSION_CATALOG` and is validated at
+/// the application boundary via `isPermissionKey()`, not enforced with a foreign key. A key column
+/// backed by a real table would need that table seeded before the very first organization's roles
+/// could be created, for no protective value beyond what the application check already provides.
+model RolePermission {
+  roleId        String   @map("role_id") @db.Uuid
+  permissionKey String   @map("permission_key") @db.VarChar(60)
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  role          Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionKey])
+  @@map("role_permissions")
 }
 
 /// Editable organization-scoped chart of accounts. Accounts are archived rather than hard-deleted

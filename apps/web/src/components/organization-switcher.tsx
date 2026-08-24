@@ -14,7 +14,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
 import { apiRequest } from '../lib/api';
-import { organizationDisplayName, roleLabel } from '../lib/workspace';
+import { organizationDisplayName } from '../lib/workspace';
 
 export function OrganizationSwitcher({
   organizations,
@@ -78,7 +78,7 @@ export function OrganizationSwitcher({
                 <span className="rb-switcher-option__copy">
                   <strong>{organizationDisplayName(organization)}</strong>
                   <small>
-                    {roleLabel(organization.role)}
+                    {organization.role}
                     {organization.status === 'DRAFT' ? ' · setup unfinished' : ''}
                   </small>
                 </span>

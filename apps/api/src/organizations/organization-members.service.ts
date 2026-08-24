@@ -16,33 +16,42 @@ import { writeAuditEvent } from './audit-event.js';
 import type { OrganizationContext } from './organization-context.js';
 import type { InviteMemberDto, UpdateMemberDto } from './organization.dto.js';
 import { canChangeMemberRole, canRemoveMember } from './permission-resolution.js';
+import { RolesService } from './roles.service.js';
 
 const INVITATION_TTL_MS = 14 * 24 * 60 * 60 * 1000;
 const MAX_PENDING_INVITATIONS = 50;
+
+const roleSelect = {
+  select: { id: true, key: true, name: true, isOwnerRole: true },
+} as const;
 
 @Injectable()
 export class OrganizationMembersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly mailer: AuthMailerService,
+    private readonly roles: RolesService,
   ) {}
 
   async listMembers(organizationId: string) {
     const members = await this.prisma.organizationMember.findMany({
       where: { organizationId },
-      orderBy: [{ role: 'asc' }, { joinedAt: 'asc' }],
+      orderBy: [{ role: { isOwnerRole: 'desc' } }, { joinedAt: 'asc' }],
       select: {
         id: true,
-        role: true,
         status: true,
         joinedAt: true,
+        role: roleSelect,
         user: { select: { id: true, displayName: true, email: true, emailVerifiedAt: true } },
       },
     });
 
     return members.map((member) => ({
       id: member.id,
-      role: member.role,
+      roleId: member.role.id,
+      roleKey: member.role.key,
+      roleName: member.role.name,
+      isOwnerRole: member.role.isOwnerRole,
       status: member.status,
       joinedAt: member.joinedAt.toISOString(),
       userId: member.user.id,
@@ -53,8 +62,9 @@ export class OrganizationMembersService {
   }
 
   /**
-   * Changes a member's role and/or status. A member whose current role is OWNER can never be the
-   * target, and a role change can never grant OWNER — there is no other path to ownership than
+   * Changes a member's role and/or status. A member whose current role is the owner role can never
+   * be the target, and a role change can never grant the owner role -- `RolesService
+   * .resolveAssignableRole` rejects it structurally. There is no other path to ownership than
    * creating the organization, which is what guarantees an organization can never lose its owner.
    */
   async updateMember(
@@ -64,18 +74,21 @@ export class OrganizationMembersService {
     input: UpdateMemberDto,
     metadata: RequestMetadata,
   ) {
-    if (input.role === undefined && input.status === undefined) {
+    if (input.roleId === undefined && input.status === undefined) {
       throw new BadRequestException('Provide a role or a status to change.');
     }
 
     const member = await this.prisma.organizationMember.findFirst({
       where: { id: memberId, organizationId: context.id },
-      select: { id: true, role: true, status: true, userId: true },
+      select: { id: true, status: true, userId: true, role: roleSelect },
     });
     if (!member) throw new NotFoundException('That member could not be found.');
 
-    const requestedRole = input.role ?? member.role;
-    if (!canChangeMemberRole(member.role, requestedRole)) {
+    let nextRole = member.role;
+    if (input.roleId !== undefined) {
+      nextRole = await this.roles.resolveAssignableRole(context.id, input.roleId);
+    }
+    if (!canChangeMemberRole(member.role.isOwnerRole, nextRole.isOwnerRole)) {
       throw new BadRequestException('The organization owner cannot be changed here.');
     }
 
@@ -83,14 +96,14 @@ export class OrganizationMembersService {
       const result = await tx.organizationMember.update({
         where: { id: memberId },
         data: {
-          ...(input.role !== undefined ? { role: input.role } : {}),
+          ...(input.roleId !== undefined ? { roleId: input.roleId } : {}),
           ...(input.status !== undefined ? { status: input.status } : {}),
         },
         select: {
           id: true,
-          role: true,
           status: true,
           joinedAt: true,
+          role: roleSelect,
           user: { select: { id: true, displayName: true, email: true, emailVerifiedAt: true } },
         },
       });
@@ -103,8 +116,8 @@ export class OrganizationMembersService {
           ipHash: metadata.ipHash,
           metadata: {
             targetUserId: member.userId,
-            oldRole: member.role,
-            newRole: result.role,
+            oldRole: member.role.key,
+            newRole: result.role.key,
             oldStatus: member.status,
             newStatus: result.status,
           },
@@ -120,8 +133,8 @@ export class OrganizationMembersService {
         entityType: 'OrganizationMember',
         entityId: member.id,
         action: 'UPDATE',
-        before: { role: member.role, status: member.status },
-        after: { role: result.role, status: result.status },
+        before: { roleKey: member.role.key, status: member.status },
+        after: { roleKey: result.role.key, status: result.status },
         metadata: { targetUserId: member.userId },
         ipHash: metadata.ipHash,
       });
@@ -131,7 +144,10 @@ export class OrganizationMembersService {
 
     return {
       id: updated.id,
-      role: updated.role,
+      roleId: updated.role.id,
+      roleKey: updated.role.key,
+      roleName: updated.role.name,
+      isOwnerRole: updated.role.isOwnerRole,
       status: updated.status,
       joinedAt: updated.joinedAt.toISOString(),
       userId: updated.user.id,
@@ -149,10 +165,10 @@ export class OrganizationMembersService {
   ): Promise<void> {
     const member = await this.prisma.organizationMember.findFirst({
       where: { id: memberId, organizationId: context.id },
-      select: { id: true, role: true, userId: true },
+      select: { id: true, userId: true, role: roleSelect },
     });
     if (!member) throw new NotFoundException('That member could not be found.');
-    if (!canRemoveMember(member.role)) {
+    if (!canRemoveMember(member.role.isOwnerRole)) {
       throw new BadRequestException('The organization owner cannot be removed.');
     }
 
@@ -164,7 +180,7 @@ export class OrganizationMembersService {
           organizationId: context.id,
           eventKey: 'organization.member_removed',
           ipHash: metadata.ipHash,
-          metadata: { targetUserId: member.userId, role: member.role },
+          metadata: { targetUserId: member.userId, role: member.role.key },
         },
       });
       await writeAuditEvent(tx, {
@@ -174,7 +190,7 @@ export class OrganizationMembersService {
         entityType: 'OrganizationMember',
         entityId: member.id,
         action: 'DELETE',
-        before: { role: member.role },
+        before: { roleKey: member.role.key },
         after: null,
         metadata: { targetUserId: member.userId },
         ipHash: metadata.ipHash,
@@ -189,11 +205,11 @@ export class OrganizationMembersService {
       select: {
         id: true,
         email: true,
-        role: true,
         status: true,
         expiresAt: true,
         notifiedAt: true,
         createdAt: true,
+        role: roleSelect,
         invitedBy: { select: { displayName: true } },
       },
     });
@@ -201,7 +217,9 @@ export class OrganizationMembersService {
     return invitations.map((invitation) => ({
       id: invitation.id,
       email: invitation.email,
-      role: invitation.role,
+      roleId: invitation.role.id,
+      roleKey: invitation.role.key,
+      roleName: invitation.role.name,
       status: invitation.status,
       expiresAt: invitation.expiresAt.toISOString(),
       createdAt: invitation.createdAt.toISOString(),
@@ -231,6 +249,8 @@ export class OrganizationMembersService {
       throw new ConflictException('That person is already a member of this organization.');
     }
 
+    const role = await this.roles.resolveAssignableRole(context.id, input.roleId);
+
     const pendingCount = await this.prisma.organizationInvitation.count({
       where: { organizationId: context.id, status: InvitationStatus.PENDING },
     });
@@ -255,7 +275,7 @@ export class OrganizationMembersService {
         data: {
           organizationId: context.id,
           email: input.email,
-          role: input.role,
+          roleId: role.id,
           tokenHash: hashToken(rawToken),
           invitedByUserId: user.id,
           expiresAt: new Date(Date.now() + INVITATION_TTL_MS),
@@ -264,7 +284,6 @@ export class OrganizationMembersService {
         select: {
           id: true,
           email: true,
-          role: true,
           status: true,
           expiresAt: true,
           createdAt: true,
@@ -280,7 +299,7 @@ export class OrganizationMembersService {
           ipHash: metadata.ipHash,
           metadata: {
             invitationId: created.id,
-            role: created.role,
+            role: role.key,
             deferred: deferDelivery,
           },
         },
@@ -294,7 +313,7 @@ export class OrganizationMembersService {
         email: invitation.email,
         organizationName: context.legalName,
         inviterName: user.displayName,
-        role: invitation.role,
+        roleName: role.name,
         token: rawToken,
         expiresAt: invitation.expiresAt,
       });
@@ -303,7 +322,9 @@ export class OrganizationMembersService {
     return {
       id: invitation.id,
       email: invitation.email,
-      role: invitation.role,
+      roleId: role.id,
+      roleKey: role.key,
+      roleName: role.name,
       status: invitation.status,
       expiresAt: invitation.expiresAt.toISOString(),
       createdAt: invitation.createdAt.toISOString(),

@@ -36,7 +36,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 
 import { apiRequest } from '../lib/api';
-import { roleLabel, useWorkspace } from '../lib/workspace';
+import { useWorkspace } from '../lib/workspace';
 import { OrganizationSwitcher } from './organization-switcher';
 
 type NavigationItem = {
@@ -288,7 +288,7 @@ function TopBar({
                 <strong>{displayName}</strong>
                 <small>
                   {workspace.activeOrganization
-                    ? roleLabel(workspace.activeOrganization.role)
+                    ? workspace.activeOrganization.role
                     : 'No organization'}
                 </small>
               </span>

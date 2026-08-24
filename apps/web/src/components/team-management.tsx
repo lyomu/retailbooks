@@ -1,11 +1,6 @@
 'use client';
 
-import type {
-  OrganizationInvitation,
-  OrganizationMember,
-  OrganizationReferenceData,
-  OrganizationRole,
-} from '@retailbooks/contracts';
+import type { OrganizationInvitation, OrganizationMember } from '@retailbooks/contracts';
 import {
   Badge,
   Button,
@@ -23,7 +18,12 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react';
 
 import { ApiError, apiRequest } from '../lib/api';
 import { formValue } from '../lib/forms';
-import { hasPermission, organizationDisplayName, roleLabel, useWorkspace } from '../lib/workspace';
+import {
+  hasPermission,
+  organizationDisplayName,
+  useAssignableRoles,
+  useWorkspace,
+} from '../lib/workspace';
 
 export function TeamManagement() {
   const workspace = useWorkspace({ requireOrganization: true });
@@ -36,7 +36,7 @@ export function TeamManagement() {
   const canUpdateMembers = hasPermission(organization, 'members.update');
   const canRemoveMembers = hasPermission(organization, 'members.remove');
 
-  const [reference, setReference] = useState<OrganizationReferenceData | null>(null);
+  const { roles: assignableRoles } = useAssignableRoles(organizationId);
   const [members, setMembers] = useState<OrganizationMember[] | null>(null);
   const [invitations, setInvitations] = useState<OrganizationInvitation[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -48,11 +48,9 @@ export function TeamManagement() {
   const load = useCallback(async () => {
     if (!organizationId) return;
     try {
-      const [referenceResponse, memberResponse] = await Promise.all([
-        apiRequest<{ data: OrganizationReferenceData }>('/organizations/reference-data'),
-        apiRequest<{ data: OrganizationMember[] }>(`/organizations/${organizationId}/members`),
-      ]);
-      setReference(referenceResponse.data);
+      const memberResponse = await apiRequest<{ data: OrganizationMember[] }>(
+        `/organizations/${organizationId}/members`,
+      );
       setMembers(memberResponse.data);
 
       if (canViewInvitations) {
@@ -83,7 +81,7 @@ export function TeamManagement() {
       const email = formValue(data, 'email').toLowerCase();
       await apiRequest(`/organizations/${organizationId}/invitations`, {
         method: 'POST',
-        body: JSON.stringify({ email, role: data.get('role') }),
+        body: JSON.stringify({ email, roleId: data.get('roleId') }),
       });
       form.reset();
       setNotice(`Invitation sent to ${email}.`);
@@ -110,21 +108,21 @@ export function TeamManagement() {
     }
   }
 
-  async function changeRole(member: OrganizationMember, role: OrganizationRole) {
-    if (!organizationId || role === member.role) return;
+  async function changeRole(member: OrganizationMember, roleId: string) {
+    if (!organizationId || roleId === member.roleId) return;
     setBusyMemberId(member.id);
     setError(null);
     setNotice(null);
     try {
       const response = await apiRequest<{ data: OrganizationMember }>(
         `/organizations/${organizationId}/members/${member.id}`,
-        { method: 'PATCH', body: JSON.stringify({ role }) },
+        { method: 'PATCH', body: JSON.stringify({ roleId }) },
       );
       setMembers(
         (current) =>
           current?.map((entry) => (entry.id === member.id ? response.data : entry)) ?? null,
       );
-      setNotice(`${member.displayName} is now ${roleLabel(role)}.`);
+      setNotice(`${member.displayName} is now ${response.data.roleName}.`);
     } catch (caught) {
       setError(
         caught instanceof Error ? caught.message : "The member's role could not be changed.",
@@ -206,25 +204,25 @@ export function TeamManagement() {
                   <span>{member.email}</span>
                 </div>
                 <div className="rb-member-list__actions">
-                  {member.role === 'OWNER' ? (
-                    <Badge tone="success">{roleLabel(member.role)}</Badge>
+                  {member.isOwnerRole ? (
+                    <Badge tone="success">{member.roleName}</Badge>
                   ) : canUpdateMembers ? (
                     <Select
                       aria-label={`Change role for ${member.displayName}`}
-                      value={member.role}
+                      value={member.roleId}
                       disabled={busyMemberId === member.id}
-                      onChange={(event) =>
-                        void changeRole(member, event.target.value as OrganizationRole)
-                      }
+                      onChange={(event) => void changeRole(member, event.target.value)}
                     >
-                      <option value="ADMIN">Administrator</option>
-                      <option value="ACCOUNTANT">Accountant</option>
-                      <option value="STAFF">Staff</option>
+                      {assignableRoles.map((role) => (
+                        <option key={role.id} value={role.id}>
+                          {role.name}
+                        </option>
+                      ))}
                     </Select>
                   ) : (
-                    <Badge>{roleLabel(member.role)}</Badge>
+                    <Badge>{member.roleName}</Badge>
                   )}
-                  {member.role !== 'OWNER' &&
+                  {!member.isOwnerRole &&
                   canRemoveMembers &&
                   member.userId !== workspace.user?.id ? (
                     <Button
@@ -274,14 +272,12 @@ export function TeamManagement() {
             </div>
             <div className="rb-field">
               <Label htmlFor="team-invite-role">Role</Label>
-              <Select id="team-invite-role" name="role" defaultValue="ACCOUNTANT">
-                {(reference?.roles ?? [])
-                  .filter((role) => role.code !== 'OWNER')
-                  .map((role) => (
-                    <option key={role.code} value={role.code}>
-                      {role.name}
-                    </option>
-                  ))}
+              <Select id="team-invite-role" name="roleId">
+                {assignableRoles.map((role) => (
+                  <option key={role.id} value={role.id}>
+                    {role.name}
+                  </option>
+                ))}
               </Select>
             </div>
             <Button type="submit" loading={inviting}>
@@ -312,7 +308,7 @@ export function TeamManagement() {
                       {!invitation.delivered ? <Badge tone="info">Queued</Badge> : null}
                     </div>
                     <span>
-                      {roleLabel(invitation.role)} · invited by {invitation.invitedBy} · expires{' '}
+                      {invitation.roleName} · invited by {invitation.invitedBy} · expires{' '}
                       {formatDate(invitation.expiresAt)}
                     </span>
                   </div>
