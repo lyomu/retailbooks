@@ -10,197 +10,251 @@ Before writing any code, read these in order:
 
 1. `docs/BUILD_ROADMAP.md` — the master 14-phase task checklist. Its Phase 2 section is a rolled-up
    summary; `docs/PHASE2_TODO.md` (below) is the detailed, authoritative record.
-2. `docs/PHASE2_TODO.md` — milestone-by-milestone record for Phase 2 (Sales), same style as
-   `PHASE1_TODO.md`. **This is the single most important file to read next** — it has an implementation
-   note under every completed milestone with exact file paths, patterns reused, and what each
-   milestone's tests actually prove.
+2. `docs/PHASE2_TODO.md` — milestone-by-milestone record for Phase 2 (Sales). **Read it, but do not
+   trust its checkboxes for 2E–2I** — see §2 below. It still shows those milestones unchecked even
+   though the code exists, because the checklist update was deliberately deferred until verification
+   passes (never happened yet).
 3. `docs/PHASE1_TODO.md` and `docs/adr/000*` — Phase 1 detail and architecture decisions (tenancy,
    auth, roles/permissions, ledger, tax engine). Still load-bearing context for Phase 2 work.
 4. `starter/global_accounting_platform_build_specification_v1.docx` and
    `starter/global_accounting_platform_master_blueprint.docx` — original specs, for exact
    field/rule/state definitions when a checklist item is ambiguous.
+5. **This section's §3–5 below** — they capture the design decisions made while building 2E–2I, since
+   the plan files used to design them (`~/.claude/plans/...`) get overwritten by each new planning
+   session and no longer contain that reasoning. Read them before touching the credit note or
+   recurring invoice code especially.
 
 ## 2. Current state (as of 2026-08-25)
 
-**Phase 1 (Foundation) is fully complete**, including hardening: identity, tenant-isolation,
-authorization-boundary, accounting-invariant/idempotency/concurrency, and end-to-end-journey tests are
-all done. What's left in Phase 1 (visual regression baselines, WCAG review, performance review,
-audit-log coverage review, backup/restore drill, threat model/dependency review, `DESIGN.md` update) is
-**intentionally deferred** per the project's own "verification pass can wait" policy — it does not block
-Phase 2 and should not be picked up unless asked.
+**Phase 1 (Foundation) is fully complete**, verification-pass items intentionally deferred (unchanged
+from before — see the last handover for detail, not repeated here).
 
-**Phase 2 (Sales) is in progress.** Milestones 2A–2D (backend + UI) are done and committed. Milestone
-2E (Payments Received) is the immediate next task; 2F–2K have not been started.
+**Phase 2 (Sales)**:
 
-| Milestone                                                 | Status                 |
-| --------------------------------------------------------- | ---------------------- |
-| 2A — Document numbering generalization                    | ✅ Done                |
-| 2B — Customers/Contacts                                   | ✅ Done (backend + UI) |
-| 2C — Catalog (Items/Units/Categories)                     | ✅ Done (backend + UI) |
-| 2D — Invoices (posting slice)                             | ✅ Done (backend + UI) |
-| 2E — Payments Received + allocation                       | ⬜ Not started         |
-| 2F — Credit Notes                                         | ⬜ Not started         |
-| 2G — Quotes + Sales Orders                                | ⬜ Not started         |
-| 2H — PDF generation + email delivery                      | ⬜ Not started         |
-| 2I — Recurring Invoices                                   | ⬜ Not started         |
-| 2J — Customer Statements                                  | ⬜ Not started         |
-| 2K — Phase 2 verification pass (hard gate before Phase 6) | ⬜ Not started         |
+| Milestone | Status |
+| --- | --- |
+| 2A — Document numbering generalization | ✅ Done, committed |
+| 2B — Customers/Contacts | ✅ Done, committed |
+| 2C — Catalog (Items/Units/Categories) | ✅ Done, committed |
+| 2D — Invoices (posting slice) | ✅ Done, committed |
+| 2E — Payments Received + allocation | 🟡 **Coded, uncommitted, unverified** |
+| 2F — Credit Notes | 🟡 **Coded, uncommitted, unverified** |
+| 2G — Quotes + Sales Orders | 🟡 **Coded, uncommitted, unverified** |
+| 2H — PDF generation + email delivery | 🟡 **Coded, uncommitted, unverified** |
+| 2I — Recurring Invoices | 🟡 **Coded, uncommitted, unverified** |
+| 2J — Customer Statements | ⬜ Not started — **your task** |
+| 2K — Phase 2 verification pass (hard gate before Phase 6) | ⬜ Not started |
 
-Full detail for each done milestone — exact models, permission keys, test names, and what was proven —
-is in `docs/PHASE2_TODO.md`. Recent commits, in order:
+### The critical thing to understand: 2E–2I exist only in the working tree
 
+Milestones 2E through 2I were built in one continuous session at the user's explicit direction to
+**defer all verification** (`tsc`, `lint`, format, `npm test`, integration tests, migration drift
+check, production build, browser walkthrough) until every milestone the user wanted in that push was
+coded. That push stopped after 2I. **None of it has been migrated, generated, typechecked, linted,
+tested, built, browser-verified, or committed.** `git log` still shows `0c0d28c` (2D's UI commit) as
+HEAD; `git status` shows ~50 new/modified files, all uncommitted.
+
+**The Prisma client is stale relative to `schema.prisma`.** Only one migration exists since 2D:
+`apps/api/prisma/migrations/20260825042133_add_payments_received/` (2E's). Every model 2F–2I added
+(`CreditNote`, `CreditNoteLine`, `CreditNoteAllocation`, `CreditNoteRefund`, `Quote`, `QuoteLine`,
+`SalesOrder`, `SalesOrderLine`, `DocumentSnapshot`, `RecurringInvoiceTemplate`,
+`RecurringInvoiceTemplateLine`, plus `sentAt` columns added to `CreditNote`/`Quote`) is only in
+`schema.prisma` — **no migration has been generated for any of it, and `npx prisma generate` hasn't
+been re-run either.** Nothing will typecheck until you run migrate+generate. This is step 1 below, not
+optional.
+
+New runtime dependencies were added for 2H and installed (`@aws-sdk/client-s3`,
+`@aws-sdk/s3-request-presigner`, `playwright`), and the Playwright Chromium binary was downloaded
+(`npx playwright install chromium` — confirmed cached under `~/AppData/Local/ms-playwright` already,
+should be a no-op if you re-run it). **None of the PDF-render → S3-upload → email-attach flow has ever
+actually executed** — it's been written against the spec and this session's understanding of the
+existing patterns, not run once. Same for the recurring-invoice sweep logic. Treat all of 2E–2I as
+"looks right, unverified" — 2E is the one exception: its money-invariant tests *were* actually run
+during that milestone (see §4, they caught a real bug), everything after that was written but never
+executed.
+
+### Files touched (for your own review before running anything)
+
+Modified: `apps/api/package.json`, `apps/api/prisma/schema.prisma`, `apps/api/src/jobs/email-job.ts`,
+`apps/api/src/organizations/{ledger-starter-chart,permission-catalog,roles-catalog}.ts`,
+`apps/api/src/sales/{invoices.controller,invoices.service,sales.module}.ts`,
+`apps/api/test/{authorization-boundary.int.test,permission-resolution.test,system-account-keys.test}.ts`,
+`apps/web/src/components/{app-shell,invoices-workbench}.tsx`, `packages/contracts/src/index.ts`.
+
+New: `apps/api/src/sales/{payments,credit-notes,quotes,sales-orders,recurring-invoices}.{dto,service,controller}.ts`,
+`apps/api/src/sales/{document-rendering.service,pdf-templates}.ts`, `apps/api/src/storage/**`,
+`apps/api/test/{payments,credit-notes,quotes-and-orders,document-rendering,recurring-invoices}.int.test.ts`,
+`apps/web/src/components/{payments,credit-notes,quotes,sales-orders,recurring-invoices}-workbench.tsx`,
+`apps/web/src/app/{payments,credit-notes,quotes,sales-orders,recurring-invoices}/**`,
+`apps/api/prisma/migrations/20260825042133_add_payments_received/`.
+
+## 3. Design decisions you need to know before touching this code
+
+These were genuine ambiguities in `docs/PHASE2_TODO.md`'s checklists, resolved by asking the user
+directly. They're not written down anywhere else now that the planning-session plan files have been
+overwritten — this is the only record.
+
+- **Payments (2E) allocation invariant — a real bug was caught and fixed here.** The original guard
+  compared `existingAllocationFromThisPayment + requested` against `invoice.balanceMinor`. That
+  double-counts: `balanceMinor` is already net of *every* prior allocation against that invoice
+  (from any payment), so re-adding this payment's own prior allocation on top double-subtracts it. Fixed
+  to just `requested > invoice.balanceMinor`. This was caught by the integration test suite actually
+  running (2E is the one milestone where that happened) — **if you find the same
+  `existingAllocations`-style pattern anywhere in the credit note allocate code, it's already correct**
+  (written after this lesson), but double-check it when you finally run 2F's tests for real.
+- **Credit Notes (2F) issue into `customer_credit`, not directly into `accounts_receivable`.** The
+  checklist says two things that can't both be literally true at once: "issue posts... credit AR" *and*
+  "add a `customer_credit` account... for the refund path." If issue credited AR directly, there'd be
+  nothing in `customer_credit` for a later refund to draw down. Resolution: issue credits
+  `customer_credit` (a liability holding account); **allocation** (`DR customer_credit, CR
+  accounts_receivable`, one journal *per invoice per call*) and **refund** (`DR customer_credit, CR
+  bank_default`) are what actually move value out of it. This is a deliberate, documented deviation
+  from the checklist's literal wording — see the doc comment at the top of
+  `apps/api/src/sales/credit-notes.service.ts`.
+- **Credit note refund was built** (not deferred) — the user explicitly asked for it. It's a real
+  second/third+ posting per credit note (`CreditNoteRefund` is a per-event table, same shape as
+  `CreditNoteAllocation`), not a single field.
+- **`CreditNoteStatus.APPLIED`** only fires when `remainingMinor` hits zero via allocation;
+  `REFUNDED` only when it hits zero via refund. While partially consumed, status stays `ISSUED` — there's
+  no `PARTIALLY_APPLIED` value in the enum.
+- **Quotes/Sales Orders (2G) convert-to-invoice** is a two-phase, non-atomic call
+  (`InvoicesService#createDraft` doesn't accept an external transaction). Worst-case failure is an
+  orphaned unlinked DRAFT invoice, never a ledger inconsistency, since nothing here ever posts.
+  SalesOrder's `SalesOrderStatus` has **no `CONVERTED` value** — converting only sets
+  `convertedInvoiceId` and leaves fulfillment status untouched, unlike Quote.
+- **PDF/email (2H)**: Playwright renders **synchronously inside the API request** (not offloaded to
+  the worker process) — the render and the `DocumentSnapshot` cache row land together, avoiding
+  distributed two-phase state. This means the *main API container* needs the Chromium binary too, not
+  just the worker (`apps/api/src/worker.ts`'s process). The PDF attachment is delivered via a
+  **pre-signed S3 URL** in the BullMQ job payload (`EmailDeliveryJob.attachments[].path`), not embedded
+  bytes — keeps Redis job payloads small; nodemailer streams it at send time.
+- **Quote's `send()` action was pre-existing (2G, status-only APPROVED→SENT) and got enhanced in
+  2H**, not duplicated into a second endpoint. Its status guard now accepts **both** `APPROVED` and
+  `SENT` as valid starting states — if it only accepted `APPROVED`, a quote could never be re-sent once
+  first sent. Double-check this guard specifically; it's an easy regression to reintroduce if the method
+  gets refactored.
+- **Recurring invoices (2I) have no cron.** No scheduling library exists in the stack and adding one
+  was ruled out of scope. `runDueTemplates()` is exposed as a permission-gated
+  `POST .../recurring-invoices/run-due` endpoint meant for an external cron or manual trigger — there's
+  a "Run due templates now" button in the UI for exactly this reason. Documented as a deferral, not an
+  oversight.
+- **SALES role asymmetry**, applied consistently across every milestone this session: SALES gets the
+  forward-workflow permission keys (`manage`/`issue`/`approve`(quotes-and-orders only where it's a
+  distinct forward step)/`convert`/`record`/`send`) but never the money-moving or reversing ones
+  (`void`, `allocate`, `refund` on credit notes; `allocate` on payments; `approve` is withheld from
+  SALES specifically on quotes/orders, reserved for ADMIN/ACCOUNTANT as a checker step). If you add
+  more Sales permissions, match this pattern rather than re-deriving it.
+
+## 4. ⚠️ A known-likely bug to check first: `advanceCadence`'s month/year arithmetic
+
+`apps/api/src/sales/recurring-invoices.service.ts`'s `advanceCadence()` uses
+`Date.prototype.setUTCMonth`/`setUTCFullYear` directly:
+
+```ts
+case 'MONTHLY':
+  next.setUTCMonth(next.getUTCMonth() + 1);
 ```
-5b41681 Add invoice posting backend (Milestone 2D, backend only)
-a6674ab Add Catalog module: items, services, units, categories (Milestone 2C)
-40812d6 Add Customers/Contacts module (Milestone 2B)
-213a4ce Apply prettier formatting to Part A files
-af038b4 Generalize document numbering for Phase 2 (Milestone 2A)
-2dc97bf Add Phase 2 (Sales) milestone tracker
-8048060 Complete Phase 1 end-to-end browser journeys and sync hardening status
-```
 
-(the commit adding Milestone 2D's UI, described in this handover, lands after `5b41681` — check
-`git log` for its actual hash if you need it)
+JavaScript's `Date` **overflows** when the target month is shorter than the source day-of-month — e.g.
+`2026-01-31` advanced by one month becomes `2026-03-03`, not clamped to `2026-02-28`. The same applies
+to `ANNUALLY` landing on Feb 29 in a non-leap year. **This was never caught because the integration
+test in `recurring-invoices.int.test.ts` uses `startDate: '2026-01-15'`** — a day that doesn't hit any
+month-end edge case. Write a test with a month-end/leap-day start date before trusting this in
+production; fix by clamping to the last valid day of the target month if it overflowed.
 
-## 3. Immediate next step: Milestone 2E — Payments Received + allocation
+## 5. Immediate next step: Milestone 2J — Customer Statements
 
-Invoices (2D) are fully done, backend and UI, browser-verified end to end (draft → issue → void).
-Per `docs/PHASE2_TODO.md`'s sequencing rationale, Payments Received is next since it depends on
-Invoices existing to allocate against. Build, following the 2D pattern (`invoices.{service,controller,
-dto}.ts` + `invoices-workbench.tsx` + the journals-style list/editor route split):
+Per `docs/PHASE2_TODO.md`:
 
-- `PaymentReceived` model (contactId, paymentNumber, receivedDate, currency, amountMinor,
-  allocatedMinor, unappliedMinor, depositAccountId, journalId, status) and `PaymentAllocation`
-  (paymentId, invoiceId, amountMinor) — migration written, applied, and drift-checked.
-- `payments.service.ts`: post once at recording time (cash/bank debit vs AR credit) via
-  `LedgerService.postJournalFromLines` (the same helper 2D introduced), `sourceType='PAYMENT_RECEIVED'`.
-- Over-allocation guard (the money-invariant this milestone exists to prove): lock the payment row and
-  every target invoice row, assert `sum(requested) <= payment.unappliedMinor` **and** per-invoice
-  `existing + requested <= invoice.balanceMinor`, atomic rejection otherwise. Write this test alongside
-  the implementation, not after — same non-negotiable-tests policy 2D followed for its own invariants.
-- Derive `Invoice.status` (PARTIALLY_PAID/PAID) and `PaymentReceived.status` in the same transaction as
-  the allocation.
-- New permission keys `sales.payments.view`, `sales.payments.record`, `sales.payments.allocate`
-  (SALES/ADMIN/ACCOUNTANT) — remember all three landing spots: `permission-catalog.ts`,
-  `roles-catalog.ts`, and `packages/contracts/src/index.ts`'s `permissionKeySchema` enum.
-- UI: `apps/web/src/app/payments/**` — list plus an allocation screen against a customer's open
-  invoices (probably reuses the invoice list's status filter to show only ISSUED/PARTIALLY_PAID rows).
-- Full test list for this milestone is in `docs/PHASE2_TODO.md` under Milestone 2E.
+- `statements.service.ts#getStatement(orgId, contactId, asOf)` — **read-only**, derived from
+  `Invoice`/`PaymentReceived`/`CreditNote`, no new mutating model. Since 2E/2F now actually exist
+  (they didn't when this checklist line was first written relative to 2D), the statement should surface
+  a proper running ledger for the contact: issued invoices, payments received and their allocations,
+  credit notes issued/applied/refunded, and a running balance — not just invoice totals in isolation.
+  Use plan mode for this (same pattern as every other milestone this session) since the exact shape of
+  "a statement" (transaction list vs. summary vs. both, date-range vs. as-of-single-date) is a real
+  design choice worth getting user sign-off on before coding.
+- New permission key `sales.statements.view` (SALES/ADMIN/ACCOUNTANT/VIEWER — this one's read-only for
+  everyone who can already see the underlying documents, no asymmetry needed).
+- UI: `apps/web/src/app/customers/[id]/statement` (or similar — confirm with the user, the checklist
+  says "or similar").
+- Test: statement total reconciles exactly to `sum(Invoice.balanceMinor)` for the contact.
 
-**Gotcha found while closing out 2D, worth knowing before you touch permissions again:** if a demo user
-hits an unexpected `ForbiddenState` on a page whose permission key was added in an earlier session, it's
-likely because the long-lived local dev database's demo-org roles were snapshotted from
-`roles-catalog.ts` once at org-creation time and never re-synced — a newly-added permission key doesn't
-retroactively appear on existing persisted `role_permissions` rows. That's not a guard bug. Reconcile by
-inserting the missing rows for that org's roles (compare `role_permissions` against the current
-`SYSTEM_ROLE_TEMPLATES`/`PERMISSION_KEYS` from the compiled `dist/` output) rather than resetting the
-database. Separately: the Playwright **e2e harness** (`apps/web/e2e/prepare.mjs`, used by
-`npm run test:e2e`) currently fails at the `clearAuthRateLimits` step with `ERR wrong number of
-arguments for 'del' command` from the `redis` client's `scanIterator` — pre-existing, unrelated to Sales
-work, not yet root-caused. Manual browser verification against the plain dev servers (not the e2e
-harness) works fine and is what 2D's golden-path check used.
+**2J needs no schema migration** (explicitly "no new mutating model") — you can build and typecheck it
+against a freshly-migrated schema without it adding to the migration you're about to write for 2F–2I.
 
-**When 2E is done:**
+## 6. Then: the full deferred verification pass across 2E–2J
 
-1. `npm run build --workspace @retailbooks/web` (and `@retailbooks/api` if the schema changed) to
-   confirm both compile in production mode.
-2. Manually exercise the golden path in a browser: issue an invoice, record a payment, allocate it,
-   confirm the invoice flips to PARTIALLY_PAID or PAID and the over-allocation guard rejects an
-   over-application — this repo's conventions require UI changes to be browser-tested, not just
-   typechecked.
-3. Flip Milestone 2E's items in `docs/PHASE2_TODO.md` to `[x]` with a short implementation note
-   (matching the style of every other completed milestone in that file), and mark the milestone header
-   ✅.
-4. Run the full verification sequence in §6 below and commit.
+Once 2J is coded, run this once, covering everything since 2D. **Do not skip straight to `npm test`** —
+the Prisma client is stale, nothing will compile.
 
-## 4. Non-negotiable conventions
+1. **Migration first.** `cd apps/api && npx prisma migrate dev --name add_credit_notes_quotes_orders_documents_recurring`
+   (pick your own name; this single command should pick up every schema change since 2E's migration —
+   confirm the generated SQL touches exactly the tables listed in §2, no more, no less). Then
+   `npx prisma generate` if migrate doesn't already trigger it.
+   - **Known Windows gotcha, hit repeatedly this session**: `npx prisma generate` fails with
+     `EPERM: ... query_engine-windows.dll.node` if any `nest start --watch` dev process (yours or a
+     peer session's) is running and holds the query-engine DLL open. Check
+     `Get-CimInstance Win32_Process -Filter "Name='node.exe'"` (PowerShell) for `retailbooks` processes
+     before assuming this is a real failure. **Ask the user before killing anything** — other sessions
+     may be actively using their dev servers; this happened twice this session and both times required
+     explicit user sign-off, once because killing the first suspected process caused a
+     `nest start --watch` parent to immediately respawn a fresh one holding the same lock.
+2. `npx tsc --noEmit` in `apps/api` and `apps/web`, then `npm run typecheck` at root.
+3. `npm run lint` at root.
+4. `npx prettier --write <changed files>`, then `npm run format:check`.
+5. `npm test` and `npm run test:integration` in `apps/api` (infra up: `npm run infra:up` — Postgres,
+   Redis, MinIO, Mailpit). **New for this pass**: MinIO must actually be reachable for
+   `document-rendering.int.test.ts` (it calls `StorageService.ensureBucket()` for real — first call
+   creates the bucket if missing) and Playwright's Chromium must launch successfully for the same test
+   and `recurring-invoices.int.test.ts`'s `autoSend` case.
+6. Migration drift check (the three-command `docker exec` + `prisma migrate diff --exit-code` sequence
+   from the previous handover — unchanged).
+7. `npm run build` at root (both apps, production mode).
+8. **Browser golden path** — this is the first time any of 2E–2J gets human eyes on it:
+   - Payments: record a payment, allocate it across two invoices, confirm status flips.
+   - Credit Notes: issue one, allocate part of it, refund the remainder, confirm `remainingMinor`
+     reaches zero and status lands on `APPLIED`/`REFUNDED` correctly depending on order of operations.
+   - Quotes: full state machine through to convert-to-invoice; confirm the converted invoice's totals
+     match exactly.
+   - Sales Orders: same, confirm convert doesn't change fulfillment status.
+   - Send: issue an invoice, click Send, **check Mailpit** (`http://localhost:58025`) for the email
+     and confirm the PDF attachment actually opens and looks right. Click Send again, confirm the
+     `DocumentSnapshot` row didn't duplicate (check the DB) but a second email arrived.
+   - Recurring Invoices: create a template with a past `startDate`, click "Run due templates now",
+     confirm an invoice was generated and `nextRunDate` advanced.
+   - Statements (2J): pull up a customer with invoices/payments/credit notes and confirm the numbers
+     reconcile.
+9. Update `docs/PHASE2_TODO.md`: check off 2E through however far this pass actually confirms (don't
+   check off a milestone whose browser test you skipped), with implementation notes in the established
+   style. Sync `docs/BUILD_ROADMAP.md`'s Phase 2 rollup.
+10. Commit. Given the size, consider one commit per milestone group (2E; 2F+2G; 2H+2I; 2J) rather than
+    one giant commit, matching this project's existing one-commit-per-milestone history — check with
+    the user on granularity before pushing anything.
 
-(Full list in `docs/BUILD_ROADMAP.md`'s "Platform-wide contracts" section.)
+Only after all of that is 2K (the cross-module acceptance/consolidation pass) realistically startable —
+it explicitly assumes 2E–2J are individually verified already.
 
-- Every tenant-owned table row carries `organization_id`; enforce scoping in the service + guard layer,
-  never trust it from client input.
-- Money is **always** fixed-precision integer minor units (`BigInt`) — never floating point. Reuse
-  `packages/accounting-core` (`roundHalfUpDivide`, `taxAmountExclusive`, `splitInclusiveAmount`, etc.)
-  for money/tax/FX math.
-- Posted ledger records are immutable — corrections happen via reversal, never edits. **Never hand-roll
-  posting logic.** Reuse `LedgerService` (`apps/api/src/organizations/ledger.service.ts`):
-  - `accountBySystemKey(organizationId, systemKey, client?)` to resolve control accounts
-    (`accounts_receivable`, `sales_revenue`, `tax_payable`, etc.) — never match on account code/name.
-  - `postJournalFromLines(context, user, operation, input, metadata, idempotencyKey?, externalTx?)` —
-    the programmatic posting path added in Milestone 2D for modules that build journal lines themselves
-    rather than a human drafting one through the journals UI. Pass `externalTx` (and
-    `idempotencyKey: undefined`) when your own transaction already owns idempotency at a higher level
-    (see `InvoicesService#issueInvoice` for the reference implementation).
-  - `reverseJournal(..., externalTx?)` — same `externalTx` pattern, for atomic void/correction flows.
-- `TaxService.resolveForPosting(tx, organizationId, taxCodeId, baseAmountMinor, asOfDate)` — the
-  transaction-safe way to freeze a tax snapshot as part of a larger posting transaction (added in 2D;
-  `TaxService.calculate()` is the older, non-transactional preview-only sibling).
-- Every financial mutation needs an audit event (`writeAuditEvent`, inside the same transaction as the
-  mutation it describes).
-- Every critical screen needs loading/empty/error/no-permission/archived-void/success states — reuse
-  `packages/ui`'s `EmptyState`/`ForbiddenState`/`Skeleton`/`Toast` primitives.
-- New Zod schemas go in `packages/contracts/src/index.ts` (flat file, grouped by `// --- Section ---`
-  comments), shared by API and web.
-- **Every new permission key must land in three places, or the web typecheck will silently miss it
-  until someone tries to use it:**
-  1. `apps/api/src/organizations/permission-catalog.ts` (`PERMISSION_KEYS` + `PERMISSION_CATALOG` entry)
-  2. `apps/api/src/organizations/roles-catalog.ts` (role wiring)
-  3. `packages/contracts/src/index.ts`'s `permissionKeySchema` enum — **this one is the easy miss**; it
-     happened once already during 2C and was only caught because the web app's typecheck failed.
-- Any new controller needs a matching entry in `apps/api/test/authorization-boundary.int.test.ts`'s
-  `ENDPOINTS` array (and a `.replace(':yourParam', ID)` in `requestEndpoint` if it introduces a new
-  route param) — the test's own first assertion (`keeps the declared matrix synchronized...`) will fail
-  loudly if you forget.
+## 7. Non-negotiable conventions
 
-## 5. Build/test sequencing — build first, verify in a follow-up pass
+(Full list in `docs/BUILD_ROADMAP.md`'s "Platform-wide contracts" section — unchanged from prior
+handovers, not repeated here. The short version, reconfirmed by this session's work: every tenant table
+carries `organization_id`; money is always `BigInt` minor units; posted ledger records are immutable,
+corrections are reversals; every new permission key lands in three places
+[`permission-catalog.ts`, `roles-catalog.ts`, `packages/contracts/src/index.ts`'s
+`permissionKeySchema`]; every new controller needs an `authorization-boundary.int.test.ts` `ENDPOINTS`
+entry or its own sync-check test fails loudly.)
 
-Within a phase, implement **Data model → Backend/API → UI → Business rules** before working through
-that phase's **Tests/acceptance** checklist. Two things do **not** get deferred:
+## 8. Known environment quirks worth knowing before you hit them
 
-- **Money-invariant checks as you build the posting logic itself**: posting always balances, reversal
-  is exact, payment/credit allocation can never over-apply. Write these alongside the implementation.
-  Every Sales milestone so far has shipped its own money-invariant integration tests in the same commit
-  as the feature (see `apps/api/test/{customers,catalog,invoices}.int.test.ts`) — keep that pattern.
-- **A phase's `Tests/acceptance` checklist must be fully checked off before a later dependent phase
-  starts building on it** — Milestone 2K is an explicit hard gate: nothing in Phase 6 (Inventory) may
-  build on unverified Phase 2 posting.
-
-Visual regression, WCAG, performance, and similar can genuinely wait for a dedicated verification pass.
-
-## 6. Verification checklist before considering any task done
-
-1. `npx tsc --noEmit` in the workspace(s) you touched, then `npm run typecheck` at the repo root.
-2. `npm run lint` at the repo root (`eslint . --max-warnings=0`).
-3. `npx prettier --write <changed files>` then `npm run format:check`.
-4. `npm test` and `npm run test:integration` in `apps/api` (infra must be up: `npm run infra:up` at
-   repo root — Postgres :55432, Redis :56379, MinIO, Mailpit; already running in this environment as
-   Docker containers `retailbooks-{postgres,redis,minio,mailpit}-1`).
-5. **Migration drift check**, if you touched `schema.prisma`. `psql` is not on PATH in this shell's
-   bash tool — go through the Postgres container directly:
-   ```
-   docker exec retailbooks-postgres-1 psql -U retailbooks -d postgres -c 'DROP DATABASE IF EXISTS retailbooks_shadow_check' -c 'CREATE DATABASE retailbooks_shadow_check'
-   cd apps/api && npx prisma migrate diff --from-migrations prisma/migrations --to-schema-datamodel prisma/schema.prisma --shadow-database-url "postgresql://retailbooks:retailbooks@localhost:55432/retailbooks_shadow_check" --exit-code
-   docker exec retailbooks-postgres-1 psql -U retailbooks -d postgres -c 'DROP DATABASE retailbooks_shadow_check'
-   ```
-6. `npm run build` at the repo root (both API and web must compile in production mode).
-7. Update `docs/PHASE2_TODO.md` for the milestone you closed (check off items, add a short
-   implementation note citing test file names — match the style already used for 2A–2D), then sync
-   `docs/BUILD_ROADMAP.md`'s Phase 2 section if its rolled-up summary needs it.
-8. Commit with a message that explains _why_, not just _what_ (see the 2D commit for the level of detail
-   expected — it explains the `externalTx` design decision and why it was needed, not just "add
-   invoices").
-
-## 7. Known environment quirks worth knowing before you hit them
-
-- **Prisma client generation can fail with `EPERM` on Windows** if a previous `npm run start`/test run
-  left an orphaned `node dist/src/main.js` process holding the query-engine DLL open. If
-  `npx prisma generate` or `migrate dev` fails this way, find it via
-  `powershell -Command "Get-CimInstance Win32_Process -Filter \"Name='node.exe'\""`, confirm it's a
-  retailbooks process (its loaded modules include `node_modules\.prisma\client\query_engine-windows.dll.node`),
-  and stop it — **ask the user first**, this is a destructive action.
-- **The web production build bakes `NEXT_PUBLIC_API_URL` in at build time**, not runtime — Next.js
-  inlines `NEXT_PUBLIC_*` vars into the client bundle during `next build`. If you rebuild `apps/web` for
-  a different target (e.g. the E2E harness's `:3401` API vs. normal dev's `:3001`), the _next_ plain
-  `npm run build --workspace @retailbooks/web` you run afterward will silently revert to whatever
-  `apps/web/.env.local` says. Rebuild once more with normal env before resuming ordinary local dev if
-  you've been running the E2E suite.
+- **Prisma client generation EPERM on Windows** — see §6 step 1. Ask before killing processes.
+- **Web production build bakes `NEXT_PUBLIC_API_URL` in at build time** — unchanged from prior
+  handovers; rebuild with normal env before resuming ordinary local dev if you've touched the E2E
+  harness's target port.
+- **The Playwright e2e harness** (`apps/web/e2e/prepare.mjs`) still fails at `clearAuthRateLimits` —
+  pre-existing, unrelated, not yet root-caused. Manual browser verification against the plain dev
+  servers is still the working path.
+- **A long-lived local dev database's demo-org roles go stale** relative to `roles-catalog.ts` as new
+  permission keys are added between sessions (roles are snapshotted once at org-creation time). If a
+  demo user hits an unexpected `ForbiddenState` on a page whose permission key was added in 2E–2I,
+  that's the cause — reconcile `role_permissions` rows for that org, don't reset the database.

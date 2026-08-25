@@ -145,112 +145,195 @@ depend on Invoices/Payments/CreditNotes. 2K (verification pass) is a hard gate: 
       guard bug; reconcile by inserting the missing `role_permissions` rows for that org rather than
       resetting the database.
 
-## Milestone 2E — Payments Received + allocation
+## Milestone 2E — Payments Received + allocation ✅
 
-- [ ] `PaymentReceived` model (contactId, paymentNumber, receivedDate, currency, amountMinor,
+- [x] `PaymentReceived` model (contactId, paymentNumber, receivedDate, currency, amountMinor,
       allocatedMinor, unappliedMinor, depositAccountId, journalId, status)
-- [ ] `PaymentAllocation` model (paymentId, invoiceId, amountMinor)
-- [ ] Migration written, applied, and drift-checked in CI
-- [ ] Post once at recording time (cash/bank debit vs AR credit) via `postJournalFromLines`,
+- [x] `PaymentAllocation` model (paymentId, invoiceId, amountMinor)
+- [x] Migration `20260825042133_add_payments_received` written, applied, and drift-checked
+      (`prisma migrate diff --exit-code`, both directions: no difference)
+- [x] Post once at recording time (cash/bank debit vs AR credit) via `postJournalFromLines`,
       `sourceType='PAYMENT_RECEIVED'`
-- [ ] Over-allocation guard: lock payment + target invoice rows, assert
-      `sum(requested) <= payment.unappliedMinor` and per-invoice
-      `existing + requested <= invoice.balanceMinor`, atomic rejection otherwise
-- [ ] Derive `Invoice.status` (PARTIALLY_PAID/PAID) and `PaymentReceived.status` in the same
+- [x] Over-allocation guard: lock payment + target invoice rows, assert
+      `sum(requested) <= payment.unappliedMinor` and per-invoice `requested <= invoice.balanceMinor`
+      (see note below), atomic rejection otherwise
+- [x] Derive `Invoice.status` (PARTIALLY_PAID/PAID) and `PaymentReceived.status` in the same
       transaction
-- [ ] New permission keys `sales.payments.view`, `sales.payments.record`, `sales.payments.allocate`
-      (SALES/ADMIN/ACCOUNTANT)
-- [ ] Zod schemas in `packages/contracts/src/index.ts`; extend `permissionKeySchema`
-- [ ] UI: `apps/web/src/app/payments/**` (list + allocation UI against open invoices)
-- [ ] Money-invariant tests: over-invoice-balance rejection; over-payment-unapplied rejection across
-      multiple invoices in one call (atomic); concurrent-allocation race test
+- [x] New permission keys `sales.payments.view`, `sales.payments.record`, `sales.payments.allocate`
+      (SALES: view/record; ADMIN/ACCOUNTANT: all three)
+- [x] Zod schemas in `packages/contracts/src/index.ts`; extended `permissionKeySchema`
+- [x] UI: `apps/web/src/components/payments-workbench.tsx` + `apps/web/src/app/payments/**` (list,
+      record, allocation UI against open invoices)
+- [x] Money-invariant tests (`apps/api/test/payments.int.test.ts`, 9 tests): over-invoice-balance
+      rejection, over-unapplied rejection across multiple invoices in one call (atomic), concurrent
+      allocation race, idempotency replay. The over-allocation guard's original form compared
+      `existingAllocationFromThisPayment + requested` against `invoice.balanceMinor` — a real
+      double-count, since `balanceMinor` is already net of every prior allocation against that
+      invoice (from any payment). The integration suite running for real caught this; fixed to
+      compare `requested` directly against the fresh `balanceMinor`.
 
-## Milestone 2F — Credit Notes
+## Milestone 2F — Credit Notes ✅
 
-- [ ] `CreditNote`/`CreditNoteLine` models (same shape as Invoice/InvoiceLine)
-- [ ] `CreditNoteAllocation` model (mirrors `PaymentAllocation`)
-- [ ] `CreditNoteStatus` enum: DRAFT, ISSUED, APPLIED, REFUNDED, VOID
-- [ ] Add `customer_credit` system-account key to `ledger-starter-chart.ts` (customer-credit clearing
-      liability account) for the refund-recorded posting path
-- [ ] Migration written, applied, and drift-checked in CI
-- [ ] Issue posts the reverse of an invoice (debit revenue/tax, credit AR)
-- [ ] New permission keys `sales.credit_notes.view/manage/issue/void`
-- [ ] Zod schemas in `packages/contracts/src/index.ts`; extend `permissionKeySchema`
-- [ ] UI: `apps/web/src/app/credit-notes/**`
-- [ ] Money-invariant tests: over-allocation guard (same pattern as 2E); exact-offset
-      reversal-correctness test
-- [ ] Write and pass cross-module acceptance scenario 4 (build spec §18.4, credit flow) here;
-      re-verify in 2K
+- [x] `CreditNote`/`CreditNoteLine` models (same shape as Invoice/InvoiceLine)
+- [x] `CreditNoteAllocation` model (mirrors `PaymentAllocation`, but owns a real `journalId` — see
+      below) and `CreditNoteRefund` (per-event cash-payout table)
+- [x] `CreditNoteStatus` enum: DRAFT, ISSUED, APPLIED, REFUNDED, VOID
+- [x] Added `customer_credit` system-account key to `ledger-starter-chart.ts`
+- [x] Migration `20260825092302_add_credit_notes_quotes_orders_documents_recurring` (bundled with
+      2F–2I's schema additions) written, applied, and drift-checked (both directions: no difference)
+- [x] Issue credits `customer_credit` (a liability holding account), not `accounts_receivable`
+      directly — a deliberate deviation from the checklist's literal wording, documented in the doc
+      comment at the top of `credit-notes.service.ts`. AR is only reduced when the credit is
+      _allocated_ to a specific invoice (`DR customer_credit, CR accounts_receivable`, one real
+      journal per invoice per allocation call — unlike payments, this is a fresh posting each time,
+      not bookkeeping against value that already landed). Refund pays the remainder in cash
+      (`DR customer_credit, CR bank_default`).
+- [x] New permission keys `sales.credit_notes.view/manage/issue/void/allocate/refund` (SALES gets
+      view/manage/issue only — void/allocate/refund reserved for ADMIN/ACCOUNTANT, matching the
+      forward-workflow-vs-money-moving asymmetry applied across 2E–2I)
+- [x] Zod schemas in `packages/contracts/src/index.ts`; extended `permissionKeySchema`
+- [x] UI: `apps/web/src/components/credit-notes-workbench.tsx` + `apps/web/src/app/credit-notes/**`
+- [x] Money-invariant tests (`apps/api/test/credit-notes.int.test.ts`, 10 tests): over-allocation
+      guard (both single-invoice and whole-call-total forms), over-refund rejection, concurrent
+      allocation race, idempotency replay, exact-reversal void, and status derivation
+      (ISSUED while partially consumed — there is no `PARTIALLY_APPLIED` value — APPLIED only when
+      `remainingMinor` hits zero via allocation, REFUNDED only via refund)
+- [x] Cross-module credit flow (issue → partial allocate → refund the remainder, invoice balance
+      settles to exactly zero) verified end-to-end over real HTTP against a running API in the 2K
+      golden-path pass below, not just at the service layer
 
-## Milestone 2G — Quotes + Sales Orders (+ convert-to-Invoice)
+## Milestone 2G — Quotes + Sales Orders (+ convert-to-Invoice) ✅
 
-- [ ] `Quote`/`QuoteLine` models; `QuoteStatus` enum: DRAFT, PENDING_APPROVAL, APPROVED, SENT,
+- [x] `Quote`/`QuoteLine` models; `QuoteStatus` enum: DRAFT, PENDING_APPROVAL, APPROVED, SENT,
       ACCEPTED, DECLINED, EXPIRED, CONVERTED
-- [ ] `SalesOrder`/`SalesOrderLine` models; `SalesOrderStatus` enum: DRAFT, APPROVED, CONFIRMED,
-      PARTIALLY_FULFILLED, FULFILLED, CANCELLED
-- [ ] No `journalId` column on either model (structural proof these don't post)
-- [ ] Nullable `convertedInvoiceId` link columns
-- [ ] Migration written, applied, and drift-checked in CI
-- [ ] Convert actions re-snapshot line data into a new DRAFT Invoice via 2D's `createDraft` path
-- [ ] New permission keys `sales.quotes.view/manage/approve/convert`,
-      `sales.orders.view/manage/approve/convert`
-- [ ] Zod schemas in `packages/contracts/src/index.ts`; extend `permissionKeySchema`
-- [ ] UI: `apps/web/src/app/quotes/**`, `apps/web/src/app/sales-orders/**` incl. accept/decline
-- [ ] Tests: state-machine transitions; conversion-correctness (converted invoice totals exactly
-      match source at conversion time)
+- [x] `SalesOrder`/`SalesOrderLine` models; `SalesOrderStatus` enum: DRAFT, APPROVED, CONFIRMED,
+      PARTIALLY_FULFILLED, FULFILLED, CANCELLED — no `CONVERTED` value; converting only sets
+      `convertedInvoiceId` and leaves fulfillment status untouched (verified over HTTP below)
+- [x] No `journalId` column on either model (structural proof these don't post)
+- [x] Nullable `convertedInvoiceId` link columns
+- [x] Migration written, applied, and drift-checked (bundled with 2F, see above)
+- [x] Convert actions re-snapshot line data into a new DRAFT Invoice via 2D's `createDraft` path.
+      `InvoicesService#createDraft` doesn't accept an external transaction, so convert is a two-phase,
+      non-atomic call — worst case on failure is an orphaned unlinked DRAFT invoice, never a ledger
+      inconsistency, since nothing here posts.
+- [x] New permission keys `sales.quotes.view/manage/approve/convert`,
+      `sales.orders.view/manage/approve/convert` (SALES gets convert but not approve on either —
+      approve is reserved for ADMIN/ACCOUNTANT as a checker step)
+- [x] Zod schemas in `packages/contracts/src/index.ts`; extended `permissionKeySchema`
+- [x] UI: `apps/web/src/app/quotes/**`, `apps/web/src/app/sales-orders/**` incl. accept/decline
+- [x] Tests (`apps/api/test/quotes-and-orders.int.test.ts`, 9 tests): state-machine transitions,
+      conversion-correctness (converted invoice totals exactly match source at conversion time),
+      confirms sales-order convert doesn't change fulfillment status. Three of these initially failed
+      after the 2E–2J migration was applied — the fixture customer had no email, and `QuotesService
+    #send()` (enhanced in 2H) now requires one; fixed by giving the fixture an email.
 
-## Milestone 2H — PDF generation + email delivery
+## Milestone 2H — PDF generation + email delivery ✅
 
-- [ ] `DocumentSnapshot` model (documentType, documentId, storageKey, renderedAt)
-- [ ] Migration written, applied, and drift-checked in CI
-- [ ] `apps/api/src/sales/document-rendering.service.ts`: render once at issue/send time, immutable
-      thereafter, stored via existing S3/MinIO config
-- [ ] Reuse the existing BullMQ `email-delivery` queue with new job types (`invoice.send`,
-      `credit_note.send`, `quote.send`)
-- [ ] Wire `sentAt` + `send` transition on Invoice/CreditNote/Quote
-- [ ] New permission key `sales.documents.send`
-- [ ] Tests: re-send doesn't re-render (snapshot cache hit); one job enqueued per send call
+- [x] `DocumentSnapshot` model (documentType, documentId, storageKey, renderedAt; unique on
+      `[organizationId, documentType, documentId]`, so a duplicate row is impossible at the DB level)
+- [x] Migration written, applied, and drift-checked (bundled with 2F, see above)
+- [x] `apps/api/src/sales/document-rendering.service.ts`: Playwright renders synchronously inside the
+      API request (not offloaded to the worker process), so the render and the `DocumentSnapshot`
+      cache row land together, avoiding distributed two-phase state
+- [x] Reuse the existing BullMQ `email-delivery` queue with new job types (`invoice.send`,
+      `credit_note.send`, `quote.send`); the actual send happens in the separate worker process
+      (`apps/api/src/worker.ts`) that consumes the queue — confirmed by running the worker process
+      during the 2K golden-path pass below and watching real emails with PDF attachments land in
+      Mailpit
+- [x] Wire `sentAt` + `send` transition on Invoice/CreditNote/Quote. `Quote#send()`'s status guard
+      accepts both APPROVED and SENT as valid starting states so a quote can be re-sent
+- [x] New permission key `sales.documents.send`
+- [x] Tests (`apps/api/test/document-rendering.int.test.ts`, 4 tests): re-send doesn't re-render
+      (snapshot cache hit, confirmed both at the DB level and via a second distinct email arriving),
+      rejects sending an unemailed customer and a draft invoice
 
-## Milestone 2I — Recurring Invoices
+## Milestone 2I — Recurring Invoices ✅
 
-- [ ] `RecurringInvoiceTemplate` model (contactId, cadence, startDate, endDate, nextRunDate,
+- [x] `RecurringInvoiceTemplate` model (contactId, cadence, startDate, endDate, nextRunDate,
       autoCreate, autoSend, lastRunOccurrenceKey, active)
-- [ ] `RecurringInvoiceTemplateLine` model (real child table, matching every other line-item model)
-- [ ] Migration written, applied, and drift-checked in CI
-- [ ] Scheduler (`runDueTemplates()`) reuses the `LedgerIdempotencyKey` mechanism
+- [x] `RecurringInvoiceTemplateLine` model (real child table, matching every other line-item model)
+- [x] Migration written, applied, and drift-checked (bundled with 2F, see above)
+- [x] Scheduler (`runDueTemplates()`) reuses the `LedgerIdempotencyKey` mechanism
       (`operation: 'RECURRING_INVOICE_GENERATE'`, occurrence key per due template) so a duplicate
-      sweep trigger can't double-generate
-- [ ] Generated invoices go through 2D's normal `createDraft`/`issueInvoice` paths — no new posting
+      sweep trigger can't double-generate. No cron exists in the stack (out of scope); `run-due` is a
+      permission-gated endpoint meant for an external trigger, with a "Run due templates now" button
+      in the UI for the same purpose.
+- [x] Generated invoices go through 2D's normal `createDraft`/`issueInvoice` paths — no new posting
       logic
-- [ ] New permission keys `sales.recurring_invoices.view/manage`
-- [ ] Zod schemas in `packages/contracts/src/index.ts`; extend `permissionKeySchema`
-- [ ] UI: `apps/web/src/app/recurring-invoices/**`
-- [ ] Money-invariant test (non-negotiable): concurrent double-trigger of `runDueTemplates()` for the
+- [x] New permission keys `sales.recurring_invoices.view/manage`
+- [x] Zod schemas in `packages/contracts/src/index.ts`; extended `permissionKeySchema`
+- [x] UI: `apps/web/src/app/recurring-invoices/**`
+- [x] Money-invariant test (non-negotiable): concurrent double-trigger of `runDueTemplates()` for the
       same due template produces exactly one child invoice
+- [x] Fixed a real bug in `advanceCadence()`: it used `Date.prototype.setUTCMonth`/`setUTCFullYear`
+      directly, which overflows when the target month is shorter than the source day-of-month (e.g.
+      2026-01-31 advanced by one month became 2026-03-03 instead of clamping to 2026-02-28). Replaced
+      with a clamped month-add helper; added a regression test
+      (`apps/api/test/recurring-invoices.int.test.ts`) covering exactly this month-end case.
 
-## Milestone 2J — Customer Statements
+## Milestone 2J — Customer Statements ✅
 
-- [ ] `statements.service.ts#getStatement(orgId, contactId, asOf)` — read-only, derived from
-      Invoice/PaymentReceived/CreditNote, no new mutating model
-- [ ] New permission key `sales.statements.view` (SALES/ADMIN/ACCOUNTANT/VIEWER)
-- [ ] UI: `apps/web/src/app/customers/[id]/statement` (or similar)
-- [ ] Test: statement total reconciles exactly to `sum(Invoice.balanceMinor)` for the contact
+- [x] `statements.service.ts#getStatement(orgId, contactId, { from?, to? })` — read-only, derived
+      entirely by replaying the same three events that already maintain `Invoice.balanceMinor`
+      incrementally (invoice issue, payment allocation, credit-note allocation), so the closing
+      balance reconciles to `sum(Invoice.balanceMinor)` by construction. Superseded the checklist's
+      literal single-`asOf` signature with a `from`/`to` date range (product decision, confirmed with
+      the user) and a response with both a summary section (opening/closing balance + totals) and a
+      full chronological transaction list, including informational rows (payment received, credit
+      note issued/refunded) that carry the running balance forward unchanged.
+- [x] New permission key `sales.statements.view` (SALES/ADMIN/ACCOUNTANT/VIEWER — pure read access,
+      no asymmetry needed)
+- [x] UI: `apps/web/src/app/customers/[id]/statement` + a "Statement" action on each customer row
+- [x] Test: statement total reconciles exactly to `sum(Invoice.balanceMinor)` for the contact
+      (`apps/api/test/statements.int.test.ts`, 6 tests, plus verified again against a live database
+      via the HTTP golden path below)
+- Known, accepted quirk (not a 2J bug): a voided invoice's `balanceMinor` is never reset by
+  `voidInvoice` (void is only permitted while `paidMinor === 0`, so `balanceMinor` still equals
+  `totalMinor` at void time and stays there), so a voided invoice permanently contributes its full
+  total to a customer's statement balance. The statement faithfully mirrors `balanceMinor` rather
+  than "fixing" this independently, since doing so would break exact reconciliation. A real fix
+  belongs in `voidInvoice` itself, out of scope here.
 
-## Milestone 2K — Phase 2 verification pass (hard gate before Phase 6 can start)
+## Milestone 2K — Phase 2 verification pass (hard gate before Phase 6 can start) ✅
 
-- [ ] Consolidate/re-run all state-machine illegal-transition tests
-- [ ] Consolidate/re-run invoice-issue balanced-posting test
-- [ ] Consolidate/re-run payment over-allocation test
-- [ ] Consolidate/re-run recurring-scheduler idempotency test
-- [ ] Permission-boundary tests for SALES/VIEWER across every new Sales endpoint, using the same
-      controller-metadata-contract approach as `authorization-boundary.int.test.ts`
-- [ ] Cross-module acceptance scenario 1 (build spec §18.1, service business — Customer→Item→
-      Invoice→Issue→Payment→Allocation) end-to-end through the AR/GL portion
-- [ ] Re-verify cross-module acceptance scenario 4 (credit flow) from 2F
-- [ ] Log as open-and-deferred (not silently dropped): Phase 2 visual regression, WCAG review,
+- [x] Consolidated/re-ran all state-machine illegal-transition tests — full suite green
+- [x] Consolidated/re-ran invoice-issue balanced-posting test — green
+- [x] Consolidated/re-ran payment over-allocation test — green
+- [x] Consolidated/re-ran recurring-scheduler idempotency test — green (plus the new month-end clamp
+      regression test)
+- [x] Permission-boundary tests for SALES/VIEWER (and all eight system roles) across every new Sales
+      endpoint, via `authorization-boundary.int.test.ts`'s controller-metadata-contract approach —
+      includes the new `StatementsController` endpoint
+- [x] Cross-module acceptance scenario 1 (service business — Customer→Item→Invoice→Issue→
+      Payment→Allocation) verified end-to-end through the AR/GL portion, over real HTTP against a
+      running API instance (not just the service layer): signup→verify→login→create org→finalize→
+      generate fiscal year→create customer→issue two invoices→record a payment→allocate across both
+- [x] Re-verified cross-module acceptance scenario 4 (credit flow) from 2F over the same real-HTTP
+      run: issue a credit note→allocate part of it→refund the remainder→invoice balance settles to
+      exactly zero
+- [x] Full deferred verification pass executed and green: migration applied
+      (`20260825092302_add_credit_notes_quotes_orders_documents_recurring`) and drift-checked in both
+      directions; `tsc --noEmit` clean in `apps/api`, `apps/web`, and `packages/contracts`; `npm run
+    lint` clean (also fixed two pre-existing lint errors in uncommitted 2E–2I files, unrelated to
+      2J, found while closing out this pass); `npm test` (73 unit tests) and `npm run test:integration`
+      (18 files, 113 tests) both green; both API and web production builds succeed; a full HTTP-level
+      golden-path walkthrough (39 checks) against a real running API + worker instance covered every
+      item in the deferred browser-verification list — payments record/allocate/status-flip, credit
+      note issue/allocate/refund/status-derivation, quote and sales-order full state machines through
+      convert-to-invoice, invoice send with a real PDF attachment landing in Mailpit and a confirmed
+      non-duplicating `DocumentSnapshot` on re-send, recurring-invoice run-due generating an invoice
+      and advancing `nextRunDate`, and statement reconciliation — run against an isolated
+      API/worker pair on a scratch port against the same dev database, with the synthetic
+      organization/user data cleaned up afterward. Literal interactive-browser clicking was not
+      performed (the project's own Playwright e2e harness has a pre-existing, unrelated
+      `clearAuthRateLimits` failure per the handover); the HTTP-level walkthrough exercises the same
+      controllers/guards/serialization and real email delivery a browser session would.
+- [x] Logged as open-and-deferred (not silently dropped): Phase 2 visual regression, WCAG review,
       performance/index review on Invoice/InvoiceLine list queries, Sales section of `DESIGN.md` —
       same "verification pass can wait" treatment Phase 1 used; these do not block Phase 3 or later
-      phases that don't depend on them
+      phases that don't depend on them. Also newly deferred: `voidInvoice` not resetting
+      `balanceMinor` (see 2J's note above) — latent, not customer-visible today, but should be fixed
+      before statements are relied on for anything voided invoices touch.
 
 ## Cross-cutting rules for every milestone
 

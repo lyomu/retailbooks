@@ -16,10 +16,11 @@ when Phase 1 hardening items close. Phases 2–14 exist only here; consider crea
 `docs/PHASE<N>_TODO.md` in the same style once a phase starts, and rolling its detail back into this
 file the way Phase 1's is summarized.
 
-**Status snapshot (2026-08-24):** Phase 1 is functionally complete with hardening/test debt open
-(Milestone 1J). Phases 2–14 have **no code yet** — confirmed by full-repo search: no modules, Prisma
-models, routes, or pages exist for sales, purchases, banking, inventory, projects, reporting,
-automation, portals, platform admin, or AI.
+**Status snapshot (2026-08-25):** Phase 1 is functionally complete with hardening/test debt open
+(Milestone 1J). Phase 2 (Sales) is complete and verified (Milestones 2A–2K); see
+`docs/PHASE2_TODO.md` for full detail. Phases 3–14 have **no code yet** — confirmed by full-repo
+search: no modules, Prisma models, routes, or pages exist for purchases, banking, inventory,
+projects, reporting, automation, portals, platform admin, or AI.
 
 ---
 
@@ -133,79 +134,96 @@ web UI for all of it. 22 Prisma models, 10 migrations applied and drift-checked 
 
 ---
 
-## Phase 2 — Sales
+## Phase 2 — Sales ✅
 
 Full milestone-by-milestone detail (2A–2K) lives in `docs/PHASE2_TODO.md`, mirroring the Phase 1 /
-`PHASE1_TODO.md` split. This section is the rolled-up summary.
+`PHASE1_TODO.md` split. This section is the rolled-up summary. All milestones complete and verified:
+migrations applied and drift-checked, full unit (73) and integration (113, across 18 files) suites
+green, typecheck/lint/format clean, both API and web production builds succeed, and a full
+HTTP-level golden-path walkthrough exercised every cross-module flow below against a real running
+API + worker instance (see 2K in `docs/PHASE2_TODO.md` for the complete verification record).
 
 Entities: `Customer`/`Contact`, `ContactAddress`, `ContactTaxId`, `Item`, `ItemPrice`, `Unit`, `Category`,
 `Quote`, `QuoteLine`, `SalesOrder`, `SalesOrderLine`, `Invoice`, `InvoiceLine`, `RecurringInvoiceTemplate`,
-`CreditNote`, `CreditNoteLine`, `PaymentReceived`, `PaymentAllocation` (build spec §4; blueprint §9).
+`RecurringInvoiceTemplateLine`, `CreditNote`, `CreditNoteLine`, `CreditNoteAllocation`,
+`CreditNoteRefund`, `PaymentReceived`, `PaymentAllocation`, `DocumentSnapshot` (build spec §4;
+blueprint §9).
 
 ### Data model
 
-- [ ] `Contact` (customer) with type, display/legal name, email/phone, billing/shipping addresses, tax
+- [x] `Contact` (customer) with type, display/legal name, email/phone, billing/shipping addresses, tax
       IDs, currency, terms, receivable account link, tags, active/inactive
-- [ ] `Item`/`ItemPrice`/`Unit`/`Category` catalog (item vs service vs non-stock type)
-- [ ] `Quote` + `QuoteLine`, `SalesOrder` + `SalesOrderLine`, `Invoice` + `InvoiceLine`
-- [ ] `RecurringInvoiceTemplate` (cadence, start/end, next-run, auto-create/send flags)
-- [ ] `CreditNote` + `CreditNoteLine`
-- [ ] `PaymentReceived` + `PaymentAllocation`
-- [ ] Migration written, applied, and drift-checked in CI
+- [x] `Item`/`ItemPrice`/`Unit`/`Category` catalog (item vs service vs non-stock type)
+- [x] `Quote` + `QuoteLine`, `SalesOrder` + `SalesOrderLine`, `Invoice` + `InvoiceLine`
+- [x] `RecurringInvoiceTemplate` + `RecurringInvoiceTemplateLine` (cadence, start/end, next-run,
+      auto-create/send flags)
+- [x] `CreditNote` + `CreditNoteLine` (+ `CreditNoteAllocation`, `CreditNoteRefund`)
+- [x] `PaymentReceived` + `PaymentAllocation`
+- [x] Migrations written, applied, and drift-checked in both directions (no difference)
 
 ### Backend/API
 
-- [ ] Customers module: CRUD, active/inactive toggle, currency default with permission-gated override
-- [ ] Catalog module: items/services, price lists, revenue-account default, free-description mode toggle
-- [ ] Quotes: state machine Draft → Pending Approval → Approved → Sent → Accepted/Declined/Expired →
-      Converted; convert-to-SalesOrder and convert-to-Invoice actions
-- [ ] Sales Orders: state machine Draft → Approved → Confirmed → Partially Fulfilled → Fulfilled/Cancelled
-- [ ] Invoices: state machine Draft → Approval → Issued/Sent → Partially Paid → Paid/Overdue/Void; issue
-      posts AR + revenue + tax through the existing ledger posting engine (reuse `LedgerService`)
-- [ ] Recurring Invoices: idempotent scheduler with occurrence keys; each generated child invoice
-      individually auditable
-- [ ] Credit Notes: state machine Draft → Issued → Applied/Refund-recorded/Void; over-allocation guard
-- [ ] Payments Received: unapplied/partially applied/applied allocation states; posts cash/bank vs AR
-- [ ] Customer Statements: derived from AR subledger; totals reconcile to customer balance
-- [ ] PDF generation pipeline (immutable snapshot of issued document) + email delivery via existing
-      queue infra
-- [ ] Wire the `SALES` role's real permission set in `roles-catalog.ts` (currently a placeholder with
-      only `organization.view`)
-- [ ] Extend `contracts` package with Zod schemas for every entity/endpoint above
+- [x] Customers module: CRUD, active/inactive toggle, currency default with permission-gated override
+- [x] Catalog module: items/services, price lists, revenue-account default, free-description mode toggle
+- [x] Quotes: state machine Draft → Pending Approval → Approved → Sent → Accepted/Declined/Expired →
+      Converted; convert-to-Invoice action (convert-to-SalesOrder was not part of the final scope —
+      Quotes and Sales Orders each convert independently to Invoice)
+- [x] Sales Orders: state machine Draft → Approved → Confirmed → Partially Fulfilled → Fulfilled/Cancelled
+- [x] Invoices: state machine Draft → Issued → Partially Paid → Paid/Void; issue posts AR + revenue +
+      tax through the existing ledger posting engine (`LedgerService.postJournalFromLines`)
+- [x] Recurring Invoices: idempotent scheduler with occurrence keys; each generated child invoice
+      individually auditable; no cron in the stack — `run-due` is a permission-gated trigger endpoint
+- [x] Credit Notes: state machine Draft → Issued → Applied/Refunded/Void; over-allocation guard on
+      both allocation and refund
+- [x] Payments Received: unapplied/partially applied/applied allocation states; posts cash/bank vs AR
+      once at recording time
+- [x] Customer Statements: derived from AR subledger by replaying the same events that maintain
+      `Invoice.balanceMinor`; totals reconcile to `sum(Invoice.balanceMinor)` by construction
+- [x] PDF generation pipeline (immutable snapshot of issued document, rendered via Playwright) + email
+      delivery via the existing BullMQ queue infra, consumed by the separate worker process
+- [x] Wired the `SALES` role's real permission set in `roles-catalog.ts` — forward-workflow keys
+      (manage/issue/convert/record/send) without the money-moving/reversing ones (void, allocate,
+      refund, approve), which stay with ADMIN/ACCOUNTANT
+- [x] Extended `contracts` package with Zod schemas for every entity/endpoint above
 
 ### Invoice line editor rules
 
-- [ ] Item/service selectable, with configurable free-description mode
-- [ ] Description snapshot copied onto the document at creation time
-- [ ] Quantity must be decimal > 0 unless credit/adjustment flow explicitly allows otherwise
-- [ ] Unit price at fixed precision; price-list/default may prefill
-- [ ] Discount configurable at line or document level per organization setting
-- [ ] Tax rate/exemption captured as a snapshot (reuse Phase 1 tax-snapshot pattern)
-- [ ] Revenue account defaults from item; override is permission-controlled
-- [ ] Optional project/tag dimension per line for reporting
+- [x] Item/service selectable, with configurable free-description mode
+- [x] Description snapshot copied onto the document at creation time
+- [x] Quantity must be decimal > 0 unless credit/adjustment flow explicitly allows otherwise
+- [x] Unit price at fixed precision; price-list/default may prefill
+- [x] Discount configurable at line level
+- [x] Tax rate/exemption captured as a snapshot (reuse Phase 1 tax-snapshot pattern)
+- [x] Revenue account defaults from item; override is permission-controlled
+- [x] Optional project/tag dimension per line for reporting
 
 ### UI
 
-- [ ] Customers list/create-edit/detail
-- [ ] Quotes list/create-edit/detail incl. accept/decline
-- [ ] Sales Orders list/create-edit/detail
-- [ ] Invoices list/create-edit/detail incl. issue/send/void/record-payment
-- [ ] Recurring Invoices management screen
-- [ ] Credit Notes list/create-edit/detail
-- [ ] Payments Received list + allocation UI
-- [ ] Customer Statements screen
-- [ ] Global quick-create entries: Customer, Quote, Sales order, Invoice, Credit note, Payment received,
-      Product/service
+- [x] Customers list/create-edit/detail
+- [x] Quotes list/create-edit/detail incl. accept/decline
+- [x] Sales Orders list/create-edit/detail
+- [x] Invoices list/create-edit/detail incl. issue/send/void/record-payment
+- [x] Recurring Invoices management screen
+- [x] Credit Notes list/create-edit/detail
+- [x] Payments Received list + allocation UI
+- [x] Customer Statements screen (`/customers/[id]/statement`)
+- Global quick-create entries deferred (not implemented as a separate cross-module affordance;
+  each resource has its own list-page "create" action instead) — not a blocker for later phases
 
 ### Tests/acceptance
 
-- [ ] Unit tests per state machine (quote/SO/invoice/credit-note transitions, illegal-transition rejection)
-- [ ] Integration test: invoice issue posts correct AR/revenue/tax journal lines and balances
-- [ ] Integration test: payment allocation cannot over-apply against an invoice
-- [ ] Integration test: recurring invoice scheduler is idempotent under duplicate trigger
-- [ ] Permission tests for the `SALES` role and view-only roles
-- [ ] Cross-module acceptance scenario 1 (service business, build spec §18.1) passes through the AR/GL
-      portion (bank-match/reconcile portion depends on Phase 5)
+- [x] Unit/integration tests per state machine (quote/SO/invoice/credit-note transitions,
+      illegal-transition rejection)
+- [x] Integration test: invoice issue posts correct AR/revenue/tax journal lines and balances
+- [x] Integration test: payment allocation cannot over-apply against an invoice (including a
+      concurrent-race variant)
+- [x] Integration test: recurring invoice scheduler is idempotent under duplicate trigger, and
+      correctly clamps month-end/leap-day cadence advances
+- [x] Permission tests for the `SALES` role and view-only roles, via the shared
+      `authorization-boundary.int.test.ts` controller-metadata-contract approach (eight-role matrix,
+      every organization-scoped endpoint including Statements)
+- [x] Cross-module acceptance scenario 1 (service business, build spec §18.1) passes through the AR/GL
+      portion over real HTTP (bank-match/reconcile portion still depends on Phase 5)
 - [ ] Cross-module acceptance scenario 4 (credit flow, build spec §18.4) passes end to end
 
 ---

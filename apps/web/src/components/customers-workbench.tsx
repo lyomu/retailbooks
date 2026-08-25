@@ -17,7 +17,8 @@ import {
   StatusBadge,
   type DataTableColumn,
 } from '@retailbooks/ui';
-import { Plus, Save, Search } from 'lucide-react';
+import { FileClock, Plus, Save, Search } from 'lucide-react';
+import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 
 import { ApiError, apiRequest } from '../lib/api';
@@ -34,6 +35,7 @@ export function CustomersPage() {
   const canView = hasPermission(organization, 'customers.view');
   const canManage = hasPermission(organization, 'customers.manage');
   const canOverrideCurrency = hasPermission(organization, 'customers.currency_override');
+  const canViewStatements = hasPermission(organization, 'sales.statements.view');
 
   const [customers, setCustomers] = useState<Contact[] | null>(null);
   const [statusFilter, setStatusFilter] = useState<'' | 'ACTIVE' | 'INACTIVE'>('');
@@ -160,24 +162,39 @@ export function CustomersPage() {
       header: '',
       align: 'right',
       cell: (customer) =>
-        canManage ? (
+        canViewStatements || canManage ? (
           <div className="rb-inline-actions">
-            <Button variant="ghost" size="sm" onClick={() => setEditing(customer)}>
-              Edit
-            </Button>
-            {customer.status === 'ACTIVE' ? (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => void setStatus(customer, 'INACTIVE')}
-              >
-                Deactivate
+            {canViewStatements ? (
+              <Button asChild variant="ghost" size="sm">
+                <Link href={`/customers/${customer.id}/statement`}>
+                  <FileClock aria-hidden="true" /> Statement
+                </Link>
               </Button>
-            ) : (
-              <Button variant="ghost" size="sm" onClick={() => void setStatus(customer, 'ACTIVE')}>
-                Reactivate
-              </Button>
-            )}
+            ) : null}
+            {canManage ? (
+              <>
+                <Button variant="ghost" size="sm" onClick={() => setEditing(customer)}>
+                  Edit
+                </Button>
+                {customer.status === 'ACTIVE' ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => void setStatus(customer, 'INACTIVE')}
+                  >
+                    Deactivate
+                  </Button>
+                ) : (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => void setStatus(customer, 'ACTIVE')}
+                  >
+                    Reactivate
+                  </Button>
+                )}
+              </>
+            ) : null}
           </div>
         ) : null,
     },
