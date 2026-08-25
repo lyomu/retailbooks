@@ -17,7 +17,7 @@ import {
   StatusBadge,
   type DataTableColumn,
 } from '@retailbooks/ui';
-import { CheckCircle2, FilePlus2, Save, Search, XCircle } from 'lucide-react';
+import { CheckCircle2, FilePlus2, Mail, Save, Search, XCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -219,6 +219,7 @@ export function InvoiceEditorPage({ invoiceId }: { invoiceId?: string }) {
   const canManage = hasPermission(organization, 'sales.invoices.manage');
   const canIssue = hasPermission(organization, 'sales.invoices.issue');
   const canVoid = hasPermission(organization, 'sales.invoices.void');
+  const canSend = hasPermission(organization, 'sales.documents.send');
 
   const [customers, setCustomers] = useState<Contact[]>([]);
   const [items, setItems] = useState<Item[]>([]);
@@ -409,11 +410,31 @@ export function InvoiceEditorPage({ invoiceId }: { invoiceId?: string }) {
     }
   }
 
+  async function sendInvoice() {
+    if (!organizationId || !invoice?.id) return;
+    setBusy('send');
+    setError(null);
+    try {
+      const response = await apiRequest<InvoiceResponse>(
+        `/organizations/${organizationId}/invoices/${invoice.id}/send`,
+        { method: 'POST' },
+      );
+      setInvoice(response.data);
+      setNotice('Invoice sent.');
+      await load();
+    } catch (caught) {
+      setError(caught instanceof ApiError ? caught.message : 'The invoice could not be sent.');
+    } finally {
+      setBusy(null);
+    }
+  }
+
   const canVoidNow =
     invoice &&
     (invoice.status === 'ISSUED' || invoice.status === 'PARTIALLY_PAID') &&
     invoice.paidMinor === '0' &&
     canVoid;
+  const canSendNow = invoice && invoice.status !== 'DRAFT' && invoice.status !== 'VOID' && canSend;
 
   return (
     <>
@@ -618,6 +639,16 @@ export function InvoiceEditorPage({ invoiceId }: { invoiceId?: string }) {
                   loading={busy === 'void'}
                 >
                   <XCircle aria-hidden="true" /> Void
+                </Button>
+              ) : null}
+              {canSendNow ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => void sendInvoice()}
+                  loading={busy === 'send'}
+                >
+                  <Mail aria-hidden="true" /> Send
                 </Button>
               ) : null}
             </div>

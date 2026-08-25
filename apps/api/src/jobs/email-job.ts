@@ -4,6 +4,9 @@ export const EMAIL_JOB_NAMES = {
   verification: 'verification',
   passwordReset: 'password-reset',
   organizationInvitation: 'organization-invitation',
+  invoiceSend: 'invoice.send',
+  creditNoteSend: 'credit_note.send',
+  quoteSend: 'quote.send',
 } as const;
 
 export type EmailJobName = (typeof EMAIL_JOB_NAMES)[keyof typeof EMAIL_JOB_NAMES];
@@ -13,4 +16,7 @@ export type EmailDeliveryJob = {
   subject: string;
   text: string;
   html: string;
+  /** `path` is a short-lived pre-signed S3 GET URL; nodemailer streams it at send time rather than
+   * embedding the PDF bytes in the (Redis-stored) job payload. */
+  attachments?: { filename: string; path: string }[];
 };

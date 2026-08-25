@@ -118,4 +118,22 @@ export class InvoicesController {
       ),
     };
   }
+
+  @Post(':invoiceId/send')
+  @HttpCode(200)
+  @RequirePermission('sales.documents.send')
+  async send(
+    @Param('invoiceId', new ParseUUIDPipe()) invoiceId: string,
+    @Req() request: OrganizationRequest,
+  ) {
+    const metadata = requestMetadata(request, this.auth.pepper);
+    return {
+      data: await this.invoices.sendInvoice(
+        request.organization,
+        request.auth.user,
+        invoiceId,
+        metadata,
+      ),
+    };
+  }
 }

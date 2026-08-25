@@ -10,13 +10,17 @@ import { roundHalfUpDivide } from '@retailbooks/accounting-core';
 import type { PublicUser } from '../auth/auth.service.js';
 import type { RequestMetadata } from '../auth/request-context.js';
 import { PrismaService } from '../database/prisma.service.js';
+import { EMAIL_JOB_NAMES } from '../jobs/email-job.js';
+import { EmailQueueService } from '../jobs/email-queue.service.js';
 import { writeAuditEvent } from '../organizations/audit-event.js';
 import { INVOICE_DOCUMENT_TYPE } from '../organizations/document-numbering.js';
 import { DocumentNumberingService } from '../organizations/document-numbering.service.js';
 import { LedgerService } from '../organizations/ledger.service.js';
 import type { OrganizationContext } from '../organizations/organization-context.js';
 import { TaxService } from '../organizations/tax.service.js';
+import { DocumentRenderingService } from './document-rendering.service.js';
 import type { CreateInvoiceDto, InvoiceLineDto, UpdateInvoiceDto } from './invoices.dto.js';
+import { renderInvoiceHtml } from './pdf-templates.js';
 
 const QUANTITY_SCALE = 10_000n;
 
@@ -24,7 +28,9 @@ type InvoiceWithLines = Prisma.InvoiceGetPayload<{ include: typeof invoiceDetail
 
 const invoiceDetailInclude = {
   lines: { orderBy: { lineNumber: 'asc' } },
-  contact: { select: { id: true, displayName: true, currency: true, receivableAccountId: true } },
+  contact: {
+    select: { id: true, displayName: true, currency: true, receivableAccountId: true, email: true },
+  },
 } satisfies Prisma.InvoiceInclude;
 
 @Injectable()
@@ -34,6 +40,8 @@ export class InvoicesService {
     private readonly ledger: LedgerService,
     private readonly tax: TaxService,
     private readonly numbering: DocumentNumberingService,
+    private readonly documentRendering: DocumentRenderingService,
+    private readonly emailQueue: EmailQueueService,
   ) {}
 
   async list(organizationId: string, status?: string) {
@@ -130,6 +138,7 @@ export class InvoicesService {
         displayName: nextContact.displayName,
         currency: nextContact.currency,
         receivableAccountId: nextContact.receivableAccountId,
+        email: nextContact.email,
       };
     }
 
@@ -431,6 +440,77 @@ export class InvoicesService {
         ipHash: metadata.ipHash,
       });
 
+      return invoice;
+    });
+
+    return summarizeInvoice(updated);
+  }
+
+  /** Renders the invoice to PDF (cached after the first call -- a re-send never re-renders) and
+   * enqueues an email job with the PDF as a pre-signed-URL attachment. `sentAt` updates on every
+   * successful send, not just the first, so it reflects last-sent rather than first-sent. */
+  async sendInvoice(
+    context: OrganizationContext,
+    user: PublicUser,
+    invoiceId: string,
+    metadata: RequestMetadata,
+  ) {
+    const existing = await this.findOrThrow(context.id, invoiceId);
+    if (existing.status === 'DRAFT' || existing.status === 'VOID') {
+      throw new ConflictException('Only issued invoices can be sent.');
+    }
+    if (!existing.contact.email) {
+      throw new BadRequestException('This customer has no email address on file.');
+    }
+
+    const html = renderInvoiceHtml(context.legalName, {
+      invoiceNumber: existing.invoiceNumber,
+      contactName: existing.contact.displayName,
+      issueDate: existing.issueDate ? dateOnly(existing.issueDate) : null,
+      currency: existing.currency,
+      subtotalMinor: existing.subtotalMinor.toString(),
+      taxTotalMinor: existing.taxTotalMinor.toString(),
+      totalMinor: existing.totalMinor.toString(),
+      lines: existing.lines.map((line) => ({
+        descriptionSnapshot: line.descriptionSnapshot,
+        quantity: line.quantity.toString(),
+        unitPriceMinor: line.unitPriceMinor.toString(),
+        discountMinor: line.discountMinor.toString(),
+        lineTotalMinor: line.lineTotalMinor.toString(),
+      })),
+    });
+    const { storageKey } = await this.documentRendering.render(
+      context.id,
+      'INVOICE',
+      invoiceId,
+      html,
+    );
+    const signedUrl = await this.documentRendering.getSignedUrl(storageKey);
+
+    await this.emailQueue.enqueue(EMAIL_JOB_NAMES.invoiceSend, {
+      to: existing.contact.email,
+      subject: `Invoice ${existing.invoiceNumber ?? ''} from ${context.legalName}`,
+      text: `Please find attached invoice ${existing.invoiceNumber ?? ''} from ${context.legalName}.`,
+      html: `<p>Please find attached invoice ${existing.invoiceNumber ?? ''} from ${context.legalName}.</p>`,
+      attachments: [{ filename: `${existing.invoiceNumber ?? invoiceId}.pdf`, path: signedUrl }],
+    });
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const invoice = await tx.invoice.update({
+        where: { id: invoiceId },
+        data: { sentAt: new Date() },
+        include: invoiceDetailInclude,
+      });
+      await writeAuditEvent(tx, {
+        organizationId: context.id,
+        actorUserId: user.id,
+        eventKey: 'sales.invoice_sent',
+        entityType: 'invoice',
+        entityId: invoiceId,
+        action: AuditAction.UPDATE,
+        after: { sentAt: invoice.sentAt!.toISOString() },
+        ipHash: metadata.ipHash,
+      });
       return invoice;
     });
 
