@@ -129,7 +129,11 @@ export class SalesOrdersService {
       if (nextContact.status !== 'ACTIVE') {
         throw new ConflictException('Cannot create an order for a deactivated customer.');
       }
-      contact = { id: nextContact.id, displayName: nextContact.displayName, currency: nextContact.currency };
+      contact = {
+        id: nextContact.id,
+        displayName: nextContact.displayName,
+        currency: nextContact.currency,
+      };
     }
 
     const currency = input.currency ?? contact.currency;
@@ -152,7 +156,9 @@ export class SalesOrdersService {
           ...(resolvedLines
             ? {
                 lines: {
-                  create: resolvedLines.map((line, index) => lineCreateData(line, index, context.id)),
+                  create: resolvedLines.map((line, index) =>
+                    lineCreateData(line, index, context.id),
+                  ),
                 },
               }
             : {}),
@@ -222,7 +228,12 @@ export class SalesOrdersService {
     return summarizeOrder(updated);
   }
 
-  confirm(context: OrganizationContext, user: PublicUser, orderId: string, metadata: RequestMetadata) {
+  confirm(
+    context: OrganizationContext,
+    user: PublicUser,
+    orderId: string,
+    metadata: RequestMetadata,
+  ) {
     return this.transition(context, user, orderId, metadata, {
       from: ['APPROVED'],
       to: 'CONFIRMED',
@@ -259,7 +270,12 @@ export class SalesOrdersService {
     });
   }
 
-  cancel(context: OrganizationContext, user: PublicUser, orderId: string, metadata: RequestMetadata) {
+  cancel(
+    context: OrganizationContext,
+    user: PublicUser,
+    orderId: string,
+    metadata: RequestMetadata,
+  ) {
     return this.transition(context, user, orderId, metadata, {
       from: ['DRAFT', 'APPROVED', 'CONFIRMED'],
       to: 'CANCELLED',
@@ -280,7 +296,9 @@ export class SalesOrdersService {
   ) {
     const existing = await this.findOrThrow(context.id, orderId);
     if (!CONVERTIBLE_STATUSES.includes(existing.status)) {
-      throw new ConflictException('Only confirmed or fulfilled orders can be converted to an invoice.');
+      throw new ConflictException(
+        'Only confirmed or fulfilled orders can be converted to an invoice.',
+      );
     }
     if (existing.convertedInvoiceId) {
       throw new ConflictException('This order has already been converted to an invoice.');

@@ -150,13 +150,16 @@ export class QuotesService {
         data: {
           contactId: contact.id,
           currency,
-          expiryDate: input.expiryDate !== undefined ? isoDate(input.expiryDate) : existing.expiryDate,
+          expiryDate:
+            input.expiryDate !== undefined ? isoDate(input.expiryDate) : existing.expiryDate,
           subtotalMinor: totalMinor,
           totalMinor,
           ...(resolvedLines
             ? {
                 lines: {
-                  create: resolvedLines.map((line, index) => lineCreateData(line, index, context.id)),
+                  create: resolvedLines.map((line, index) =>
+                    lineCreateData(line, index, context.id),
+                  ),
                 },
               }
             : {}),
@@ -227,7 +230,12 @@ export class QuotesService {
     return summarizeQuote(updated);
   }
 
-  approve(context: OrganizationContext, user: PublicUser, quoteId: string, metadata: RequestMetadata) {
+  approve(
+    context: OrganizationContext,
+    user: PublicUser,
+    quoteId: string,
+    metadata: RequestMetadata,
+  ) {
     return this.transition(context, user, quoteId, metadata, {
       from: ['PENDING_APPROVAL'],
       to: 'APPROVED',
@@ -304,7 +312,12 @@ export class QuotesService {
     return summarizeQuote(updated);
   }
 
-  accept(context: OrganizationContext, user: PublicUser, quoteId: string, metadata: RequestMetadata) {
+  accept(
+    context: OrganizationContext,
+    user: PublicUser,
+    quoteId: string,
+    metadata: RequestMetadata,
+  ) {
     return this.transition(context, user, quoteId, metadata, {
       from: ['SENT'],
       to: 'ACCEPTED',
@@ -313,7 +326,12 @@ export class QuotesService {
     });
   }
 
-  decline(context: OrganizationContext, user: PublicUser, quoteId: string, metadata: RequestMetadata) {
+  decline(
+    context: OrganizationContext,
+    user: PublicUser,
+    quoteId: string,
+    metadata: RequestMetadata,
+  ) {
     return this.transition(context, user, quoteId, metadata, {
       from: ['SENT'],
       to: 'DECLINED',
@@ -322,7 +340,12 @@ export class QuotesService {
     });
   }
 
-  expire(context: OrganizationContext, user: PublicUser, quoteId: string, metadata: RequestMetadata) {
+  expire(
+    context: OrganizationContext,
+    user: PublicUser,
+    quoteId: string,
+    metadata: RequestMetadata,
+  ) {
     return this.transition(context, user, quoteId, metadata, {
       from: ['SENT'],
       to: 'EXPIRED',

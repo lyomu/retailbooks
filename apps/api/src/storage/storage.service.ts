@@ -40,7 +40,8 @@ export class StorageService {
       try {
         await this.client.send(new CreateBucketCommand({ Bucket: this.bucket }));
       } catch (error) {
-        const code = (error as { name?: string; Code?: string }).name ?? (error as { Code?: string }).Code;
+        const code =
+          (error as { name?: string; Code?: string }).name ?? (error as { Code?: string }).Code;
         if (code !== 'BucketAlreadyOwnedByYou' && code !== 'BucketAlreadyExists') throw error;
       }
     }

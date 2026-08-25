@@ -30,6 +30,7 @@ import {
   LayoutDashboard,
   Menu,
   Package,
+  Plus,
   Receipt,
   Repeat,
   Search,
@@ -44,7 +45,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 
 import { apiRequest } from '../lib/api';
-import { useWorkspace } from '../lib/workspace';
+import { hasPermission, useWorkspace } from '../lib/workspace';
 import { OrganizationSwitcher } from './organization-switcher';
 
 type NavigationItem = {
@@ -77,6 +78,20 @@ const navigationGroups: NavigationGroup[] = [
       { label: 'Quotes', icon: FileQuestion, href: '/quotes' },
       { label: 'Sales orders', icon: ClipboardList, href: '/sales-orders' },
       { label: 'Recurring invoices', icon: Repeat, href: '/recurring-invoices' },
+    ],
+  },
+  {
+    label: 'Purchases',
+    items: [
+      { label: 'Vendors', icon: Users, href: '/vendors' },
+      { label: 'Purchase orders', icon: ClipboardList, href: '/purchase-orders' },
+      { label: 'Bills', icon: Receipt, href: '/bills' },
+      { label: 'Expenses', icon: Banknote, href: '/expenses' },
+      { label: 'Expense categories', icon: Package, href: '/expense-categories' },
+      { label: 'Vendor credits', icon: Undo2, href: '/vendor-credits' },
+      { label: 'Payments made', icon: Banknote, href: '/payments-made' },
+      { label: 'Recurring bills', icon: Repeat, href: '/recurring-bills' },
+      { label: 'Recurring expenses', icon: Repeat, href: '/recurring-expenses' },
     ],
   },
   {
@@ -231,6 +246,55 @@ function Sidebar({
   );
 }
 
+type QuickCreateEntry = {
+  label: string;
+  href: string;
+  permission: Parameters<typeof hasPermission>[1];
+};
+
+const quickCreateEntries: readonly QuickCreateEntry[] = [
+  { label: 'Vendor', href: '/vendors', permission: 'vendors.manage' },
+  { label: 'Purchase order', href: '/purchase-orders/new', permission: 'purchases.orders.manage' },
+  { label: 'Bill', href: '/bills/new', permission: 'purchases.bills.manage' },
+  { label: 'Expense', href: '/expenses/new', permission: 'purchases.expenses.manage' },
+  {
+    label: 'Payment made',
+    href: '/payments-made/new',
+    permission: 'purchases.payments_made.record',
+  },
+];
+
+function QuickCreateMenu({
+  organization,
+}: {
+  organization: ReturnType<typeof useWorkspace>['activeOrganization'];
+}) {
+  const entries = quickCreateEntries.filter((entry) =>
+    hasPermission(organization, entry.permission),
+  );
+  if (entries.length === 0) return null;
+
+  return (
+    <Dropdown>
+      <DropdownTrigger asChild>
+        <button className="rb-icon-button rb-quick-create-button" type="button">
+          <Plus aria-hidden="true" />
+          <span className="rb-visually-hidden">Quick create</span>
+        </button>
+      </DropdownTrigger>
+      <DropdownContent align="end">
+        <DropdownLabel>Quick create</DropdownLabel>
+        <DropdownSeparator />
+        {entries.map((entry) => (
+          <DropdownItem asChild key={entry.href}>
+            <Link href={entry.href}>{entry.label}</Link>
+          </DropdownItem>
+        ))}
+      </DropdownContent>
+    </Dropdown>
+  );
+}
+
 function TopBar({
   onMenuClick,
   workspace,
@@ -292,6 +356,7 @@ function TopBar({
             <span aria-hidden="true" /> {workspace.activeOrganization.baseCurrency}
           </span>
         ) : null}
+        <QuickCreateMenu organization={workspace.activeOrganization} />
         <button className="rb-icon-button rb-notification-button" type="button">
           <Bell aria-hidden="true" />
           <span className="rb-notification-button__dot" aria-hidden="true" />

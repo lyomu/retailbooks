@@ -11,6 +11,7 @@ import { HealthController } from './health.controller.js';
 import { HealthService } from './health.service.js';
 import { JobsModule } from './jobs/jobs.module.js';
 import { OrganizationsModule } from './organizations/organizations.module.js';
+import { PurchasesModule } from './purchases/purchases.module.js';
 import { SalesModule } from './sales/sales.module.js';
 
 @Module({
@@ -22,6 +23,7 @@ import { SalesModule } from './sales/sales.module.js';
     AuthModule,
     OrganizationsModule,
     SalesModule,
+    PurchasesModule,
   ],
   controllers: [HealthController],
   providers: [

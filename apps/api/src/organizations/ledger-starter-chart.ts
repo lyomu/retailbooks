@@ -28,6 +28,7 @@ export const SYSTEM_ACCOUNT_KEYS = [
   'fx_loss',
   'rounding',
   'customer_credit',
+  'vendor_credit',
 ] as const;
 
 export type SystemAccountKey = (typeof SYSTEM_ACCOUNT_KEYS)[number];
@@ -58,6 +59,14 @@ const generalBusinessAccounts: readonly StarterAccount[] = Object.freeze([
   { code: '1110', name: 'Allowance for doubtful debts', type: 'ASSET', normalBalance: c },
   { code: '1120', name: 'Staff advances', type: 'ASSET', normalBalance: d },
   { code: '1130', name: 'Supplier deposits', type: 'ASSET', normalBalance: d },
+  {
+    code: '1140',
+    name: 'Vendor credit balance',
+    type: 'ASSET',
+    normalBalance: d,
+    systemKey: 'vendor_credit',
+    isControl: true,
+  },
   {
     code: '1200',
     name: 'Inventory',

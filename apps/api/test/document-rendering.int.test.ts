@@ -84,44 +84,40 @@ describe('document rendering and send delivery against a real database', () => {
     contactId = contact.id;
   });
 
-  it(
-    'renders an invoice once, caches it on re-send, but enqueues a fresh email job each time',
-    async () => {
-      const enqueueSpy = vi.spyOn(emailQueue, 'enqueue').mockResolvedValue(undefined);
+  it('renders an invoice once, caches it on re-send, but enqueues a fresh email job each time', async () => {
+    const enqueueSpy = vi.spyOn(emailQueue, 'enqueue').mockResolvedValue(undefined);
 
-      const draft = await invoices.createDraft(
-        context,
-        owner,
-        { contactId, lines: [{ description: 'Widget', quantity: '1', unitPriceMinor: '1000' }] },
-        metadata,
-      );
-      const issued = await invoices.issueInvoice(context, owner, draft.id, metadata);
+    const draft = await invoices.createDraft(
+      context,
+      owner,
+      { contactId, lines: [{ description: 'Widget', quantity: '1', unitPriceMinor: '1000' }] },
+      metadata,
+    );
+    const issued = await invoices.issueInvoice(context, owner, draft.id, metadata);
 
-      const firstSend = await invoices.sendInvoice(context, owner, issued.id, metadata);
-      expect(firstSend.sentAt).not.toBeNull();
-      expect(enqueueSpy).toHaveBeenCalledTimes(1);
-      expect(enqueueSpy.mock.calls[0]?.[0]).toBe('invoice.send');
-      expect(enqueueSpy.mock.calls[0]?.[1].to).toBe('acme@example.test');
-      expect(enqueueSpy.mock.calls[0]?.[1].attachments).toHaveLength(1);
+    const firstSend = await invoices.sendInvoice(context, owner, issued.id, metadata);
+    expect(firstSend.sentAt).not.toBeNull();
+    expect(enqueueSpy).toHaveBeenCalledTimes(1);
+    expect(enqueueSpy.mock.calls[0]?.[0]).toBe('invoice.send');
+    expect(enqueueSpy.mock.calls[0]?.[1].to).toBe('acme@example.test');
+    expect(enqueueSpy.mock.calls[0]?.[1].attachments).toHaveLength(1);
 
-      const snapshotsAfterFirst = await harness.prisma.documentSnapshot.count({
-        where: { organizationId: context.id, documentType: 'INVOICE', documentId: issued.id },
-      });
-      expect(snapshotsAfterFirst).toBe(1);
-      const firstSentAt = firstSend.sentAt;
+    const snapshotsAfterFirst = await harness.prisma.documentSnapshot.count({
+      where: { organizationId: context.id, documentType: 'INVOICE', documentId: issued.id },
+    });
+    expect(snapshotsAfterFirst).toBe(1);
+    const firstSentAt = firstSend.sentAt;
 
-      await new Promise((resolve) => setTimeout(resolve, 5));
-      const secondSend = await invoices.sendInvoice(context, owner, issued.id, metadata);
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    const secondSend = await invoices.sendInvoice(context, owner, issued.id, metadata);
 
-      expect(enqueueSpy).toHaveBeenCalledTimes(2);
-      const snapshotsAfterSecond = await harness.prisma.documentSnapshot.count({
-        where: { organizationId: context.id, documentType: 'INVOICE', documentId: issued.id },
-      });
-      expect(snapshotsAfterSecond).toBe(1);
-      expect(secondSend.sentAt).not.toBe(firstSentAt);
-    },
-    30_000,
-  );
+    expect(enqueueSpy).toHaveBeenCalledTimes(2);
+    const snapshotsAfterSecond = await harness.prisma.documentSnapshot.count({
+      where: { organizationId: context.id, documentType: 'INVOICE', documentId: issued.id },
+    });
+    expect(snapshotsAfterSecond).toBe(1);
+    expect(secondSend.sentAt).not.toBe(firstSentAt);
+  }, 30_000);
 
   it('rejects sending to a customer with no email address on file', async () => {
     const noEmailContact = await customers.create(
@@ -158,26 +154,22 @@ describe('document rendering and send delivery against a real database', () => {
     );
   });
 
-  it(
-    'renders a credit note and enqueues a credit_note.send job',
-    async () => {
-      vi.spyOn(emailQueue, 'enqueue').mockResolvedValue(undefined);
-      const draft = await creditNotes.createDraft(
-        context,
-        owner,
-        { contactId, lines: [{ description: 'Return', quantity: '1', unitPriceMinor: '500' }] },
-        metadata,
-      );
-      const issued = await creditNotes.issueCreditNote(context, owner, draft.id, metadata);
+  it('renders a credit note and enqueues a credit_note.send job', async () => {
+    vi.spyOn(emailQueue, 'enqueue').mockResolvedValue(undefined);
+    const draft = await creditNotes.createDraft(
+      context,
+      owner,
+      { contactId, lines: [{ description: 'Return', quantity: '1', unitPriceMinor: '500' }] },
+      metadata,
+    );
+    const issued = await creditNotes.issueCreditNote(context, owner, draft.id, metadata);
 
-      const sent = await creditNotes.sendCreditNote(context, owner, issued.id, metadata);
-      expect(sent.sentAt).not.toBeNull();
+    const sent = await creditNotes.sendCreditNote(context, owner, issued.id, metadata);
+    expect(sent.sentAt).not.toBeNull();
 
-      const snapshot = await harness.prisma.documentSnapshot.count({
-        where: { organizationId: context.id, documentType: 'CREDIT_NOTE', documentId: issued.id },
-      });
-      expect(snapshot).toBe(1);
-    },
-    30_000,
-  );
+    const snapshot = await harness.prisma.documentSnapshot.count({
+      where: { organizationId: context.id, documentType: 'CREDIT_NOTE', documentId: issued.id },
+    });
+    expect(snapshot).toBe(1);
+  }, 30_000);
 });

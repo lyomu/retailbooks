@@ -72,7 +72,7 @@ describe('SYSTEM_ROLE_TEMPLATES', () => {
   });
 
   it('gives the still-Phase-1-minimal roles only organization.view', () => {
-    for (const key of ['PURCHASES', 'INVENTORY_MANAGER', 'PROJECT_MANAGER'] as const) {
+    for (const key of ['INVENTORY_MANAGER', 'PROJECT_MANAGER'] as const) {
       const template = SYSTEM_ROLE_TEMPLATES.find((t) => t.key === key);
       expect(template?.permissions).toEqual(['organization.view']);
     }
@@ -106,6 +106,41 @@ describe('SYSTEM_ROLE_TEMPLATES', () => {
       'sales.recurring_invoices.manage',
       'sales.statements.view',
     ]);
+  });
+
+  it('gives PURCHASES its real Phase 3 forward-workflow permissions', () => {
+    const template = SYSTEM_ROLE_TEMPLATES.find((t) => t.key === 'PURCHASES');
+    expect(template?.permissions).toEqual([
+      'organization.view',
+      'vendors.view',
+      'vendors.manage',
+      'vendors.currency_override',
+      'purchases.orders.view',
+      'purchases.orders.manage',
+      'purchases.orders.issue',
+      'purchases.bills.view',
+      'purchases.bills.manage',
+      'purchases.bills.issue',
+      'purchases.expenses.view',
+      'purchases.expenses.manage',
+      'purchases.expenses.post',
+      'purchases.expense_categories.view',
+      'purchases.expense_categories.manage',
+      'purchases.vendor_credits.view',
+      'purchases.vendor_credits.manage',
+      'purchases.vendor_credits.issue',
+      'purchases.payments_made.view',
+      'purchases.payments_made.record',
+      'purchases.recurring_bills.view',
+      'purchases.recurring_bills.manage',
+      'purchases.recurring_expenses.view',
+      'purchases.recurring_expenses.manage',
+    ]);
+    // Same asymmetry as SALES: the money-moving/reversing keys (approve/void/allocate) stay with
+    // ADMIN/ACCOUNTANT and never appear on the PURCHASES role.
+    expect(template?.permissions.some((key) => key.endsWith('.void'))).toBe(false);
+    expect(template?.permissions.some((key) => key.endsWith('.allocate'))).toBe(false);
+    expect(template?.permissions.some((key) => key.endsWith('.approve'))).toBe(false);
   });
 });
 

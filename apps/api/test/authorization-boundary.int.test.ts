@@ -15,6 +15,15 @@ import { OrganizationsController } from '../src/organizations/organizations.cont
 import type { PermissionKey } from '../src/organizations/permission-catalog.js';
 import { SYSTEM_ROLE_KEYS, type SystemRoleKey } from '../src/organizations/roles-catalog.js';
 import { TaxController } from '../src/organizations/tax.controller.js';
+import { BillsController } from '../src/purchases/bills.controller.js';
+import { ExpenseCategoriesController } from '../src/purchases/expense-categories.controller.js';
+import { ExpensesController } from '../src/purchases/expenses.controller.js';
+import { PaymentsMadeController } from '../src/purchases/payments-made.controller.js';
+import { PurchaseOrdersController } from '../src/purchases/purchase-orders.controller.js';
+import { RecurringBillsController } from '../src/purchases/recurring-bills.controller.js';
+import { RecurringExpensesController } from '../src/purchases/recurring-expenses.controller.js';
+import { VendorCreditsController } from '../src/purchases/vendor-credits.controller.js';
+import { VendorsController } from '../src/purchases/vendors.controller.js';
 import { CatalogController } from '../src/sales/catalog.controller.js';
 import { CreditNotesController } from '../src/sales/credit-notes.controller.js';
 import { CustomersController } from '../src/sales/customers.controller.js';
@@ -657,6 +666,347 @@ const ENDPOINTS: readonly EndpointCase[] = [
     path: 'organizations/:organizationId/recurring-invoices/run-due',
     permission: 'sales.recurring_invoices.manage',
   },
+  { method: 'get', path: 'organizations/:organizationId/vendors', permission: 'vendors.view' },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/vendors/check-duplicate',
+    permission: 'vendors.manage',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/vendors/:vendorId',
+    permission: 'vendors.view',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/vendors',
+    permission: 'vendors.manage',
+    body: {},
+  },
+  {
+    method: 'patch',
+    path: 'organizations/:organizationId/vendors/:vendorId',
+    permission: 'vendors.manage',
+    body: {},
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/vendors/:vendorId/deactivate',
+    permission: 'vendors.manage',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/vendors/:vendorId/reactivate',
+    permission: 'vendors.manage',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/purchase-orders',
+    permission: 'purchases.orders.view',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/purchase-orders/:orderId',
+    permission: 'purchases.orders.view',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/purchase-orders',
+    permission: 'purchases.orders.manage',
+    body: {},
+  },
+  {
+    method: 'patch',
+    path: 'organizations/:organizationId/purchase-orders/:orderId',
+    permission: 'purchases.orders.manage',
+    body: {},
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/purchase-orders/:orderId/approve',
+    permission: 'purchases.orders.approve',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/purchase-orders/:orderId/issue',
+    permission: 'purchases.orders.issue',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/purchase-orders/:orderId/receipt',
+    permission: 'purchases.orders.manage',
+    body: {},
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/purchase-orders/:orderId/close',
+    permission: 'purchases.orders.manage',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/purchase-orders/:orderId/cancel',
+    permission: 'purchases.orders.manage',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/bills',
+    permission: 'purchases.bills.view',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/bills/:billId',
+    permission: 'purchases.bills.view',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/bills',
+    permission: 'purchases.bills.manage',
+    body: {},
+  },
+  {
+    method: 'patch',
+    path: 'organizations/:organizationId/bills/:billId',
+    permission: 'purchases.bills.manage',
+    body: {},
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/bills/:billId/issue',
+    permission: 'purchases.bills.issue',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/bills/:billId/void',
+    permission: 'purchases.bills.void',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/bills/:billId/attachments',
+    permission: 'purchases.bills.view',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/bills/:billId/attachments',
+    permission: 'purchases.bills.manage',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/expense-categories',
+    permission: 'purchases.expense_categories.view',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/expense-categories',
+    permission: 'purchases.expense_categories.manage',
+    body: {},
+  },
+  {
+    method: 'patch',
+    path: 'organizations/:organizationId/expense-categories/:categoryId',
+    permission: 'purchases.expense_categories.manage',
+    body: {},
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/expenses',
+    permission: 'purchases.expenses.view',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/expenses/:expenseId',
+    permission: 'purchases.expenses.view',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/expenses',
+    permission: 'purchases.expenses.manage',
+    body: {},
+  },
+  {
+    method: 'patch',
+    path: 'organizations/:organizationId/expenses/:expenseId',
+    permission: 'purchases.expenses.manage',
+    body: {},
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/expenses/:expenseId/submit',
+    permission: 'purchases.expenses.manage',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/expenses/:expenseId/approve',
+    permission: 'purchases.expenses.approve',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/expenses/:expenseId/post',
+    permission: 'purchases.expenses.post',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/expenses/:expenseId/void',
+    permission: 'purchases.expenses.void',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/expenses/:expenseId/cancel',
+    permission: 'purchases.expenses.manage',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/expenses/:expenseId/attachments',
+    permission: 'purchases.expenses.view',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/expenses/:expenseId/attachments',
+    permission: 'purchases.expenses.manage',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/vendor-credits',
+    permission: 'purchases.vendor_credits.view',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/vendor-credits/:vendorCreditId',
+    permission: 'purchases.vendor_credits.view',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/vendor-credits/:vendorCreditId/open-bills',
+    permission: 'purchases.vendor_credits.view',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/vendor-credits',
+    permission: 'purchases.vendor_credits.manage',
+    body: {},
+  },
+  {
+    method: 'patch',
+    path: 'organizations/:organizationId/vendor-credits/:vendorCreditId',
+    permission: 'purchases.vendor_credits.manage',
+    body: {},
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/vendor-credits/:vendorCreditId/issue',
+    permission: 'purchases.vendor_credits.issue',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/vendor-credits/:vendorCreditId/void',
+    permission: 'purchases.vendor_credits.void',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/vendor-credits/:vendorCreditId/allocate',
+    permission: 'purchases.vendor_credits.allocate',
+    body: {},
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/payments-made',
+    permission: 'purchases.payments_made.view',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/payments-made/:paymentId',
+    permission: 'purchases.payments_made.view',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/payments-made/:paymentId/open-bills',
+    permission: 'purchases.payments_made.view',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/payments-made',
+    permission: 'purchases.payments_made.record',
+    body: {},
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/payments-made/:paymentId/allocate',
+    permission: 'purchases.payments_made.allocate',
+    body: {},
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/recurring-bills',
+    permission: 'purchases.recurring_bills.view',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/recurring-bills/:templateId',
+    permission: 'purchases.recurring_bills.view',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/recurring-bills',
+    permission: 'purchases.recurring_bills.manage',
+    body: {},
+  },
+  {
+    method: 'patch',
+    path: 'organizations/:organizationId/recurring-bills/:templateId',
+    permission: 'purchases.recurring_bills.manage',
+    body: {},
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/recurring-bills/:templateId/deactivate',
+    permission: 'purchases.recurring_bills.manage',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/recurring-bills/:templateId/reactivate',
+    permission: 'purchases.recurring_bills.manage',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/recurring-bills/run-due',
+    permission: 'purchases.recurring_bills.manage',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/recurring-expenses',
+    permission: 'purchases.recurring_expenses.view',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/recurring-expenses/:templateId',
+    permission: 'purchases.recurring_expenses.view',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/recurring-expenses',
+    permission: 'purchases.recurring_expenses.manage',
+    body: {},
+  },
+  {
+    method: 'patch',
+    path: 'organizations/:organizationId/recurring-expenses/:templateId',
+    permission: 'purchases.recurring_expenses.manage',
+    body: {},
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/recurring-expenses/:templateId/deactivate',
+    permission: 'purchases.recurring_expenses.manage',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/recurring-expenses/:templateId/reactivate',
+    permission: 'purchases.recurring_expenses.manage',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/recurring-expenses/run-due',
+    permission: 'purchases.recurring_expenses.manage',
+  },
 ];
 
 const CONTROLLERS: readonly Type[] = [
@@ -674,6 +1024,15 @@ const CONTROLLERS: readonly Type[] = [
   SalesOrdersController,
   RecurringInvoicesController,
   StatementsController,
+  VendorsController,
+  PurchaseOrdersController,
+  BillsController,
+  ExpenseCategoriesController,
+  ExpensesController,
+  VendorCreditsController,
+  PaymentsMadeController,
+  RecurringBillsController,
+  RecurringExpensesController,
 ];
 
 describe('organization authorization boundary over HTTP', () => {
@@ -758,7 +1117,9 @@ describe('organization authorization boundary over HTTP', () => {
         }
       }
     }
-  });
+    // The endpoint list nearly doubled in Phase 3 (~180 endpoints x 8 roles of real HTTP calls),
+    // which no longer fits the 30s default -- give the full matrix sweep explicit headroom.
+  }, 180_000);
 
   it('returns the same not-found envelope for another tenant and an unknown tenant on every endpoint', async () => {
     const ownerActor = required(actors.get('OWNER'), 'Owner actor is missing.');
@@ -876,7 +1237,11 @@ describe('organization authorization boundary over HTTP', () => {
       .replace(':creditNoteId', ID)
       .replace(':quoteId', ID)
       .replace(':orderId', ID)
-      .replace(':templateId', ID);
+      .replace(':templateId', ID)
+      .replace(':vendorId', ID)
+      .replace(':billId', ID)
+      .replace(':expenseId', ID)
+      .replace(':vendorCreditId', ID);
     const test = harness.http()[endpoint.method](path).set('Cookie', cookie);
     if (endpoint.body !== undefined) test.send(endpoint.body);
     return test;

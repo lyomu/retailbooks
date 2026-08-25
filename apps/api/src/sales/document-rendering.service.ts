@@ -26,7 +26,9 @@ export class DocumentRenderingService {
     html: string,
   ): Promise<{ storageKey: string; cached: boolean }> {
     const existing = await this.prisma.documentSnapshot.findUnique({
-      where: { organizationId_documentType_documentId: { organizationId, documentType, documentId } },
+      where: {
+        organizationId_documentType_documentId: { organizationId, documentType, documentId },
+      },
     });
     if (existing) return { storageKey: existing.storageKey, cached: true };
 

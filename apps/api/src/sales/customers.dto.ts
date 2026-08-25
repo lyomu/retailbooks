@@ -95,10 +95,6 @@ export class ListContactsQueryDto {
 }
 
 export class CreateContactDto {
-  @IsOptional()
-  @IsIn(['CUSTOMER', 'VENDOR'])
-  type?: 'CUSTOMER' | 'VENDOR';
-
   @IsString()
   @Length(1, 160)
   @Transform(trim)

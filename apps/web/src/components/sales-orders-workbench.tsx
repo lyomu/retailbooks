@@ -189,7 +189,10 @@ export function SalesOrdersPage() {
         {!orders && !error ? (
           <Skeleton />
         ) : filtered.length === 0 ? (
-          <EmptyState title="No sales orders yet" description="Create your first order for a customer." />
+          <EmptyState
+            title="No sales orders yet"
+            description="Create your first order for a customer."
+          />
         ) : (
           <DataTable caption="Sales orders" columns={columns} rows={filtered} />
         )}
@@ -224,10 +227,14 @@ export function SalesOrderEditorPage({ orderId }: { orderId?: string }) {
     try {
       const [customerResponse, itemResponse, taxCodeResponse, orderResponse] = await Promise.all([
         apiRequest<ContactListResponse>(`/organizations/${organizationId}/customers?status=ACTIVE`),
-        apiRequest<ItemListResponse>(`/organizations/${organizationId}/catalog/items?status=ACTIVE`),
+        apiRequest<ItemListResponse>(
+          `/organizations/${organizationId}/catalog/items?status=ACTIVE`,
+        ),
         apiRequest<TaxCodeListResponse>(`/organizations/${organizationId}/tax/codes`),
         orderId
-          ? apiRequest<SalesOrderResponse>(`/organizations/${organizationId}/sales-orders/${orderId}`)
+          ? apiRequest<SalesOrderResponse>(
+              `/organizations/${organizationId}/sales-orders/${orderId}`,
+            )
           : Promise.resolve(null),
       ]);
       setCustomers(customerResponse.data);
@@ -287,7 +294,8 @@ export function SalesOrderEditorPage({ orderId }: { orderId?: string }) {
       order.status === 'PARTIALLY_FULFILLED' ||
       order.status === 'FULFILLED');
   const cancellable =
-    order && (order.status === 'DRAFT' || order.status === 'APPROVED' || order.status === 'CONFIRMED');
+    order &&
+    (order.status === 'DRAFT' || order.status === 'APPROVED' || order.status === 'CONFIRMED');
 
   function updateLine(key: string, patch: Partial<DraftLine>) {
     setLines((current) => current.map((line) => (line.key === key ? { ...line, ...patch } : line)));

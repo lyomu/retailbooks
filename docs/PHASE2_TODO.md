@@ -225,7 +225,7 @@ depend on Invoices/Payments/CreditNotes. 2K (verification pass) is a hard gate: 
       conversion-correctness (converted invoice totals exactly match source at conversion time),
       confirms sales-order convert doesn't change fulfillment status. Three of these initially failed
       after the 2E–2J migration was applied — the fixture customer had no email, and `QuotesService
-    #send()` (enhanced in 2H) now requires one; fixed by giving the fixture an email.
+#send()` (enhanced in 2H) now requires one; fixed by giving the fixture an email.
 
 ## Milestone 2H — PDF generation + email delivery ✅
 
@@ -314,7 +314,7 @@ depend on Invoices/Payments/CreditNotes. 2K (verification pass) is a hard gate: 
 - [x] Full deferred verification pass executed and green: migration applied
       (`20260825092302_add_credit_notes_quotes_orders_documents_recurring`) and drift-checked in both
       directions; `tsc --noEmit` clean in `apps/api`, `apps/web`, and `packages/contracts`; `npm run
-    lint` clean (also fixed two pre-existing lint errors in uncommitted 2E–2I files, unrelated to
+lint` clean (also fixed two pre-existing lint errors in uncommitted 2E–2I files, unrelated to
       2J, found while closing out this pass); `npm test` (73 unit tests) and `npm run test:integration`
       (18 files, 113 tests) both green; both API and web production builds succeed; a full HTTP-level
       golden-path walkthrough (39 checks) against a real running API + worker instance covered every

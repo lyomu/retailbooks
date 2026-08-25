@@ -392,6 +392,7 @@ export class TaxService {
       recoverable: code.recoverable,
       ratePercent: rate.ratePercent,
       salesTaxAccountId: code.salesTaxAccountId,
+      purchaseTaxAccountId: code.purchaseTaxAccountId,
       taxableAmountMinor: result.taxableMinor,
       taxAmountMinor: result.taxMinor,
     };

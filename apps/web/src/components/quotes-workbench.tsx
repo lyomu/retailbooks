@@ -227,7 +227,9 @@ export function QuoteEditorPage({ quoteId }: { quoteId?: string }) {
     try {
       const [customerResponse, itemResponse, taxCodeResponse, quoteResponse] = await Promise.all([
         apiRequest<ContactListResponse>(`/organizations/${organizationId}/customers?status=ACTIVE`),
-        apiRequest<ItemListResponse>(`/organizations/${organizationId}/catalog/items?status=ACTIVE`),
+        apiRequest<ItemListResponse>(
+          `/organizations/${organizationId}/catalog/items?status=ACTIVE`,
+        ),
         apiRequest<TaxCodeListResponse>(`/organizations/${organizationId}/tax/codes`),
         quoteId
           ? apiRequest<QuoteResponse>(`/organizations/${organizationId}/quotes/${quoteId}`)

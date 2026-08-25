@@ -18,8 +18,9 @@ file the way Phase 1's is summarized.
 
 **Status snapshot (2026-08-25):** Phase 1 is functionally complete with hardening/test debt open
 (Milestone 1J). Phase 2 (Sales) is complete and verified (Milestones 2A–2K); see
-`docs/PHASE2_TODO.md` for full detail. Phases 3–14 have **no code yet** — confirmed by full-repo
-search: no modules, Prisma models, routes, or pages exist for purchases, banking, inventory,
+`docs/PHASE2_TODO.md` for full detail. Phase 3 (Purchases) is complete and verified (Milestones
+3A–3H); see `docs/PHASE3_TODO.md` for full detail. Phases 4–14 have **no code yet** — confirmed by
+full-repo search: no modules, Prisma models, routes, or pages exist for banking, inventory,
 projects, reporting, automation, portals, platform admin, or AI.
 
 ---
@@ -228,53 +229,62 @@ blueprint §9).
 
 ---
 
-## Phase 3 — Purchases
+## Phase 3 — Purchases ✅
 
 Mirror of Sales on the payable side (build spec §5; blueprint §9).
 
+Full milestone-by-milestone detail (3A–3H) lives in `docs/PHASE3_TODO.md`, mirroring the Phase 2 /
+`PHASE2_TODO.md` split. This section is the rolled-up summary. All milestones complete and verified:
+the single accumulated migration applied and drift-checked in both directions (no difference), full
+unit (74) and integration (215, across 27 files) suites green, typecheck/lint/format clean, both API
+and web production builds succeed, and a full HTTP-level golden-path walkthrough exercised
+purchase→bill→payment against a real running API + worker instance on a fresh synthetic organization
+(see "After 3H" in `docs/PHASE3_TODO.md` for the complete verification record, including the three
+stale Phase 1/2 test pins the pass caught and fixed).
+
 ### Data model
 
-- [ ] `Vendor` (identity, contacts, tax IDs, currency, payment terms, payable account link)
-- [ ] `PurchaseOrder` + `PurchaseOrderLine`
-- [ ] `Bill` + `BillLine`
-- [ ] `Expense`
-- [ ] `RecurringBillTemplate`/`RecurringExpenseTemplate`
-- [ ] `VendorCredit` + `VendorCreditLine`
-- [ ] `PaymentMade` + `PaymentAllocation` (payable side)
-- [ ] Migration written, applied, and drift-checked in CI
+- [x] `Vendor` (identity, contacts, tax IDs, currency, payment terms, payable account link)
+- [x] `PurchaseOrder` + `PurchaseOrderLine`
+- [x] `Bill` + `BillLine`
+- [x] `Expense`
+- [x] `RecurringBillTemplate`/`RecurringExpenseTemplate`
+- [x] `VendorCredit` + `VendorCreditLine`
+- [x] `PaymentMade` + `PaymentAllocation` (payable side)
+- [x] Migration written, applied, and drift-checked in CI
 
 ### Backend/API
 
-- [ ] Vendors module: CRUD, active/inactive, duplicate-vendor warning
-- [ ] Purchase Orders: state machine Draft → Approval → Issued → Partially Received/Billed → Closed/Cancelled
-- [ ] Bills: posting credits AP and debits expense/inventory/asset/tax accounts via `LedgerService`
-- [ ] Expenses: represent immediately-paid spend; approval configurable
-- [ ] Recurring Bills/Expenses: idempotent generation with failure reporting
-- [ ] Vendor Credits: apply against open bills; over-allocation guard
-- [ ] Payments Made: posts AP debit and cash/bank credit
-- [ ] Expense categories mapped to chart-of-accounts entries
-- [ ] Wire the `PURCHASES` role's real permission set (currently a placeholder)
-- [ ] Extend `contracts` package for every entity/endpoint above
+- [x] Vendors module: CRUD, active/inactive, duplicate-vendor warning
+- [x] Purchase Orders: state machine Draft → Approval → Issued → Partially Received/Billed → Closed/Cancelled
+- [x] Bills: posting credits AP and debits expense/inventory/asset/tax accounts via `LedgerService`
+- [x] Expenses: represent immediately-paid spend; approval configurable
+- [x] Recurring Bills/Expenses: idempotent generation with failure reporting
+- [x] Vendor Credits: apply against open bills; over-allocation guard
+- [x] Payments Made: posts AP debit and cash/bank credit
+- [x] Expense categories mapped to chart-of-accounts entries
+- [x] Wire the `PURCHASES` role's real permission set (currently a placeholder)
+- [x] Extend `contracts` package for every entity/endpoint above
 
 ### UI
 
-- [ ] Vendors list/create-edit/detail
-- [ ] Purchase Orders list/create-edit/detail
-- [ ] Bills list/create-edit/detail incl. attachments
-- [ ] Expenses list/create-edit/detail incl. receipt attachment
-- [ ] Recurring Bills/Expenses management screen
-- [ ] Vendor Credits list/create-edit/detail
-- [ ] Payments Made list + allocation UI
-- [ ] Global quick-create entries: Vendor, Expense, Bill, Purchase order, Payment made
+- [x] Vendors list/create-edit/detail
+- [x] Purchase Orders list/create-edit/detail
+- [x] Bills list/create-edit/detail incl. attachments
+- [x] Expenses list/create-edit/detail incl. receipt attachment
+- [x] Recurring Bills/Expenses management screen
+- [x] Vendor Credits list/create-edit/detail
+- [x] Payments Made list + allocation UI
+- [x] Global quick-create entries: Vendor, Expense, Bill, Purchase order, Payment made
 
 ### Tests/acceptance
 
-- [ ] Unit tests per state machine (PO/bill transitions, illegal-transition rejection)
-- [ ] Integration test: bill posting produces correct AP/expense/tax journal lines and balances
-- [ ] Integration test: vendor payment allocation cannot over-apply
-- [ ] Integration test: recurring bill/expense generation is idempotent
-- [ ] Permission tests for the `PURCHASES` role
-- [ ] Cross-module acceptance scenario 2 (retail business, build spec §18.2) passes through the
+- [x] Unit tests per state machine (PO/bill transitions, illegal-transition rejection)
+- [x] Integration test: bill posting produces correct AP/expense/tax journal lines and balances
+- [x] Integration test: vendor payment allocation cannot over-apply
+- [x] Integration test: recurring bill/expense generation is idempotent
+- [x] Permission tests for the `PURCHASES` role
+- [x] Cross-module acceptance scenario 2 (retail business, build spec §18.2) passes through the
       purchase→bill→payment portion
 
 ---

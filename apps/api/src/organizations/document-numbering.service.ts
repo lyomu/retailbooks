@@ -20,6 +20,11 @@ const DEFAULT_DOCUMENT_NUMBERING_PREFIXES: Record<string, string> = {
   QUOTE: 'QUO',
   SALES_ORDER: 'SO',
   PAYMENT_RECEIVED: 'PMT',
+  PURCHASE_ORDER: 'PO',
+  BILL: 'BILL',
+  EXPENSE: 'EXP',
+  VENDOR_CREDIT: 'VCR',
+  PAYMENT_MADE: 'PMD',
 };
 
 @Injectable()

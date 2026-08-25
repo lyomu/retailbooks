@@ -152,6 +152,36 @@ export const permissionKeySchema = z.enum([
   'sales.recurring_invoices.view',
   'sales.recurring_invoices.manage',
   'sales.statements.view',
+  'vendors.view',
+  'vendors.manage',
+  'vendors.currency_override',
+  'purchases.orders.view',
+  'purchases.orders.manage',
+  'purchases.orders.approve',
+  'purchases.orders.issue',
+  'purchases.bills.view',
+  'purchases.bills.manage',
+  'purchases.bills.issue',
+  'purchases.bills.void',
+  'purchases.expenses.view',
+  'purchases.expenses.manage',
+  'purchases.expenses.approve',
+  'purchases.expenses.post',
+  'purchases.expenses.void',
+  'purchases.expense_categories.view',
+  'purchases.expense_categories.manage',
+  'purchases.vendor_credits.view',
+  'purchases.vendor_credits.manage',
+  'purchases.vendor_credits.issue',
+  'purchases.vendor_credits.void',
+  'purchases.vendor_credits.allocate',
+  'purchases.payments_made.view',
+  'purchases.payments_made.record',
+  'purchases.payments_made.allocate',
+  'purchases.recurring_bills.view',
+  'purchases.recurring_bills.manage',
+  'purchases.recurring_expenses.view',
+  'purchases.recurring_expenses.manage',
 ]);
 
 export const organizationSummarySchema = z.object({
@@ -273,6 +303,8 @@ export const permissionDefinitionSchema = z.object({
     'Tax',
     'Audit',
     'Security',
+    'Sales',
+    'Purchases',
   ]),
   protected: z.boolean(),
 });
@@ -577,7 +609,7 @@ export const auditLogResponseSchema = z.object({
 
 // --- Sales: Customers ---
 
-export const contactTypeSchema = z.enum(['CUSTOMER', 'VENDOR']);
+export const contactTypeSchema = z.enum(['CUSTOMER']);
 export const contactStatusSchema = z.enum(['ACTIVE', 'INACTIVE']);
 export const contactAddressKindSchema = z.enum(['BILLING', 'SHIPPING']);
 
@@ -639,7 +671,6 @@ export const createContactTaxIdDto = z.object({
 });
 
 export const createContactDto = z.object({
-  type: contactTypeSchema.optional(),
   displayName: z.string().min(1).max(160),
   legalName: z.string().max(200).optional(),
   email: z.email().optional(),
@@ -652,7 +683,95 @@ export const createContactDto = z.object({
   taxIds: z.array(createContactTaxIdDto).max(10).optional(),
 });
 
-export const updateContactDto = createContactDto.partial().omit({ type: true });
+export const updateContactDto = createContactDto.partial();
+
+// --- Purchases: Vendors ---
+
+export const vendorStatusSchema = z.enum(['ACTIVE', 'INACTIVE']);
+export const vendorAddressKindSchema = z.enum(['BILLING', 'SHIPPING']);
+
+export const vendorAddressSchema = z.object({
+  id: z.uuid(),
+  kind: vendorAddressKindSchema,
+  line1: z.string().min(1),
+  line2: z.string().nullable(),
+  city: z.string().nullable(),
+  region: z.string().nullable(),
+  postalCode: z.string().nullable(),
+  countryCode: z.string().length(2),
+  isDefault: z.boolean(),
+});
+
+export const vendorTaxIdSchema = z.object({
+  id: z.uuid(),
+  label: z.string().min(1),
+  value: z.string().min(1),
+  countryCode: z.string().length(2).nullable(),
+});
+
+export const vendorSchema = z.object({
+  id: z.uuid(),
+  displayName: z.string().min(1),
+  legalName: z.string().nullable(),
+  email: z.email().nullable(),
+  phone: z.string().nullable(),
+  currency: z.string().length(3),
+  paymentTermsDays: z.number().int().nullable(),
+  payableAccountId: z.uuid().nullable(),
+  status: vendorStatusSchema,
+  tags: z.array(z.string()),
+  addresses: z.array(vendorAddressSchema),
+  taxIds: z.array(vendorTaxIdSchema),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+});
+
+export const vendorListResponseSchema = z.object({ data: z.array(vendorSchema) });
+export const vendorResponseSchema = z.object({ data: vendorSchema });
+
+export const vendorDuplicateWarningSchema = z.object({
+  code: z.literal('DUPLICATE_VENDOR_WARNING'),
+  matches: z.array(
+    z.object({
+      id: z.uuid(),
+      displayName: z.string(),
+      matchedOn: z.enum(['displayName', 'taxId']),
+    }),
+  ),
+});
+
+export const createVendorAddressDto = z.object({
+  kind: vendorAddressKindSchema,
+  line1: z.string().min(1).max(200),
+  line2: z.string().max(200).optional(),
+  city: z.string().max(120).optional(),
+  region: z.string().max(120).optional(),
+  postalCode: z.string().max(32).optional(),
+  countryCode: z.string().length(2),
+  isDefault: z.boolean().optional(),
+});
+
+export const createVendorTaxIdDto = z.object({
+  label: z.string().min(1).max(24),
+  value: z.string().min(1).max(60),
+  countryCode: z.string().length(2).optional(),
+});
+
+export const createVendorDto = z.object({
+  displayName: z.string().min(1).max(160),
+  legalName: z.string().max(200).optional(),
+  email: z.email().optional(),
+  phone: z.string().max(40).optional(),
+  currency: z.string().length(3).optional(),
+  paymentTermsDays: z.number().int().min(0).max(365).optional(),
+  payableAccountId: z.uuid().optional(),
+  tags: z.array(z.string().max(40)).max(20).optional(),
+  addresses: z.array(createVendorAddressDto).max(10).optional(),
+  taxIds: z.array(createVendorTaxIdDto).max(10).optional(),
+  confirmDuplicate: z.boolean().optional(),
+});
+
+export const updateVendorDto = createVendorDto.partial();
 
 // --- Sales: Catalog ---
 
@@ -811,6 +930,174 @@ export const createInvoiceDto = z.object({
 
 export const updateInvoiceDto = createInvoiceDto.partial();
 
+// --- Purchases: Bills ---
+
+export const billStatusSchema = z.enum(['DRAFT', 'ISSUED', 'PARTIALLY_PAID', 'PAID', 'VOID']);
+
+export const billLineSchema = z.object({
+  id: z.uuid(),
+  lineNumber: z.number().int(),
+  itemId: z.uuid().nullable(),
+  purchaseOrderLineId: z.uuid().nullable(),
+  descriptionSnapshot: z.string().min(1),
+  quantity: z.string(),
+  unitPriceMinor: z.string().regex(/^\d+$/),
+  discountMinor: z.string().regex(/^\d+$/),
+  lineTotalMinor: z.string().regex(/^\d+$/),
+  taxCodeId: z.uuid().nullable(),
+  taxCodeSnapshot: z.string().nullable(),
+  taxTreatmentSnapshot: taxTreatmentSchema.nullable(),
+  taxRecoverableSnapshot: z.boolean().nullable(),
+  taxRatePercentSnapshot: z.string().nullable(),
+  taxableAmountMinor: z.string().nullable(),
+  taxAmountMinor: z.string().nullable(),
+  accountId: z.uuid().nullable(),
+  projectTag: z.string().nullable(),
+});
+
+export const billSchema = z.object({
+  id: z.uuid(),
+  vendorId: z.uuid(),
+  vendorName: z.string().min(1),
+  purchaseOrderId: z.uuid().nullable(),
+  billNumber: z.string().nullable(),
+  vendorReference: z.string().nullable(),
+  status: billStatusSchema,
+  issueDate: z.iso.date().nullable(),
+  dueDate: z.iso.date().nullable(),
+  currency: z.string().length(3),
+  exchangeRate: z.string().nullable(),
+  subtotalMinor: z.string().regex(/^\d+$/),
+  taxTotalMinor: z.string().regex(/^\d+$/),
+  totalMinor: z.string().regex(/^\d+$/),
+  paidMinor: z.string().regex(/^\d+$/),
+  balanceMinor: z.string().regex(/^\d+$/),
+  journalId: z.uuid().nullable(),
+  voidedAt: z.iso.datetime().nullable(),
+  lines: z.array(billLineSchema),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+});
+
+export const billListResponseSchema = z.object({ data: z.array(billSchema) });
+export const billResponseSchema = z.object({ data: billSchema });
+
+export const billLineDto = z.object({
+  itemId: z.uuid().optional(),
+  purchaseOrderLineId: z.uuid().optional(),
+  description: z.string().max(240).optional(),
+  quantity: z.string(),
+  unitPriceMinor: z.string().regex(/^\d+$/),
+  discountMinor: z.string().regex(/^\d+$/).optional(),
+  taxCodeId: z.uuid().optional(),
+  accountId: z.uuid().optional(),
+  projectTag: z.string().max(80).optional(),
+});
+
+export const createBillDto = z.object({
+  vendorId: z.uuid(),
+  purchaseOrderId: z.uuid().optional(),
+  vendorReference: z.string().max(64).optional(),
+  dueDate: z.iso.date().optional(),
+  currency: z.string().length(3).optional(),
+  lines: z.array(billLineDto).min(1).max(200),
+});
+
+export const updateBillDto = createBillDto.partial();
+
+export const attachmentSchema = z.object({
+  id: z.uuid(),
+  filename: z.string().min(1),
+  contentType: z.string().min(1),
+  sizeBytes: z.number().int(),
+  createdAt: z.iso.datetime(),
+});
+
+export const attachmentListResponseSchema = z.object({
+  data: z.array(attachmentSchema.extend({ downloadUrl: z.url() })),
+});
+export const attachmentResponseSchema = z.object({ data: attachmentSchema });
+
+// --- Purchases: Expense Categories ---
+
+export const expenseCategorySchema = z.object({
+  id: z.uuid(),
+  organizationId: z.uuid(),
+  name: z.string().min(1),
+  accountId: z.uuid(),
+  active: z.boolean(),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+});
+
+export const expenseCategoryListResponseSchema = z.object({ data: z.array(expenseCategorySchema) });
+export const expenseCategoryResponseSchema = z.object({ data: expenseCategorySchema });
+
+export const createExpenseCategoryDto = z.object({
+  name: z.string().min(1).max(120),
+  accountId: z.uuid(),
+});
+
+export const updateExpenseCategoryDto = z.object({
+  name: z.string().min(1).max(120).optional(),
+  accountId: z.uuid().optional(),
+  active: z.boolean().optional(),
+});
+
+// --- Purchases: Expenses ---
+
+export const expenseStatusSchema = z.enum([
+  'DRAFT',
+  'PENDING_APPROVAL',
+  'APPROVED',
+  'POSTED',
+  'VOID',
+  'CANCELLED',
+]);
+
+export const expenseSchema = z.object({
+  id: z.uuid(),
+  payeeVendorId: z.uuid().nullable(),
+  payeeVendorName: z.string().nullable(),
+  payeeName: z.string().nullable(),
+  expenseNumber: z.string().nullable(),
+  status: expenseStatusSchema,
+  expenseDate: z.iso.date(),
+  paidThroughAccountId: z.uuid(),
+  categoryId: z.uuid().nullable(),
+  categoryName: z.string().nullable(),
+  currency: z.string().length(3),
+  amountMinor: z.string().regex(/^\d+$/),
+  taxCodeId: z.uuid().nullable(),
+  taxCodeSnapshot: z.string().nullable(),
+  taxTreatmentSnapshot: taxTreatmentSchema.nullable(),
+  taxRecoverableSnapshot: z.boolean().nullable(),
+  taxRatePercentSnapshot: z.string().nullable(),
+  taxableAmountMinor: z.string().nullable(),
+  taxAmountMinor: z.string().nullable(),
+  totalMinor: z.string().regex(/^\d+$/),
+  journalId: z.uuid().nullable(),
+  voidedAt: z.iso.datetime().nullable(),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+});
+
+export const expenseListResponseSchema = z.object({ data: z.array(expenseSchema) });
+export const expenseResponseSchema = z.object({ data: expenseSchema });
+
+export const createExpenseDto = z.object({
+  payeeVendorId: z.uuid().optional(),
+  payeeName: z.string().max(160).optional(),
+  expenseDate: z.iso.date(),
+  paidThroughAccountId: z.uuid(),
+  categoryId: z.uuid().optional(),
+  currency: z.string().length(3).optional(),
+  amountMinor: z.string().regex(/^\d+$/),
+  taxCodeId: z.uuid().optional(),
+});
+
+export const updateExpenseDto = createExpenseDto.partial();
+
 // --- Sales: Payments Received ---
 
 export const paymentStatusSchema = z.enum(['UNAPPLIED', 'PARTIALLY_ALLOCATED', 'FULLY_ALLOCATED']);
@@ -874,6 +1161,54 @@ export const paymentAllocationLineDto = z.object({
 
 export const allocatePaymentDto = z.object({
   allocations: z.array(paymentAllocationLineDto).min(1).max(200),
+});
+
+// --- Purchases: Payments Made ---
+
+export const paymentMadeAllocationSchema = z.object({
+  id: z.uuid(),
+  paymentId: z.uuid(),
+  billId: z.uuid(),
+  billNumber: z.string().nullable(),
+  amountMinor: z.string().regex(/^\d+$/),
+  createdAt: z.iso.datetime(),
+});
+
+export const paymentMadeSchema = z.object({
+  id: z.uuid(),
+  vendorId: z.uuid(),
+  vendorName: z.string().min(1),
+  paymentNumber: z.string().nullable(),
+  status: paymentStatusSchema,
+  paidDate: z.iso.date(),
+  currency: z.string().length(3),
+  amountMinor: z.string().regex(/^\d+$/),
+  allocatedMinor: z.string().regex(/^\d+$/),
+  unappliedMinor: z.string().regex(/^\d+$/),
+  paidFromAccountId: z.uuid().nullable(),
+  journalId: z.uuid().nullable(),
+  allocations: z.array(paymentMadeAllocationSchema),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+});
+
+export const paymentMadeListResponseSchema = z.object({ data: z.array(paymentMadeSchema) });
+export const paymentMadeResponseSchema = z.object({ data: paymentMadeSchema });
+
+export const createPaymentMadeDto = z.object({
+  vendorId: z.uuid(),
+  paidDate: z.iso.date(),
+  currency: z.string().length(3).optional(),
+  amountMinor: z.string().regex(/^\d+$/),
+});
+
+export const paymentMadeAllocationLineDto = z.object({
+  billId: z.uuid(),
+  amountMinor: z.string().regex(/^\d+$/),
+});
+
+export const allocatePaymentMadeDto = z.object({
+  allocations: z.array(paymentMadeAllocationLineDto).min(1).max(200),
 });
 
 // --- Sales: Credit Notes ---
@@ -975,6 +1310,111 @@ export const allocateCreditNoteDto = z.object({
 
 export const refundCreditNoteDto = z.object({
   amountMinor: z.string().regex(/^\d+$/),
+});
+
+// --- Purchases: Vendor Credits ---
+
+export const vendorCreditStatusSchema = z.enum(['DRAFT', 'ISSUED', 'APPLIED', 'VOID']);
+
+export const vendorCreditLineSchema = z.object({
+  id: z.uuid(),
+  lineNumber: z.number().int(),
+  itemId: z.uuid().nullable(),
+  descriptionSnapshot: z.string().min(1),
+  quantity: z.string(),
+  unitPriceMinor: z.string().regex(/^\d+$/),
+  discountMinor: z.string().regex(/^\d+$/),
+  lineTotalMinor: z.string().regex(/^\d+$/),
+  taxCodeId: z.uuid().nullable(),
+  taxCodeSnapshot: z.string().nullable(),
+  taxTreatmentSnapshot: taxTreatmentSchema.nullable(),
+  taxRecoverableSnapshot: z.boolean().nullable(),
+  taxRatePercentSnapshot: z.string().nullable(),
+  taxableAmountMinor: z.string().nullable(),
+  taxAmountMinor: z.string().nullable(),
+  accountId: z.uuid().nullable(),
+  projectTag: z.string().nullable(),
+});
+
+export const vendorCreditAllocationSchema = z.object({
+  id: z.uuid(),
+  vendorCreditId: z.uuid(),
+  billId: z.uuid(),
+  billNumber: z.string().nullable(),
+  amountMinor: z.string().regex(/^\d+$/),
+  journalId: z.uuid(),
+  createdAt: z.iso.datetime(),
+});
+
+export const vendorCreditSchema = z.object({
+  id: z.uuid(),
+  vendorId: z.uuid(),
+  vendorName: z.string().min(1),
+  sourceBillId: z.uuid().nullable(),
+  reason: z.string().nullable(),
+  vendorCreditNumber: z.string().nullable(),
+  status: vendorCreditStatusSchema,
+  issueDate: z.iso.date().nullable(),
+  currency: z.string().length(3),
+  subtotalMinor: z.string().regex(/^\d+$/),
+  taxTotalMinor: z.string().regex(/^\d+$/),
+  totalMinor: z.string().regex(/^\d+$/),
+  appliedMinor: z.string().regex(/^\d+$/),
+  remainingMinor: z.string().regex(/^\d+$/),
+  journalId: z.uuid().nullable(),
+  voidedAt: z.iso.datetime().nullable(),
+  lines: z.array(vendorCreditLineSchema),
+  allocations: z.array(vendorCreditAllocationSchema),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+});
+
+export const vendorCreditListResponseSchema = z.object({ data: z.array(vendorCreditSchema) });
+export const vendorCreditResponseSchema = z.object({ data: vendorCreditSchema });
+
+export const vendorCreditLineDto = z.object({
+  itemId: z.uuid().optional(),
+  description: z.string().max(240).optional(),
+  quantity: z.string(),
+  unitPriceMinor: z.string().regex(/^\d+$/),
+  discountMinor: z.string().regex(/^\d+$/).optional(),
+  taxCodeId: z.uuid().optional(),
+  accountId: z.uuid().optional(),
+  projectTag: z.string().max(80).optional(),
+});
+
+export const createVendorCreditDto = z.object({
+  vendorId: z.uuid(),
+  sourceBillId: z.uuid().optional(),
+  reason: z.string().max(240).optional(),
+  currency: z.string().length(3).optional(),
+  lines: z.array(vendorCreditLineDto).min(1).max(200),
+});
+
+export const updateVendorCreditDto = createVendorCreditDto.partial();
+
+export const vendorCreditAllocationLineDto = z.object({
+  billId: z.uuid(),
+  amountMinor: z.string().regex(/^\d+$/),
+});
+
+export const allocateVendorCreditDto = z.object({
+  allocations: z.array(vendorCreditAllocationLineDto).min(1).max(200),
+});
+
+export const openBillForAllocationSchema = z.object({
+  id: z.uuid(),
+  billNumber: z.string().nullable(),
+  issueDate: z.iso.date().nullable(),
+  dueDate: z.iso.date().nullable(),
+  currency: z.string().length(3),
+  totalMinor: z.string().regex(/^\d+$/),
+  paidMinor: z.string().regex(/^\d+$/),
+  balanceMinor: z.string().regex(/^\d+$/),
+});
+
+export const openBillListResponseSchema = z.object({
+  data: z.array(openBillForAllocationSchema),
 });
 
 // --- Sales: Customer Statements ---
@@ -1147,6 +1587,78 @@ export const createSalesOrderDto = z.object({
 
 export const updateSalesOrderDto = createSalesOrderDto.partial();
 
+// --- Purchases: Purchase Orders ---
+
+export const purchaseOrderStatusSchema = z.enum([
+  'DRAFT',
+  'APPROVED',
+  'ISSUED',
+  'CLOSED',
+  'CANCELLED',
+]);
+export const purchaseOrderReceiptStatusSchema = z.enum([
+  'NOT_RECEIVED',
+  'PARTIALLY_RECEIVED',
+  'RECEIVED',
+]);
+
+export const purchaseOrderLineSchema = z.object({
+  id: z.uuid(),
+  lineNumber: z.number().int(),
+  itemId: z.uuid().nullable(),
+  descriptionSnapshot: z.string().min(1),
+  quantity: z.string(),
+  unitPriceMinor: z.string().regex(/^\d+$/),
+  discountMinor: z.string().regex(/^\d+$/),
+  lineTotalMinor: z.string().regex(/^\d+$/),
+  taxCodeId: z.uuid().nullable(),
+});
+
+export const purchaseOrderSchema = z.object({
+  id: z.uuid(),
+  vendorId: z.uuid(),
+  vendorName: z.string().min(1),
+  orderNumber: z.string().nullable(),
+  status: purchaseOrderStatusSchema,
+  receiptStatus: purchaseOrderReceiptStatusSchema,
+  issueDate: z.iso.date().nullable(),
+  expectedDeliveryDate: z.iso.date().nullable(),
+  deliveryNote: z.string().nullable(),
+  currency: z.string().length(3),
+  subtotalMinor: z.string().regex(/^\d+$/),
+  totalMinor: z.string().regex(/^\d+$/),
+  billedMinor: z.string().regex(/^\d+$/),
+  lines: z.array(purchaseOrderLineSchema),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+});
+
+export const purchaseOrderListResponseSchema = z.object({ data: z.array(purchaseOrderSchema) });
+export const purchaseOrderResponseSchema = z.object({ data: purchaseOrderSchema });
+
+export const purchaseOrderLineDto = z.object({
+  itemId: z.uuid().optional(),
+  description: z.string().max(240).optional(),
+  quantity: z.string(),
+  unitPriceMinor: z.string().regex(/^\d+$/).optional(),
+  discountMinor: z.string().regex(/^\d+$/).optional(),
+  taxCodeId: z.uuid().optional(),
+});
+
+export const createPurchaseOrderDto = z.object({
+  vendorId: z.uuid(),
+  currency: z.string().length(3).optional(),
+  expectedDeliveryDate: z.iso.date().optional(),
+  deliveryNote: z.string().max(500).optional(),
+  lines: z.array(purchaseOrderLineDto).min(1).max(200),
+});
+
+export const updatePurchaseOrderDto = createPurchaseOrderDto.partial();
+
+export const recordPurchaseOrderReceiptDto = z.object({
+  receiptStatus: z.enum(['PARTIALLY_RECEIVED', 'RECEIVED']),
+});
+
 // --- Sales: Recurring Invoices ---
 
 export const recurringCadenceSchema = z.enum(['WEEKLY', 'MONTHLY', 'QUARTERLY', 'ANNUALLY']);
@@ -1217,6 +1729,118 @@ export const updateRecurringInvoiceTemplateDto = z.object({
   lines: z.array(recurringInvoiceTemplateLineDto).min(1).max(200).optional(),
 });
 
+// --- Purchases: Recurring Bills ---
+
+export const recurringBillTemplateLineSchema = z.object({
+  id: z.uuid(),
+  lineNumber: z.number().int(),
+  itemId: z.uuid().nullable(),
+  descriptionSnapshot: z.string().min(1),
+  quantity: z.string(),
+  unitPriceMinor: z.string().regex(/^\d+$/),
+  discountMinor: z.string().regex(/^\d+$/),
+  lineTotalMinor: z.string().regex(/^\d+$/),
+  taxCodeId: z.uuid().nullable(),
+  accountId: z.uuid().nullable(),
+});
+
+export const recurringBillTemplateSchema = z.object({
+  id: z.uuid(),
+  vendorId: z.uuid(),
+  vendorName: z.string().min(1),
+  cadence: recurringCadenceSchema,
+  startDate: z.iso.date(),
+  endDate: z.iso.date().nullable(),
+  nextRunDate: z.iso.date(),
+  autoCreate: z.boolean(),
+  active: z.boolean(),
+  currency: z.string().length(3),
+  lastRunOccurrenceKey: z.string().nullable(),
+  lines: z.array(recurringBillTemplateLineSchema),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+});
+
+export const recurringBillTemplateListResponseSchema = z.object({
+  data: z.array(recurringBillTemplateSchema),
+});
+export const recurringBillTemplateResponseSchema = z.object({ data: recurringBillTemplateSchema });
+
+export const recurringBillTemplateLineDto = z.object({
+  itemId: z.uuid().optional(),
+  description: z.string().max(240).optional(),
+  quantity: z.string(),
+  unitPriceMinor: z.string().regex(/^\d+$/),
+  discountMinor: z.string().regex(/^\d+$/).optional(),
+  taxCodeId: z.uuid().optional(),
+  accountId: z.uuid().optional(),
+});
+
+export const createRecurringBillTemplateDto = z.object({
+  vendorId: z.uuid(),
+  cadence: recurringCadenceSchema,
+  startDate: z.iso.date(),
+  endDate: z.iso.date().optional(),
+  currency: z.string().length(3).optional(),
+  autoCreate: z.boolean().optional(),
+  lines: z.array(recurringBillTemplateLineDto).min(1).max(200),
+});
+
+export const updateRecurringBillTemplateDto = z.object({
+  vendorId: z.uuid().optional(),
+  cadence: recurringCadenceSchema.optional(),
+  endDate: z.iso.date().optional(),
+  autoCreate: z.boolean().optional(),
+  lines: z.array(recurringBillTemplateLineDto).min(1).max(200).optional(),
+});
+
+// --- Purchases: Recurring Expenses ---
+
+export const recurringExpenseTemplateSchema = z.object({
+  id: z.uuid(),
+  payeeVendorId: z.uuid().nullable(),
+  payeeVendorName: z.string().nullable(),
+  payeeName: z.string().nullable(),
+  cadence: recurringCadenceSchema,
+  startDate: z.iso.date(),
+  endDate: z.iso.date().nullable(),
+  nextRunDate: z.iso.date(),
+  autoCreate: z.boolean(),
+  active: z.boolean(),
+  paidThroughAccountId: z.uuid(),
+  categoryId: z.uuid().nullable(),
+  categoryName: z.string().nullable(),
+  currency: z.string().length(3),
+  amountMinor: z.string().regex(/^\d+$/),
+  taxCodeId: z.uuid().nullable(),
+  lastRunOccurrenceKey: z.string().nullable(),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+});
+
+export const recurringExpenseTemplateListResponseSchema = z.object({
+  data: z.array(recurringExpenseTemplateSchema),
+});
+export const recurringExpenseTemplateResponseSchema = z.object({
+  data: recurringExpenseTemplateSchema,
+});
+
+export const createRecurringExpenseTemplateDto = z.object({
+  payeeVendorId: z.uuid().optional(),
+  payeeName: z.string().max(160).optional(),
+  cadence: recurringCadenceSchema,
+  startDate: z.iso.date(),
+  endDate: z.iso.date().optional(),
+  autoCreate: z.boolean().optional(),
+  paidThroughAccountId: z.uuid(),
+  categoryId: z.uuid().optional(),
+  currency: z.string().length(3).optional(),
+  amountMinor: z.string().regex(/^\d+$/),
+  taxCodeId: z.uuid().optional(),
+});
+
+export const updateRecurringExpenseTemplateDto = createRecurringExpenseTemplateDto.partial();
+
 export const apiErrorSchema = z.object({
   error: z.object({
     code: z.string().min(1),
@@ -1282,6 +1906,17 @@ export type ContactResponse = z.infer<typeof contactResponseSchema>;
 export type CreateContactDto = z.infer<typeof createContactDto>;
 export type UpdateContactDto = z.infer<typeof updateContactDto>;
 
+export type VendorStatus = z.infer<typeof vendorStatusSchema>;
+export type VendorAddressKind = z.infer<typeof vendorAddressKindSchema>;
+export type VendorAddress = z.infer<typeof vendorAddressSchema>;
+export type VendorTaxId = z.infer<typeof vendorTaxIdSchema>;
+export type Vendor = z.infer<typeof vendorSchema>;
+export type VendorListResponse = z.infer<typeof vendorListResponseSchema>;
+export type VendorResponse = z.infer<typeof vendorResponseSchema>;
+export type VendorDuplicateWarning = z.infer<typeof vendorDuplicateWarningSchema>;
+export type CreateVendorDto = z.infer<typeof createVendorDto>;
+export type UpdateVendorDto = z.infer<typeof updateVendorDto>;
+
 export type ItemType = z.infer<typeof itemTypeSchema>;
 export type ItemStatus = z.infer<typeof itemStatusSchema>;
 export type Unit = z.infer<typeof unitSchema>;
@@ -1307,6 +1942,31 @@ export type InvoiceResponse = z.infer<typeof invoiceResponseSchema>;
 export type CreateInvoiceDto = z.infer<typeof createInvoiceDto>;
 export type UpdateInvoiceDto = z.infer<typeof updateInvoiceDto>;
 
+export type BillStatus = z.infer<typeof billStatusSchema>;
+export type BillLine = z.infer<typeof billLineSchema>;
+export type Bill = z.infer<typeof billSchema>;
+export type BillListResponse = z.infer<typeof billListResponseSchema>;
+export type BillResponse = z.infer<typeof billResponseSchema>;
+export type CreateBillDto = z.infer<typeof createBillDto>;
+export type UpdateBillDto = z.infer<typeof updateBillDto>;
+
+export type Attachment = z.infer<typeof attachmentSchema>;
+export type AttachmentListResponse = z.infer<typeof attachmentListResponseSchema>;
+export type AttachmentResponse = z.infer<typeof attachmentResponseSchema>;
+
+export type ExpenseCategory = z.infer<typeof expenseCategorySchema>;
+export type ExpenseCategoryListResponse = z.infer<typeof expenseCategoryListResponseSchema>;
+export type ExpenseCategoryResponse = z.infer<typeof expenseCategoryResponseSchema>;
+export type CreateExpenseCategoryDto = z.infer<typeof createExpenseCategoryDto>;
+export type UpdateExpenseCategoryDto = z.infer<typeof updateExpenseCategoryDto>;
+
+export type ExpenseStatus = z.infer<typeof expenseStatusSchema>;
+export type Expense = z.infer<typeof expenseSchema>;
+export type ExpenseListResponse = z.infer<typeof expenseListResponseSchema>;
+export type ExpenseResponse = z.infer<typeof expenseResponseSchema>;
+export type CreateExpenseDto = z.infer<typeof createExpenseDto>;
+export type UpdateExpenseDto = z.infer<typeof updateExpenseDto>;
+
 export type PaymentStatus = z.infer<typeof paymentStatusSchema>;
 export type PaymentAllocation = z.infer<typeof paymentAllocationSchema>;
 export type PaymentReceived = z.infer<typeof paymentReceivedSchema>;
@@ -1317,6 +1977,13 @@ export type OpenInvoiceListResponse = z.infer<typeof openInvoiceListResponseSche
 export type CreatePaymentDto = z.infer<typeof createPaymentDto>;
 export type PaymentAllocationLineDto = z.infer<typeof paymentAllocationLineDto>;
 export type AllocatePaymentDto = z.infer<typeof allocatePaymentDto>;
+
+export type PaymentMadeAllocation = z.infer<typeof paymentMadeAllocationSchema>;
+export type PaymentMade = z.infer<typeof paymentMadeSchema>;
+export type PaymentMadeListResponse = z.infer<typeof paymentMadeListResponseSchema>;
+export type PaymentMadeResponse = z.infer<typeof paymentMadeResponseSchema>;
+export type CreatePaymentMadeDto = z.infer<typeof createPaymentMadeDto>;
+export type AllocatePaymentMadeDto = z.infer<typeof allocatePaymentMadeDto>;
 
 export type CreditNoteStatus = z.infer<typeof creditNoteStatusSchema>;
 export type CreditNoteLine = z.infer<typeof creditNoteLineSchema>;
@@ -1330,6 +1997,17 @@ export type UpdateCreditNoteDto = z.infer<typeof updateCreditNoteDto>;
 export type CreditNoteAllocationLineDto = z.infer<typeof creditNoteAllocationLineDto>;
 export type AllocateCreditNoteDto = z.infer<typeof allocateCreditNoteDto>;
 export type RefundCreditNoteDto = z.infer<typeof refundCreditNoteDto>;
+
+export type VendorCreditStatus = z.infer<typeof vendorCreditStatusSchema>;
+export type VendorCreditLine = z.infer<typeof vendorCreditLineSchema>;
+export type VendorCreditAllocation = z.infer<typeof vendorCreditAllocationSchema>;
+export type VendorCredit = z.infer<typeof vendorCreditSchema>;
+export type VendorCreditListResponse = z.infer<typeof vendorCreditListResponseSchema>;
+export type VendorCreditResponse = z.infer<typeof vendorCreditResponseSchema>;
+export type CreateVendorCreditDto = z.infer<typeof createVendorCreditDto>;
+export type UpdateVendorCreditDto = z.infer<typeof updateVendorCreditDto>;
+export type AllocateVendorCreditDto = z.infer<typeof allocateVendorCreditDto>;
+export type OpenBillForAllocation = z.infer<typeof openBillForAllocationSchema>;
 
 export type StatementTransactionType = z.infer<typeof statementTransactionTypeSchema>;
 export type StatementTransaction = z.infer<typeof statementTransactionSchema>;
@@ -1352,6 +2030,15 @@ export type SalesOrderResponse = z.infer<typeof salesOrderResponseSchema>;
 export type CreateSalesOrderDto = z.infer<typeof createSalesOrderDto>;
 export type UpdateSalesOrderDto = z.infer<typeof updateSalesOrderDto>;
 
+export type PurchaseOrderStatus = z.infer<typeof purchaseOrderStatusSchema>;
+export type PurchaseOrderReceiptStatus = z.infer<typeof purchaseOrderReceiptStatusSchema>;
+export type PurchaseOrderLine = z.infer<typeof purchaseOrderLineSchema>;
+export type PurchaseOrder = z.infer<typeof purchaseOrderSchema>;
+export type PurchaseOrderListResponse = z.infer<typeof purchaseOrderListResponseSchema>;
+export type PurchaseOrderResponse = z.infer<typeof purchaseOrderResponseSchema>;
+export type CreatePurchaseOrderDto = z.infer<typeof createPurchaseOrderDto>;
+export type UpdatePurchaseOrderDto = z.infer<typeof updatePurchaseOrderDto>;
+
 export type RecurringCadence = z.infer<typeof recurringCadenceSchema>;
 export type RecurringInvoiceTemplateLine = z.infer<typeof recurringInvoiceTemplateLineSchema>;
 export type RecurringInvoiceTemplate = z.infer<typeof recurringInvoiceTemplateSchema>;
@@ -1363,6 +2050,25 @@ export type RecurringInvoiceTemplateResponse = z.infer<
 >;
 export type CreateRecurringInvoiceTemplateDto = z.infer<typeof createRecurringInvoiceTemplateDto>;
 export type UpdateRecurringInvoiceTemplateDto = z.infer<typeof updateRecurringInvoiceTemplateDto>;
+
+export type RecurringBillTemplateLine = z.infer<typeof recurringBillTemplateLineSchema>;
+export type RecurringBillTemplate = z.infer<typeof recurringBillTemplateSchema>;
+export type RecurringBillTemplateListResponse = z.infer<
+  typeof recurringBillTemplateListResponseSchema
+>;
+export type RecurringBillTemplateResponse = z.infer<typeof recurringBillTemplateResponseSchema>;
+export type CreateRecurringBillTemplateDto = z.infer<typeof createRecurringBillTemplateDto>;
+export type UpdateRecurringBillTemplateDto = z.infer<typeof updateRecurringBillTemplateDto>;
+
+export type RecurringExpenseTemplate = z.infer<typeof recurringExpenseTemplateSchema>;
+export type RecurringExpenseTemplateListResponse = z.infer<
+  typeof recurringExpenseTemplateListResponseSchema
+>;
+export type RecurringExpenseTemplateResponse = z.infer<
+  typeof recurringExpenseTemplateResponseSchema
+>;
+export type CreateRecurringExpenseTemplateDto = z.infer<typeof createRecurringExpenseTemplateDto>;
+export type UpdateRecurringExpenseTemplateDto = z.infer<typeof updateRecurringExpenseTemplateDto>;
 
 /** Shape of `GET /organizations/reference-data`. Values stay configurable per organization. */
 export interface OrganizationReferenceData {
