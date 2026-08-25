@@ -297,6 +297,20 @@ export class OrganizationService {
           }
           preferenceData.chartTemplate = input.chartTemplate;
         }
+        if (input.roundingMode !== undefined) {
+          preferenceData.roundingMode = input.roundingMode;
+        }
+        if (input.roundingUnitMinor !== undefined) {
+          preferenceData.roundingUnitMinor = input.roundingUnitMinor;
+        }
+        if (preferenceData.roundingMode === 'HALF_UP' || input.roundingMode === 'HALF_UP') {
+          const unit = input.roundingUnitMinor ?? null;
+          if (unit === null || unit < 2) {
+            throw new BadRequestException(
+              'A rounding unit of at least 2 minor units is required for HALF_UP rounding.',
+            );
+          }
+        }
         preferenceData.booksStartDate = input.booksStartDate
           ? new Date(input.booksStartDate)
           : null;

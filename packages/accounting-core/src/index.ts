@@ -244,3 +244,16 @@ function assertMinorUnitPrecision(value: number): void {
 function powerOfTen(exponent: number): bigint {
   return 10n ** BigInt(exponent);
 }
+
+/**
+ * Cash-rounding delta for a payable amount under a HALF_UP policy to the nearest `unitMinor`
+ * (e.g. unit 50 rounds to the nearest half-major). Positive result means the payer owes MORE than
+ * the computed amount; negative means less. A zero or negative `unitMinor` disables rounding.
+ */
+export function computeCashRoundingDelta(amountMinor: bigint, unitMinor: bigint): bigint {
+  if (unitMinor <= 0n) return 0n;
+  const remainder = amountMinor % unitMinor;
+  const rounded =
+    remainder * 2n >= unitMinor ? amountMinor + (unitMinor - remainder) : amountMinor - remainder;
+  return rounded - amountMinor;
+}

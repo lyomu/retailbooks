@@ -7,6 +7,9 @@ import type { PublicUser } from '../src/auth/auth.service.js';
 import { AuditLogController } from '../src/organizations/audit-log.controller.js';
 import { CurrencyController } from '../src/organizations/currency.controller.js';
 import { LedgerController } from '../src/organizations/ledger.controller.js';
+import { OpeningBalancesController } from '../src/organizations/opening-balances.controller.js';
+import { RecurringJournalsController } from '../src/organizations/recurring-journals.controller.js';
+import { FxRevaluationController } from '../src/organizations/fx-revaluation.controller.js';
 import { OrganizationAccessService } from '../src/organizations/organization-access.service.js';
 import { PERMISSION_KEY } from '../src/organizations/organization-context.js';
 import { OrganizationGuard } from '../src/organizations/organization.guard.js';
@@ -209,6 +212,92 @@ const ENDPOINTS: readonly EndpointCase[] = [
     method: 'get',
     path: 'organizations/:organizationId/accounts/:accountId/ledger',
     permission: 'reports.view',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/opening-balances',
+    permission: 'accounts.view',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/opening-balances/:batchId',
+    permission: 'accounts.view',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/opening-balances',
+    permission: 'accounts.opening_balances.manage',
+    body: {},
+  },
+  {
+    method: 'patch',
+    path: 'organizations/:organizationId/opening-balances/:batchId',
+    permission: 'accounts.opening_balances.manage',
+    body: {},
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/opening-balances/:batchId/validate',
+    permission: 'accounts.opening_balances.manage',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/opening-balances/:batchId/finalize',
+    permission: 'accounts.opening_balances.manage',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/opening-balances/:batchId/void',
+    permission: 'accounts.opening_balances.manage',
+    body: {},
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/recurring-journals',
+    permission: 'journals.recurring.view',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/recurring-journals/:templateId',
+    permission: 'journals.recurring.view',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/recurring-journals',
+    permission: 'journals.recurring.manage',
+    body: {},
+  },
+  {
+    method: 'patch',
+    path: 'organizations/:organizationId/recurring-journals/:templateId',
+    permission: 'journals.recurring.manage',
+    body: {},
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/recurring-journals/:templateId/deactivate',
+    permission: 'journals.recurring.manage',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/recurring-journals/:templateId/reactivate',
+    permission: 'journals.recurring.manage',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/recurring-journals/run-due',
+    permission: 'journals.recurring.manage',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/fx-revaluations',
+    permission: 'journals.view',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/fx-revaluations/run',
+    permission: 'journals.post',
+    body: {},
   },
   { method: 'get', path: 'organizations/:organizationId/journals', permission: 'journals.view' },
   {
@@ -1033,6 +1122,9 @@ const CONTROLLERS: readonly Type[] = [
   PaymentsMadeController,
   RecurringBillsController,
   RecurringExpensesController,
+  OpeningBalancesController,
+  RecurringJournalsController,
+  FxRevaluationController,
 ];
 
 describe('organization authorization boundary over HTTP', () => {
@@ -1241,7 +1333,8 @@ describe('organization authorization boundary over HTTP', () => {
       .replace(':vendorId', ID)
       .replace(':billId', ID)
       .replace(':expenseId', ID)
-      .replace(':vendorCreditId', ID);
+      .replace(':vendorCreditId', ID)
+      .replace(':batchId', ID);
     const test = harness.http()[endpoint.method](path).set('Cookie', cookie);
     if (endpoint.body !== undefined) test.send(endpoint.body);
     return test;

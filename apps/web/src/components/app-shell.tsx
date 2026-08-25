@@ -98,7 +98,9 @@ const navigationGroups: NavigationGroup[] = [
     label: 'General ledger',
     items: [
       { label: 'Chart of accounts', icon: BookOpenText, href: '/accounts' },
+      { label: 'Opening balances', icon: BookOpenText, href: '/opening-balances' },
       { label: 'Journals', icon: FileText, href: '/journals' },
+      { label: 'Recurring journals', icon: Repeat, href: '/recurring-journals' },
       { label: 'Trial balance', icon: Calculator, href: '/trial-balance' },
       { label: 'Account ledger', icon: FileClock, href: '/accounts' },
     ],

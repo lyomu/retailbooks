@@ -1,6 +1,7 @@
-import { Module } from '@nestjs/common';
+﻿import { Module } from '@nestjs/common';
 
 import { AuthModule } from '../auth/auth.module.js';
+import { PostingRulesService } from '../posting-rules/posting-rules.service.js';
 import { AuditLogController } from './audit-log.controller.js';
 import { AuditLogService } from './audit-log.service.js';
 import { CurrencyCatalogController, CurrencyController } from './currency.controller.js';
@@ -18,6 +19,13 @@ import {
   OrganizationsController,
   PermissionsController,
 } from './organizations.controller.js';
+import { OpeningBalancesController } from './opening-balances.controller.js';
+import { OpeningBalancesService } from './opening-balances.service.js';
+import { RecurringJournalsController } from './recurring-journals.controller.js';
+import { RecurringJournalsService } from './recurring-journals.service.js';
+import { FxRevaluationController } from './fx-revaluation.controller.js';
+import { FxRevaluationService } from './fx-revaluation.service.js';
+import { RoundingService } from './rounding.service.js';
 import { RolesService } from './roles.service.js';
 import { TaxController } from './tax.controller.js';
 import { TaxService } from './tax.service.js';
@@ -33,6 +41,9 @@ import { TaxService } from './tax.service.js';
     LedgerController,
     TaxController,
     AuditLogController,
+    OpeningBalancesController,
+    RecurringJournalsController,
+    FxRevaluationController,
   ],
   providers: [
     OrganizationService,
@@ -41,6 +52,11 @@ import { TaxService } from './tax.service.js';
     FiscalPeriodsService,
     DocumentNumberingService,
     LedgerService,
+    PostingRulesService,
+    OpeningBalancesService,
+    RecurringJournalsService,
+    FxRevaluationService,
+    RoundingService,
     TaxService,
     AuditLogService,
     CurrencyService,
@@ -56,6 +72,7 @@ import { TaxService } from './tax.service.js';
     FiscalPeriodsService,
     DocumentNumberingService,
     LedgerService,
+    PostingRulesService,
     TaxService,
     CurrencyService,
   ],

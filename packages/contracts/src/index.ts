@@ -113,6 +113,8 @@ export const permissionKeySchema = z.enum([
   'journals.post',
   'journals.reverse',
   'journals.approve',
+  'journals.recurring.view',
+  'journals.recurring.manage',
   'reports.view',
   'tax.codes.view',
   'tax.codes.manage',
@@ -981,6 +983,79 @@ export const billSchema = z.object({
 
 export const billListResponseSchema = z.object({ data: z.array(billSchema) });
 export const billResponseSchema = z.object({ data: billSchema });
+
+export const openingBalanceLineSchema = z.object({
+  id: z.uuid(),
+  accountId: z.uuid(),
+  debitMinor: z.string().regex(/^\d+$/),
+  creditMinor: z.string().regex(/^\d+$/),
+  description: z.string().max(240).nullable(),
+});
+
+export const openingBalancePartyLineSchema = z.object({
+  id: z.uuid(),
+  side: z.enum(['RECEIVABLE', 'PAYABLE']),
+  contactId: z.uuid().nullable(),
+  vendorId: z.uuid().nullable(),
+  nameSnapshot: z.string().min(1).max(160),
+  amountMinor: z.string().regex(/^\d+$/),
+});
+
+export const openingBalanceBatchSchema = z.object({
+  id: z.uuid(),
+  status: z.enum(['DRAFT', 'VALIDATED', 'FINALIZED', 'VOID']),
+  asOfDate: z.iso.date(),
+  description: z.string().max(240).nullable(),
+  lines: z.array(openingBalanceLineSchema),
+  partyLines: z.array(openingBalancePartyLineSchema),
+  totals: z.object({
+    debitMinor: z.string().regex(/^\d+$/),
+    creditMinor: z.string().regex(/^\d+$/),
+    receivableTotalMinor: z.string().regex(/^\d+$/),
+    payableTotalMinor: z.string().regex(/^\d+$/),
+    balanced: z.boolean(),
+  }),
+  journalId: z.uuid().nullable(),
+  validatedAt: z.iso.datetime().nullable(),
+  finalizedAt: z.iso.datetime().nullable(),
+  createdAt: z.iso.datetime(),
+});
+
+export const openingBalanceBatchListResponseSchema = z.object({
+  data: z.array(
+    openingBalanceBatchSchema.omit({ lines: true, partyLines: true, totals: true }).extend({
+      lineCount: z.number().int(),
+      partyLineCount: z.number().int(),
+    }),
+  ),
+});
+export const openingBalanceBatchResponseSchema = z.object({ data: openingBalanceBatchSchema });
+
+export const openingBalanceLineDto = z.object({
+  accountId: z.uuid(),
+  debitMinor: z.string().regex(/^\d+$/),
+  creditMinor: z.string().regex(/^\d+$/),
+  description: z.string().max(240).optional(),
+});
+
+export const openingBalancePartyLineDto = z
+  .object({
+    side: z.enum(['RECEIVABLE', 'PAYABLE']),
+    contactId: z.uuid().optional(),
+    vendorId: z.uuid().optional(),
+    amountMinor: z.string().regex(/^\d+$/),
+  })
+  .refine(
+    (line) => (line.side === 'RECEIVABLE' ? Boolean(line.contactId) : Boolean(line.vendorId)),
+    { message: 'A RECEIVABLE party line needs a contactId; a PAYABLE one needs a vendorId' },
+  );
+
+export const saveOpeningBalanceBatchDto = z.object({
+  asOfDate: z.iso.date(),
+  description: z.string().max(240).optional(),
+  lines: z.array(openingBalanceLineDto).optional(),
+  partyLines: z.array(openingBalancePartyLineDto).optional(),
+});
 
 export const billLineDto = z.object({
   itemId: z.uuid().optional(),
@@ -1949,6 +2024,13 @@ export type BillListResponse = z.infer<typeof billListResponseSchema>;
 export type BillResponse = z.infer<typeof billResponseSchema>;
 export type CreateBillDto = z.infer<typeof createBillDto>;
 export type UpdateBillDto = z.infer<typeof updateBillDto>;
+
+export type OpeningBalanceLine = z.infer<typeof openingBalanceLineSchema>;
+export type OpeningBalancePartyLine = z.infer<typeof openingBalancePartyLineSchema>;
+export type OpeningBalanceBatch = z.infer<typeof openingBalanceBatchSchema>;
+export type OpeningBalanceBatchListResponse = z.infer<typeof openingBalanceBatchListResponseSchema>;
+export type OpeningBalanceBatchResponse = z.infer<typeof openingBalanceBatchResponseSchema>;
+export type SaveOpeningBalanceBatchDto = z.infer<typeof saveOpeningBalanceBatchDto>;
 
 export type Attachment = z.infer<typeof attachmentSchema>;
 export type AttachmentListResponse = z.infer<typeof attachmentListResponseSchema>;

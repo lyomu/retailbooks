@@ -179,6 +179,9 @@ model User {
   invitationsAccepted              OrganizationInvitation[]   @relation("InvitationAcceptedBy")
   journalsCreated                  Journal[]                  @relation("JournalCreatedBy")
   journalsPosted                   Journal[]                  @relation("JournalPostedBy")
+  openingBalancesFinalized         OpeningBalanceBatch[]      @relation("OpeningBalanceFinalizedBy")
+  recurringJournalTemplatesCreated RecurringJournalTemplate[] @relation("RecurringJournalTemplateCreatedBy")
+  fxRevaluationRunsCreated         FxRevaluationRun[]         @relation("FxRevaluationRunCreatedBy")
   invoicesCreated                  Invoice[]                  @relation("InvoiceCreatedBy")
   paymentsReceivedCreated          PaymentReceived[]          @relation("PaymentReceivedCreatedBy")
   creditNotesCreated               CreditNote[]               @relation("CreditNoteCreatedBy")
@@ -190,10 +193,10 @@ model User {
   billsCreated                     Bill[]                     @relation("BillCreatedBy")
   attachmentsUploaded              Attachment[]               @relation("AttachmentUploadedBy")
   expensesCreated                  Expense[]                  @relation("ExpenseCreatedBy")
-  vendorCreditsCreated              VendorCredit[]             @relation("VendorCreditCreatedBy")
-  paymentsMadeCreated               PaymentMade[]              @relation("PaymentMadeCreatedBy")
-  recurringBillTemplatesCreated     RecurringBillTemplate[]    @relation("RecurringBillTemplateCreatedBy")
-  recurringExpenseTemplatesCreated  RecurringExpenseTemplate[] @relation("RecurringExpenseTemplateCreatedBy")
+  vendorCreditsCreated             VendorCredit[]             @relation("VendorCreditCreatedBy")
+  paymentsMadeCreated              PaymentMade[]              @relation("PaymentMadeCreatedBy")
+  recurringBillTemplatesCreated    RecurringBillTemplate[]    @relation("RecurringBillTemplateCreatedBy")
+  recurringExpenseTemplatesCreated RecurringExpenseTemplate[] @relation("RecurringExpenseTemplateCreatedBy")
 
   @@map("users")
 }
@@ -372,6 +375,10 @@ model Organization {
   recurringBillTemplates        RecurringBillTemplate[]
   recurringBillTemplateLines    RecurringBillTemplateLine[]
   recurringExpenseTemplates     RecurringExpenseTemplate[]
+  openingBalanceBatches         OpeningBalanceBatch[]
+  recurringJournalTemplates     RecurringJournalTemplate[]
+  recurringJournalTemplateLines RecurringJournalTemplateLine[]
+  fxRevaluationRuns             FxRevaluationRun[]
 
   @@index([createdByUserId])
   @@index([status])
@@ -529,6 +536,8 @@ model OrganizationPreference {
   organizationId              String          @unique @map("organization_id") @db.Uuid
   accountingBasis             AccountingBasis @default(ACCRUAL) @map("accounting_basis")
   chartTemplate               String          @default("general-business") @map("chart_template") @db.VarChar(60)
+  roundingMode                RoundingMode    @default(NONE) @map("rounding_mode")
+  roundingUnitMinor           Int?            @map("rounding_unit_minor")
   booksStartDate              DateTime?       @map("books_start_date") @db.Date
   taxRegistered               Boolean         @default(false) @map("tax_registered")
   taxIdentifier               String?         @map("tax_identifier") @db.VarChar(60)
@@ -637,37 +646,39 @@ model RolePermission {
 /// Editable organization-scoped chart of accounts. Accounts are archived rather than hard-deleted
 /// once they have journal history.
 model LedgerAccount {
-  id                               String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  organizationId                   String              @map("organization_id") @db.Uuid
-  code                             String              @db.VarChar(24)
-  name                             String              @db.VarChar(120)
-  type                             LedgerAccountType
-  normalBalance                    LedgerNormalBalance @map("normal_balance")
-  status                           LedgerAccountStatus @default(ACTIVE)
-  description                      String?             @db.VarChar(240)
-  systemSeed                       Boolean             @default(false) @map("system_seed")
-  systemKey                        String?             @map("system_key") @db.VarChar(40)
-  isControl                        Boolean             @default(false) @map("is_control")
-  archivedAt                       DateTime?           @map("archived_at") @db.Timestamptz(6)
-  createdAt                        DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt                        DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  organization                     Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  journalLines                     JournalLine[]
-  taxCodesAsSalesAccount           TaxCode[]           @relation("TaxCodeSalesAccount")
-  taxCodesAsPurchaseAccount        TaxCode[]           @relation("TaxCodePurchaseAccount")
-  contactsAsReceivableAccount      Contact[]           @relation("ContactReceivableAccount")
-  itemsAsRevenueAccount            Item[]              @relation("ItemRevenueAccount")
-  invoiceLinesAsRevenueAccount     InvoiceLine[]       @relation("InvoiceLineRevenueAccount")
-  paymentsReceivedAsDepositAccount PaymentReceived[]   @relation("PaymentReceivedDepositAccount")
-  creditNoteLinesAsRevenueAccount  CreditNoteLine[]    @relation("CreditNoteLineRevenueAccount")
-  vendorsAsPayableAccount          Vendor[]            @relation("VendorPayableAccount")
-  billLinesAsAccount               BillLine[]          @relation("BillLineAccount")
-  expenseCategoriesAsAccount       ExpenseCategory[]   @relation("ExpenseCategoryAccount")
-  expensesAsPaidThroughAccount     Expense[]           @relation("ExpensePaidThroughAccount")
-  vendorCreditLinesAsAccount       VendorCreditLine[]  @relation("VendorCreditLineAccount")
-  paymentsMadeAsPaidFromAccount    PaymentMade[]       @relation("PaymentMadePaidFromAccount")
-  recurringBillTemplateLinesAsAccount RecurringBillTemplateLine[] @relation("RecurringBillTemplateLineAccount")
-  recurringExpenseTemplatesAsPaidThroughAccount RecurringExpenseTemplate[] @relation("RecurringExpenseTemplatePaidThroughAccount")
+  id                                            String                         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId                                String                         @map("organization_id") @db.Uuid
+  code                                          String                         @db.VarChar(24)
+  name                                          String                         @db.VarChar(120)
+  type                                          LedgerAccountType
+  normalBalance                                 LedgerNormalBalance            @map("normal_balance")
+  status                                        LedgerAccountStatus            @default(ACTIVE)
+  description                                   String?                        @db.VarChar(240)
+  systemSeed                                    Boolean                        @default(false) @map("system_seed")
+  systemKey                                     String?                        @map("system_key") @db.VarChar(40)
+  isControl                                     Boolean                        @default(false) @map("is_control")
+  archivedAt                                    DateTime?                      @map("archived_at") @db.Timestamptz(6)
+  createdAt                                     DateTime                       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                                     DateTime                       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization                                  Organization                   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  journalLines                                  JournalLine[]
+  taxCodesAsSalesAccount                        TaxCode[]                      @relation("TaxCodeSalesAccount")
+  taxCodesAsPurchaseAccount                     TaxCode[]                      @relation("TaxCodePurchaseAccount")
+  contactsAsReceivableAccount                   Contact[]                      @relation("ContactReceivableAccount")
+  itemsAsRevenueAccount                         Item[]                         @relation("ItemRevenueAccount")
+  invoiceLinesAsRevenueAccount                  InvoiceLine[]                  @relation("InvoiceLineRevenueAccount")
+  paymentsReceivedAsDepositAccount              PaymentReceived[]              @relation("PaymentReceivedDepositAccount")
+  creditNoteLinesAsRevenueAccount               CreditNoteLine[]               @relation("CreditNoteLineRevenueAccount")
+  vendorsAsPayableAccount                       Vendor[]                       @relation("VendorPayableAccount")
+  billLinesAsAccount                            BillLine[]                     @relation("BillLineAccount")
+  expenseCategoriesAsAccount                    ExpenseCategory[]              @relation("ExpenseCategoryAccount")
+  expensesAsPaidThroughAccount                  Expense[]                      @relation("ExpensePaidThroughAccount")
+  vendorCreditLinesAsAccount                    VendorCreditLine[]             @relation("VendorCreditLineAccount")
+  paymentsMadeAsPaidFromAccount                 PaymentMade[]                  @relation("PaymentMadePaidFromAccount")
+  recurringBillTemplateLinesAsAccount           RecurringBillTemplateLine[]    @relation("RecurringBillTemplateLineAccount")
+  recurringExpenseTemplatesAsPaidThroughAccount RecurringExpenseTemplate[]     @relation("RecurringExpenseTemplatePaidThroughAccount")
+  openingBalanceLinesAsAccount                  OpeningBalanceLine[]           @relation("OpeningBalanceLineAccount")
+  recurringJournalTemplateLinesAsAccount        RecurringJournalTemplateLine[] @relation("RecurringJournalTemplateLineAccount")
 
   @@unique([organizationId, code])
   @@unique([organizationId, systemKey])
@@ -678,38 +689,41 @@ model LedgerAccount {
 
 /// Draft and posted journal header. Posted journals are immutable; corrections use reversal.
 model Journal {
-  id                   String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  organizationId       String                @map("organization_id") @db.Uuid
-  reference            String?               @db.VarChar(64)
-  status               JournalStatus         @default(DRAFT)
-  journalDate          DateTime              @map("journal_date") @db.Date
-  currency             String                @db.Char(3)
-  exchangeRate         Decimal?              @map("exchange_rate") @db.Decimal(20, 10)
-  description          String                @db.VarChar(240)
-  sourceType           String?               @map("source_type") @db.VarChar(60)
-  sourceId             String?               @map("source_id") @db.VarChar(100)
-  postedAt             DateTime?             @map("posted_at") @db.Timestamptz(6)
-  postedByUserId       String?               @map("posted_by_user_id") @db.Uuid
-  createdByUserId      String                @map("created_by_user_id") @db.Uuid
-  reversalOfJournalId  String?               @unique @map("reversal_of_journal_id") @db.Uuid
-  createdAt            DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt            DateTime              @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  organization         Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  createdBy            User                  @relation("JournalCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
-  postedBy             User?                 @relation("JournalPostedBy", fields: [postedByUserId], references: [id], onDelete: Restrict)
-  reversalOf           Journal?              @relation("JournalReversal", fields: [reversalOfJournalId], references: [id], onDelete: Restrict)
-  reversalJournal      Journal?              @relation("JournalReversal")
-  lines                JournalLine[]
-  invoice              Invoice?
-  paymentReceived      PaymentReceived?
-  creditNote           CreditNote?
-  creditNoteAllocation CreditNoteAllocation?
-  creditNoteRefund     CreditNoteRefund?
-  bill                 Bill?
+  id                     String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId         String                  @map("organization_id") @db.Uuid
+  reference              String?                 @db.VarChar(64)
+  status                 JournalStatus           @default(DRAFT)
+  journalDate            DateTime                @map("journal_date") @db.Date
+  currency               String                  @db.Char(3)
+  exchangeRate           Decimal?                @map("exchange_rate") @db.Decimal(20, 10)
+  description            String                  @db.VarChar(240)
+  sourceType             String?                 @map("source_type") @db.VarChar(60)
+  sourceId               String?                 @map("source_id") @db.VarChar(100)
+  postingRule            String?                 @map("posting_rule") @db.VarChar(120)
+  postedAt               DateTime?               @map("posted_at") @db.Timestamptz(6)
+  postedByUserId         String?                 @map("posted_by_user_id") @db.Uuid
+  createdByUserId        String                  @map("created_by_user_id") @db.Uuid
+  reversalOfJournalId    String?                 @unique @map("reversal_of_journal_id") @db.Uuid
+  createdAt              DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime                @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization           Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy              User                    @relation("JournalCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  postedBy               User?                   @relation("JournalPostedBy", fields: [postedByUserId], references: [id], onDelete: Restrict)
+  reversalOf             Journal?                @relation("JournalReversal", fields: [reversalOfJournalId], references: [id], onDelete: Restrict)
+  reversalJournal        Journal?                @relation("JournalReversal")
+  lines                  JournalLine[]
+  invoice                Invoice?
+  paymentReceived        PaymentReceived?
+  creditNote             CreditNote?
+  creditNoteAllocation   CreditNoteAllocation?
+  creditNoteRefund       CreditNoteRefund?
+  bill                   Bill?
   vendorCreditAllocation VendorCreditAllocation?
-  paymentMade          PaymentMade?
-  vendorCredit         VendorCredit?
-  expense              Expense?
+  paymentMade            PaymentMade?
+  vendorCredit           VendorCredit?
+  expense                Expense?
+  openingBalanceBatch    OpeningBalanceBatch?
+  fxRevaluationRun       FxRevaluationRun?       @relation("FxRevaluationJournal")
 
   @@unique([organizationId, reference])
   @@index([organizationId, status, journalDate])
@@ -850,6 +864,7 @@ model Contact {
   quotes                    Quote[]
   salesOrders               SalesOrder[]
   recurringInvoiceTemplates RecurringInvoiceTemplate[]
+  openingBalancePartyLines  OpeningBalancePartyLine[]
 
   @@unique([organizationId, displayName])
   @@index([organizationId, status])
@@ -894,30 +909,32 @@ model ContactTaxId {
 }
 
 model Vendor {
-  id                String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  organizationId    String           @map("organization_id") @db.Uuid
-  displayName       String           @map("display_name") @db.VarChar(160)
-  legalName         String?          @map("legal_name") @db.VarChar(200)
-  email             String?          @db.Citext
-  phone             String?          @db.VarChar(40)
-  currency          String           @db.Char(3)
-  paymentTermsDays  Int?             @map("payment_terms_days") @db.SmallInt
-  payableAccountId  String?          @map("payable_account_id") @db.Uuid
-  status            ContactStatus    @default(ACTIVE)
-  tags              String[]         @default([])
-  createdAt         DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt         DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  organization      Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  payableAccount    LedgerAccount?   @relation("VendorPayableAccount", fields: [payableAccountId], references: [id], onDelete: SetNull)
-  addresses         VendorAddress[]
-  taxIds            VendorTaxId[]
-  purchaseOrders    PurchaseOrder[]
-  bills             Bill[]
-  expensesAsPayee   Expense[]
-  vendorCredits     VendorCredit[]
-  paymentsMade      PaymentMade[]
-  recurringBillTemplates RecurringBillTemplate[]
+  id                               String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId                   String                     @map("organization_id") @db.Uuid
+  displayName                      String                     @map("display_name") @db.VarChar(160)
+  legalName                        String?                    @map("legal_name") @db.VarChar(200)
+  email                            String?                    @db.Citext
+  phone                            String?                    @db.VarChar(40)
+  currency                         String                     @db.Char(3)
+  paymentTermsDays                 Int?                       @map("payment_terms_days") @db.SmallInt
+  payableAccountId                 String?                    @map("payable_account_id") @db.Uuid
+  status                           ContactStatus              @default(ACTIVE)
+  tags                             String[]                   @default([])
+  createdAt                        DateTime                   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                        DateTime                   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization                     Organization               @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  payableAccount                   LedgerAccount?             @relation("VendorPayableAccount", fields: [payableAccountId], references: [id], onDelete: SetNull)
+  addresses                        VendorAddress[]
+  taxIds                           VendorTaxId[]
+  purchaseOrders                   PurchaseOrder[]
+  bills                            Bill[]
+  expensesAsPayee                  Expense[]
+  vendorCredits                    VendorCredit[]
+  paymentsMade                     PaymentMade[]
+  recurringBillTemplates           RecurringBillTemplate[]
   recurringExpenseTemplatesAsPayee RecurringExpenseTemplate[]
+  openingBalancePartyLines         OpeningBalancePartyLine[]
+  recurringJournalTemplates        RecurringJournalTemplate[]
 
   @@index([organizationId, status])
   @@map("vendors")
@@ -1540,7 +1557,7 @@ model PurchaseOrder {
   createdAt            DateTime                   @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt            DateTime                   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   organization         Organization               @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  vendor                Vendor                     @relation(fields: [vendorId], references: [id], onDelete: Restrict)
+  vendor               Vendor                     @relation(fields: [vendorId], references: [id], onDelete: Restrict)
   createdBy            User                       @relation("PurchaseOrderCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
   lines                PurchaseOrderLine[]
   bills                Bill[]
@@ -1590,36 +1607,36 @@ enum BillStatus {
 /// document -- distinct from `billNumber`, which this organization allocates on issue the way
 /// `invoiceNumber` is allocated.
 model Bill {
-  id                    String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  organizationId        String                 @map("organization_id") @db.Uuid
-  vendorId              String                 @map("vendor_id") @db.Uuid
-  purchaseOrderId       String?                @map("purchase_order_id") @db.Uuid
-  billNumber            String?                @map("bill_number") @db.VarChar(64)
-  vendorReference       String?                @map("vendor_reference") @db.VarChar(64)
-  status                BillStatus             @default(DRAFT)
-  issueDate             DateTime?              @map("issue_date") @db.Date
-  dueDate               DateTime?              @map("due_date") @db.Date
-  currency              String                 @db.Char(3)
-  exchangeRate          Decimal?               @map("exchange_rate") @db.Decimal(20, 10)
-  subtotalMinor         BigInt                 @default(0) @map("subtotal_minor") @db.BigInt
-  taxTotalMinor         BigInt                 @default(0) @map("tax_total_minor") @db.BigInt
-  totalMinor            BigInt                 @default(0) @map("total_minor") @db.BigInt
-  paidMinor             BigInt                 @default(0) @map("paid_minor") @db.BigInt
-  balanceMinor          BigInt                 @default(0) @map("balance_minor") @db.BigInt
-  journalId             String?                @unique @map("journal_id") @db.Uuid
-  voidedAt              DateTime?              @map("voided_at") @db.Timestamptz(6)
-  createdByUserId       String                 @map("created_by_user_id") @db.Uuid
-  createdAt             DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt             DateTime               @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  organization          Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  vendor                Vendor                 @relation(fields: [vendorId], references: [id], onDelete: Restrict)
-  purchaseOrder         PurchaseOrder?         @relation(fields: [purchaseOrderId], references: [id], onDelete: SetNull)
-  journal               Journal?               @relation(fields: [journalId], references: [id], onDelete: Restrict)
-  createdBy             User                   @relation("BillCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
-  lines                 BillLine[]
-  paymentAllocations    PaymentMadeAllocation[]
+  id                      String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId          String                   @map("organization_id") @db.Uuid
+  vendorId                String                   @map("vendor_id") @db.Uuid
+  purchaseOrderId         String?                  @map("purchase_order_id") @db.Uuid
+  billNumber              String?                  @map("bill_number") @db.VarChar(64)
+  vendorReference         String?                  @map("vendor_reference") @db.VarChar(64)
+  status                  BillStatus               @default(DRAFT)
+  issueDate               DateTime?                @map("issue_date") @db.Date
+  dueDate                 DateTime?                @map("due_date") @db.Date
+  currency                String                   @db.Char(3)
+  exchangeRate            Decimal?                 @map("exchange_rate") @db.Decimal(20, 10)
+  subtotalMinor           BigInt                   @default(0) @map("subtotal_minor") @db.BigInt
+  taxTotalMinor           BigInt                   @default(0) @map("tax_total_minor") @db.BigInt
+  totalMinor              BigInt                   @default(0) @map("total_minor") @db.BigInt
+  paidMinor               BigInt                   @default(0) @map("paid_minor") @db.BigInt
+  balanceMinor            BigInt                   @default(0) @map("balance_minor") @db.BigInt
+  journalId               String?                  @unique @map("journal_id") @db.Uuid
+  voidedAt                DateTime?                @map("voided_at") @db.Timestamptz(6)
+  createdByUserId         String                   @map("created_by_user_id") @db.Uuid
+  createdAt               DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt               DateTime                 @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization            Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  vendor                  Vendor                   @relation(fields: [vendorId], references: [id], onDelete: Restrict)
+  purchaseOrder           PurchaseOrder?           @relation(fields: [purchaseOrderId], references: [id], onDelete: SetNull)
+  journal                 Journal?                 @relation(fields: [journalId], references: [id], onDelete: Restrict)
+  createdBy               User                     @relation("BillCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  lines                   BillLine[]
+  paymentAllocations      PaymentMadeAllocation[]
   vendorCreditAllocations VendorCreditAllocation[]
-  vendorCreditsAsSource VendorCredit[]
+  vendorCreditsAsSource   VendorCredit[]
 
   @@unique([organizationId, billNumber])
   @@index([organizationId, status, issueDate])
@@ -1694,16 +1711,16 @@ model Attachment {
 /// `parentCategoryId`/`items`, no account link) -- overloading that model would conflate two
 /// unrelated concepts.
 model ExpenseCategory {
-  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  organizationId String       @map("organization_id") @db.Uuid
-  name           String       @db.VarChar(120)
-  accountId      String       @map("account_id") @db.Uuid
-  active         Boolean      @default(true)
-  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt      DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  account        LedgerAccount @relation("ExpenseCategoryAccount", fields: [accountId], references: [id], onDelete: Restrict)
-  expenses       Expense[]
+  id                        String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId            String                     @map("organization_id") @db.Uuid
+  name                      String                     @db.VarChar(120)
+  accountId                 String                     @map("account_id") @db.Uuid
+  active                    Boolean                    @default(true)
+  createdAt                 DateTime                   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                 DateTime                   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization              Organization               @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  account                   LedgerAccount              @relation("ExpenseCategoryAccount", fields: [accountId], references: [id], onDelete: Restrict)
+  expenses                  Expense[]
   recurringExpenseTemplates RecurringExpenseTemplate[]
 
   @@unique([organizationId, name])
@@ -1729,37 +1746,37 @@ enum ExpenseStatus {
 /// post straight from DRAFT, skipping the approval hop entirely). Receipts attach via the generic
 /// `Attachment` model (`entityType: 'EXPENSE'`).
 model Expense {
-  id                     String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  organizationId         String            @map("organization_id") @db.Uuid
-  payeeVendorId          String?           @map("payee_vendor_id") @db.Uuid
-  payeeName              String?           @map("payee_name") @db.VarChar(160)
-  expenseNumber          String?           @map("expense_number") @db.VarChar(64)
-  status                 ExpenseStatus     @default(DRAFT)
-  expenseDate            DateTime          @map("expense_date") @db.Date
-  paidThroughAccountId   String            @map("paid_through_account_id") @db.Uuid
-  categoryId             String?           @map("category_id") @db.Uuid
-  currency               String            @db.Char(3)
-  amountMinor            BigInt            @map("amount_minor") @db.BigInt
-  taxCodeId              String?           @map("tax_code_id") @db.Uuid
-  taxCodeSnapshot        String?           @map("tax_code_snapshot") @db.VarChar(24)
-  taxTreatmentSnapshot   TaxTreatment?     @map("tax_treatment_snapshot")
-  taxRecoverableSnapshot Boolean?          @map("tax_recoverable_snapshot")
-  taxRatePercentSnapshot Decimal?          @map("tax_rate_percent_snapshot") @db.Decimal(7, 4)
-  taxableAmountMinor     BigInt?           @map("taxable_amount_minor") @db.BigInt
-  taxAmountMinor         BigInt?           @map("tax_amount_minor") @db.BigInt
-  totalMinor             BigInt            @default(0) @map("total_minor") @db.BigInt
-  journalId              String?           @unique @map("journal_id") @db.Uuid
-  voidedAt               DateTime?         @map("voided_at") @db.Timestamptz(6)
-  createdByUserId        String            @map("created_by_user_id") @db.Uuid
-  createdAt              DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt              DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  organization           Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  payeeVendor            Vendor?           @relation(fields: [payeeVendorId], references: [id], onDelete: SetNull)
-  paidThroughAccount     LedgerAccount     @relation("ExpensePaidThroughAccount", fields: [paidThroughAccountId], references: [id], onDelete: Restrict)
-  category               ExpenseCategory?  @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  taxCode                TaxCode?          @relation(fields: [taxCodeId], references: [id], onDelete: Restrict)
-  journal                Journal?          @relation(fields: [journalId], references: [id], onDelete: Restrict)
-  createdBy              User              @relation("ExpenseCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  id                     String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId         String           @map("organization_id") @db.Uuid
+  payeeVendorId          String?          @map("payee_vendor_id") @db.Uuid
+  payeeName              String?          @map("payee_name") @db.VarChar(160)
+  expenseNumber          String?          @map("expense_number") @db.VarChar(64)
+  status                 ExpenseStatus    @default(DRAFT)
+  expenseDate            DateTime         @map("expense_date") @db.Date
+  paidThroughAccountId   String           @map("paid_through_account_id") @db.Uuid
+  categoryId             String?          @map("category_id") @db.Uuid
+  currency               String           @db.Char(3)
+  amountMinor            BigInt           @map("amount_minor") @db.BigInt
+  taxCodeId              String?          @map("tax_code_id") @db.Uuid
+  taxCodeSnapshot        String?          @map("tax_code_snapshot") @db.VarChar(24)
+  taxTreatmentSnapshot   TaxTreatment?    @map("tax_treatment_snapshot")
+  taxRecoverableSnapshot Boolean?         @map("tax_recoverable_snapshot")
+  taxRatePercentSnapshot Decimal?         @map("tax_rate_percent_snapshot") @db.Decimal(7, 4)
+  taxableAmountMinor     BigInt?          @map("taxable_amount_minor") @db.BigInt
+  taxAmountMinor         BigInt?          @map("tax_amount_minor") @db.BigInt
+  totalMinor             BigInt           @default(0) @map("total_minor") @db.BigInt
+  journalId              String?          @unique @map("journal_id") @db.Uuid
+  voidedAt               DateTime?        @map("voided_at") @db.Timestamptz(6)
+  createdByUserId        String           @map("created_by_user_id") @db.Uuid
+  createdAt              DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization           Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  payeeVendor            Vendor?          @relation(fields: [payeeVendorId], references: [id], onDelete: SetNull)
+  paidThroughAccount     LedgerAccount    @relation("ExpensePaidThroughAccount", fields: [paidThroughAccountId], references: [id], onDelete: Restrict)
+  category               ExpenseCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  taxCode                TaxCode?         @relation(fields: [taxCodeId], references: [id], onDelete: Restrict)
+  journal                Journal?         @relation(fields: [journalId], references: [id], onDelete: Restrict)
+  createdBy              User             @relation("ExpenseCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
 
   @@unique([organizationId, expenseNumber])
   @@index([organizationId, status, expenseDate])
@@ -1780,32 +1797,32 @@ enum VendorCreditStatus {
 /// CR vendor_credit` against a specific Bill, one journal per Bill, mirroring
 /// `CreditNotesService#allocate` exactly including its over-allocation guard shape.
 model VendorCredit {
-  id                  String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  organizationId      String                   @map("organization_id") @db.Uuid
-  vendorId            String                   @map("vendor_id") @db.Uuid
-  sourceBillId        String?                  @map("source_bill_id") @db.Uuid
-  reason              String?                  @db.VarChar(240)
-  vendorCreditNumber  String?                  @map("vendor_credit_number") @db.VarChar(64)
-  status              VendorCreditStatus       @default(DRAFT)
-  issueDate           DateTime?                @map("issue_date") @db.Date
-  currency            String                   @db.Char(3)
-  subtotalMinor       BigInt                   @default(0) @map("subtotal_minor") @db.BigInt
-  taxTotalMinor       BigInt                   @default(0) @map("tax_total_minor") @db.BigInt
-  totalMinor          BigInt                   @default(0) @map("total_minor") @db.BigInt
-  appliedMinor        BigInt                   @default(0) @map("applied_minor") @db.BigInt
-  remainingMinor      BigInt                   @default(0) @map("remaining_minor") @db.BigInt
-  journalId           String?                  @unique @map("journal_id") @db.Uuid
-  voidedAt            DateTime?                @map("voided_at") @db.Timestamptz(6)
-  createdByUserId     String                   @map("created_by_user_id") @db.Uuid
-  createdAt           DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt           DateTime                 @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  organization        Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  vendor               Vendor                   @relation(fields: [vendorId], references: [id], onDelete: Restrict)
-  sourceBill          Bill?                    @relation(fields: [sourceBillId], references: [id], onDelete: SetNull)
-  journal             Journal?                 @relation(fields: [journalId], references: [id], onDelete: Restrict)
-  createdBy           User                     @relation("VendorCreditCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
-  lines               VendorCreditLine[]
-  allocations         VendorCreditAllocation[]
+  id                 String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId     String                   @map("organization_id") @db.Uuid
+  vendorId           String                   @map("vendor_id") @db.Uuid
+  sourceBillId       String?                  @map("source_bill_id") @db.Uuid
+  reason             String?                  @db.VarChar(240)
+  vendorCreditNumber String?                  @map("vendor_credit_number") @db.VarChar(64)
+  status             VendorCreditStatus       @default(DRAFT)
+  issueDate          DateTime?                @map("issue_date") @db.Date
+  currency           String                   @db.Char(3)
+  subtotalMinor      BigInt                   @default(0) @map("subtotal_minor") @db.BigInt
+  taxTotalMinor      BigInt                   @default(0) @map("tax_total_minor") @db.BigInt
+  totalMinor         BigInt                   @default(0) @map("total_minor") @db.BigInt
+  appliedMinor       BigInt                   @default(0) @map("applied_minor") @db.BigInt
+  remainingMinor     BigInt                   @default(0) @map("remaining_minor") @db.BigInt
+  journalId          String?                  @unique @map("journal_id") @db.Uuid
+  voidedAt           DateTime?                @map("voided_at") @db.Timestamptz(6)
+  createdByUserId    String                   @map("created_by_user_id") @db.Uuid
+  createdAt          DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime                 @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization       Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  vendor             Vendor                   @relation(fields: [vendorId], references: [id], onDelete: Restrict)
+  sourceBill         Bill?                    @relation(fields: [sourceBillId], references: [id], onDelete: SetNull)
+  journal            Journal?                 @relation(fields: [journalId], references: [id], onDelete: Restrict)
+  createdBy          User                     @relation("VendorCreditCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  lines              VendorCreditLine[]
+  allocations        VendorCreditAllocation[]
 
   @@unique([organizationId, vendorCreditNumber])
   @@index([organizationId, status, issueDate])
@@ -1870,27 +1887,27 @@ model VendorCreditAllocation {
 /// paidMinor/balanceMinor/status in `PaymentsMadeService#allocate`, mirroring
 /// `PaymentsService#allocate` exactly.
 model PaymentMade {
-  id              String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  organizationId  String                  @map("organization_id") @db.Uuid
-  vendorId        String                  @map("vendor_id") @db.Uuid
-  paymentNumber   String?                 @map("payment_number") @db.VarChar(64)
-  status          PaymentStatus           @default(UNAPPLIED)
-  paidDate        DateTime                @map("paid_date") @db.Date
-  currency        String                  @db.Char(3)
-  amountMinor     BigInt                  @map("amount_minor") @db.BigInt
-  allocatedMinor  BigInt                  @default(0) @map("allocated_minor") @db.BigInt
-  unappliedMinor  BigInt                  @map("unapplied_minor") @db.BigInt
-  paidFromAccountId String?               @map("paid_from_account_id") @db.Uuid
-  journalId       String?                 @unique @map("journal_id") @db.Uuid
-  createdByUserId String                  @map("created_by_user_id") @db.Uuid
-  createdAt       DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime                @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  organization    Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  vendor          Vendor                  @relation(fields: [vendorId], references: [id], onDelete: Restrict)
-  paidFromAccount LedgerAccount?          @relation("PaymentMadePaidFromAccount", fields: [paidFromAccountId], references: [id], onDelete: Restrict)
-  journal         Journal?                @relation(fields: [journalId], references: [id], onDelete: Restrict)
-  createdBy       User                    @relation("PaymentMadeCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
-  allocations     PaymentMadeAllocation[]
+  id                String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId    String                  @map("organization_id") @db.Uuid
+  vendorId          String                  @map("vendor_id") @db.Uuid
+  paymentNumber     String?                 @map("payment_number") @db.VarChar(64)
+  status            PaymentStatus           @default(UNAPPLIED)
+  paidDate          DateTime                @map("paid_date") @db.Date
+  currency          String                  @db.Char(3)
+  amountMinor       BigInt                  @map("amount_minor") @db.BigInt
+  allocatedMinor    BigInt                  @default(0) @map("allocated_minor") @db.BigInt
+  unappliedMinor    BigInt                  @map("unapplied_minor") @db.BigInt
+  paidFromAccountId String?                 @map("paid_from_account_id") @db.Uuid
+  journalId         String?                 @unique @map("journal_id") @db.Uuid
+  createdByUserId   String                  @map("created_by_user_id") @db.Uuid
+  createdAt         DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime                @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization      Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  vendor            Vendor                  @relation(fields: [vendorId], references: [id], onDelete: Restrict)
+  paidFromAccount   LedgerAccount?          @relation("PaymentMadePaidFromAccount", fields: [paidFromAccountId], references: [id], onDelete: Restrict)
+  journal           Journal?                @relation(fields: [journalId], references: [id], onDelete: Restrict)
+  createdBy         User                    @relation("PaymentMadeCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  allocations       PaymentMadeAllocation[]
 
   @@unique([organizationId, paymentNumber])
   @@index([organizationId, status, paidDate])
@@ -2006,4 +2023,145 @@ model RecurringExpenseTemplate {
   @@index([organizationId, active, nextRunDate])
   @@index([organizationId, payeeVendorId])
   @@map("recurring_expense_templates")
+}
+
+enum OpeningBalanceBatchStatus {
+  DRAFT
+  VALIDATED
+  FINALIZED
+  VOID
+}
+
+/// One side of a party-level opening balance. RECEIVABLE lines roll into the accounts_receivable
+/// control account and must reference a contact; PAYABLE lines roll into accounts_payable and must
+/// reference a vendor.
+enum OpeningBalancePartySide {
+  RECEIVABLE
+  PAYABLE
+}
+
+model OpeningBalanceBatch {
+  id                String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId    String                    @map("organization_id") @db.Uuid
+  status            OpeningBalanceBatchStatus @default(DRAFT)
+  asOfDate          DateTime                  @map("as_of_date") @db.Date
+  description       String?                   @db.VarChar(240)
+  journalId         String?                   @unique @map("journal_id") @db.Uuid
+  validatedAt       DateTime?                 @map("validated_at") @db.Timestamptz(6)
+  finalizedAt       DateTime?                 @map("finalized_at") @db.Timestamptz(6)
+  finalizedByUserId String?                   @map("finalized_by_user_id") @db.Uuid
+  createdAt         DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime                  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization      Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  journal           Journal?                  @relation(fields: [journalId], references: [id], onDelete: SetNull)
+  finalizedBy       User?                     @relation("OpeningBalanceFinalizedBy", fields: [finalizedByUserId], references: [id], onDelete: SetNull)
+  lines             OpeningBalanceLine[]
+  partyLines        OpeningBalancePartyLine[]
+
+  @@index([organizationId, status])
+  @@index([organizationId, asOfDate])
+  @@map("opening_balance_batches")
+}
+
+model OpeningBalanceLine {
+  id             String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String              @map("organization_id") @db.Uuid
+  batchId        String              @map("batch_id") @db.Uuid
+  accountId      String              @map("account_id") @db.Uuid
+  debitMinor     BigInt              @default(0) @map("debit_minor")
+  creditMinor    BigInt              @default(0) @map("credit_minor")
+  description    String?             @db.VarChar(240)
+  batch          OpeningBalanceBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  account        LedgerAccount       @relation("OpeningBalanceLineAccount", fields: [accountId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, batchId])
+  @@map("opening_balance_lines")
+}
+
+model OpeningBalancePartyLine {
+  id             String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String                  @map("organization_id") @db.Uuid
+  batchId        String                  @map("batch_id") @db.Uuid
+  side           OpeningBalancePartySide
+  amountMinor    BigInt                  @map("amount_minor")
+  nameSnapshot   String                  @map("name_snapshot") @db.VarChar(160)
+  contactId      String?                 @map("contact_id") @db.Uuid
+  vendorId       String?                 @map("vendor_id") @db.Uuid
+  batch          OpeningBalanceBatch     @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  contact        Contact?                @relation(fields: [contactId], references: [id], onDelete: Restrict)
+  vendor         Vendor?                 @relation(fields: [vendorId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, batchId])
+  @@index([organizationId, side])
+  @@map("opening_balance_party_lines")
+}
+
+model RecurringJournalTemplate {
+  id                   String                         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId       String                         @map("organization_id") @db.Uuid
+  name                 String                         @db.VarChar(120)
+  memo                 String?                        @db.VarChar(240)
+  cadence              RecurringCadence
+  startDate            DateTime                       @map("start_date") @db.Date
+  endDate              DateTime?                      @map("end_date") @db.Date
+  nextRunDate          DateTime                       @map("next_run_date") @db.Date
+  active               Boolean                        @default(true)
+  lastRunOccurrenceKey String?                        @map("last_run_occurrence_key") @db.VarChar(100)
+  createdByUserId      String                         @map("created_by_user_id") @db.Uuid
+  createdAt            DateTime                       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime                       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization         Organization                   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  lines                RecurringJournalTemplateLine[]
+  createdBy            User                           @relation("RecurringJournalTemplateCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  vendor               Vendor?                        @relation(fields: [vendorId], references: [id])
+  vendorId             String?                        @db.Uuid
+
+  @@index([organizationId, active, nextRunDate])
+  @@map("recurring_journal_templates")
+}
+
+model RecurringJournalTemplateLine {
+  id             String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String                   @map("organization_id") @db.Uuid
+  templateId     String                   @map("template_id") @db.Uuid
+  lineNumber     Int                      @map("line_number") @db.SmallInt
+  accountId      String                   @map("account_id") @db.Uuid
+  debitMinor     BigInt                   @default(0) @map("debit_minor")
+  creditMinor    BigInt                   @default(0) @map("credit_minor")
+  description    String?                  @db.VarChar(240)
+  template       RecurringJournalTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  account        LedgerAccount            @relation("RecurringJournalTemplateLineAccount", fields: [accountId], references: [id], onDelete: Restrict)
+  organization   Organization             @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId, templateId])
+  @@map("recurring_journal_template_lines")
+}
+
+/// One period-end FX revaluation execution. The batch restates foreign-currency monetary balances
+/// to the reporting-rate value as of `as_of_date` and posts only the aggregate difference through
+/// the posting-rule library -- distinct from `prepareFxPosting`'s per-journal conversion.
+model FxRevaluationRun {
+  id              String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId  String       @map("organization_id") @db.Uuid
+  asOfDate        DateTime     @map("as_of_date") @db.Date
+  baseCurrency    String       @map("base_currency") @db.Char(3)
+  journalId       String       @unique @map("journal_id") @db.Uuid
+  gainMinor       BigInt       @default(0) @map("gain_minor")
+  lossMinor       BigInt       @default(0) @map("loss_minor")
+  createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdByUserId String       @map("created_by_user_id") @db.Uuid
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  journal         Journal      @relation("FxRevaluationJournal", fields: [journalId], references: [id], onDelete: Restrict)
+  createdBy       User         @relation("FxRevaluationRunCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, asOfDate])
+  @@index([organizationId, createdAt])
+  @@map("fx_revaluation_runs")
+}
+
+/// Cash-rounding policy for document totals. NONE keeps exact computed totals; HALF_UP rounds the
+/// payable amount to `rounding_unit_minor` and posts the difference to the rounding account.
+enum RoundingMode {
+  NONE
+  HALF_UP
 }

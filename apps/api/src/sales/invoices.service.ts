@@ -18,7 +18,9 @@ import { DocumentNumberingService } from '../organizations/document-numbering.se
 import { LedgerService } from '../organizations/ledger.service.js';
 import type { OrganizationContext } from '../organizations/organization-context.js';
 import { TaxService } from '../organizations/tax.service.js';
+import { PostingRulesService } from '../posting-rules/posting-rules.service.js';
 import { DocumentRenderingService } from './document-rendering.service.js';
+import { INVOICE_ISSUE_RULE } from './invoice-posting-rule.js';
 import type { CreateInvoiceDto, InvoiceLineDto, UpdateInvoiceDto } from './invoices.dto.js';
 import { renderInvoiceHtml } from './pdf-templates.js';
 
@@ -38,6 +40,7 @@ export class InvoicesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly ledger: LedgerService,
+    private readonly rules: PostingRulesService,
     private readonly tax: TaxService,
     private readonly numbering: DocumentNumberingService,
     private readonly documentRendering: DocumentRenderingService,
@@ -304,38 +307,25 @@ export class InvoicesService {
         throw new BadRequestException('An invoice total must be greater than zero.');
       }
 
-      const journalLines = [
-        {
-          accountId: arAccount.id,
-          debitMinor: totalMinor,
-          creditMinor: 0n,
-          description: `Invoice for ${invoice.contact.displayName}`,
-        },
-        ...[...revenueByAccount.entries()].map(([accountId, amountMinor]) => ({
-          accountId,
-          debitMinor: 0n,
-          creditMinor: amountMinor,
-          description: `Invoice for ${invoice.contact.displayName}`,
-        })),
-        ...[...taxByCode.values()].map((entry) => ({
-          accountId: entry.accountId,
-          debitMinor: 0n,
-          creditMinor: entry.amountMinor,
-          description: `Invoice tax for ${invoice.contact.displayName}`,
-        })),
-      ];
-
-      const postedJournal = await this.ledger.postJournalFromLines(
+      const postedJournal = await this.rules.post(
         context,
         user,
-        'INVOICE_ISSUE',
+        INVOICE_ISSUE_RULE,
         {
+          sourceId: invoice.id,
           journalDate: new Date(`${issueDate}T00:00:00.000Z`),
           currency: invoice.currency,
-          description: `Invoice for ${invoice.contact.displayName}`,
-          sourceType: 'SALES_INVOICE',
-          sourceId: invoice.id,
-          lines: journalLines,
+          contactName: invoice.contact.displayName,
+          arAccountId: arAccount.id,
+          revenueByAccount: [...revenueByAccount.entries()].map(([accountId, amountMinor]) => ({
+            accountId,
+            amountMinor,
+          })),
+          taxByCode: [...taxByCode.values()].map((entry) => ({
+            accountId: entry.accountId,
+            amountMinor: entry.amountMinor,
+          })),
+          totalMinor,
         },
         metadata,
         undefined,

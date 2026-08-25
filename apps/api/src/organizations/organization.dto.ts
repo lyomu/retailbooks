@@ -3,6 +3,7 @@ import {
   BusinessType,
   MembershipStatus,
   NumberingReset,
+  RoundingMode,
   TaxTreatment,
 } from '@prisma/client';
 import { Transform, Type } from 'class-transformer';
@@ -153,6 +154,16 @@ export class UpdateOrganizationDto {
   @IsISO8601()
   @Transform(trimOrUndefined)
   booksStartDate?: string;
+
+  @IsOptional()
+  @IsEnum(RoundingMode)
+  roundingMode?: RoundingMode;
+
+  /** Required when roundingMode is HALF_UP; the cash-rounding step in minor units (e.g. 50). */
+  @IsOptional()
+  @IsInt()
+  @Min(2)
+  roundingUnitMinor?: number;
 
   @IsOptional()
   @IsBoolean()

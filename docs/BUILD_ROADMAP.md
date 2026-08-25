@@ -19,9 +19,10 @@ file the way Phase 1's is summarized.
 **Status snapshot (2026-08-25):** Phase 1 is functionally complete with hardening/test debt open
 (Milestone 1J). Phase 2 (Sales) is complete and verified (Milestones 2A–2K); see
 `docs/PHASE2_TODO.md` for full detail. Phase 3 (Purchases) is complete and verified (Milestones
-3A–3H); see `docs/PHASE3_TODO.md` for full detail. Phases 4–14 have **no code yet** — confirmed by
-full-repo search: no modules, Prisma models, routes, or pages exist for banking, inventory,
-projects, reporting, automation, portals, platform admin, or AI.
+3A–3H); see `docs/PHASE3_TODO.md` for full detail. Phase 4 (Accounting Engine remainder) is complete
+and verified (Milestones 4A–4G); see `docs/PHASE4_TODO.md` for full detail. Phases 5–14 have **no
+code yet** — confirmed by full-repo search: no modules, Prisma models, routes, or pages exist for
+banking, inventory, projects, reporting, automation, portals, platform admin, or AI.
 
 ---
 
@@ -289,32 +290,51 @@ stale Phase 1/2 test pins the pass caught and fixed).
 
 ---
 
-## Phase 4 — Accounting Engine (beyond Foundation)
+## Phase 4 — Accounting Engine (beyond Foundation) ✅
 
 Foundation already delivered chart of accounts, manual journals, posting engine, trial balance, and
-reversal (Phase 1, Milestone 1G). Remaining items from build spec §6 and blueprint §10.
+reversal (Phase 1, Milestone 1G). This section covered the remainder from build spec §6 and
+blueprint §10.
 
-- [ ] Opening Balances wizard: accounts, AR/AP contact-level balances, inventory opening where relevant;
-      balanced-import validation required before finalize (`accounts.opening_balances.manage` permission
-      key already reserved in `permission-catalog.ts`)
-- [ ] Recurring Journal: template + cadence + start/end; generated entries unique per schedule occurrence
-      (may share the Phase 10 recurring-engine implementation)
-- [ ] FX Revaluation: batch process revaluing foreign-currency monetary balances at the period-end
-      reporting rate, posting the difference to configured FX gain/loss accounts (distinct from the
-      per-transaction FX conversion already implemented in `ledger.service.ts`)
-- [ ] Rounding policy and dedicated rounding account, explicitly configurable per organization
-- [ ] Posting-rule library generalized so Sales/Purchases modules declare their posting rules
-      declaratively rather than each hand-rolling ledger calls (source event → validated posting rule →
-      journal entry/lines, atomic, idempotent, source-to-ledger traceable per build spec §6)
+Full milestone-by-milestone detail (4A–4G) lives in `docs/PHASE4_TODO.md`. All milestones complete
+and verified: five accumulated migrations applied and drift-checked in both directions (no
+difference), unit suites 74 (api) + 25 (accounting-core) + 7 (localization) + 5 (ui) green,
+integration suite 238 tests across 32 files green (including the extended eight-role boundary
+matrix), typecheck/lint/format clean, both production builds succeed. Scoping decisions were made
+explicitly up front via plan mode and are recorded in `PHASE4_TODO.md` (posting-rule library =
+option (c): library + Phase 4 postings + InvoicesService pilot only; Recurring Journal built now;
+testing deferred to the end-of-phase pass).
+
+- [x] Posting-rule library: declarative source event → validated rule → journal lines, atomic,
+      idempotent, source-to-ledger traceable (`journals.posting_rule` = `event@vN`), built on top of
+      `postJournalFromLines`; used by all four new posting flows plus the invoice pilot
+- [x] Opening Balances wizard: account-level lines + contact-level AR / vendor-level AP party
+      detail (party lines are the only path to the control accounts) + inventory opening as an
+      ordinary line; balanced-import validation hard-gates finalize; idempotent per batch; void with
+      exact reversal guarded against later activity (`accounts.opening_balances.manage`, already
+      reserved — no new key)
+- [x] Recurring Journal: template + cadence + start/end; generated entries unique per schedule
+      occurrence via a dedicated claim namespace (`journals.recurring.*`)
+- [x] FX Revaluation: batch restating foreign-currency monetary balances at the period-end
+      reporting rate, posting only the delta to configured `fx_gain`/`fx_loss`; unique per run date;
+      distinct from per-transaction `prepareFxPosting` (untouched)
+- [x] Rounding policy: per-organization NONE/HALF_UP + cash-rounding unit on OrganizationPreference,
+      differences posted to the previously-unwired `rounding` system account through the library
+- [ ] Deferred (recorded in PHASE4_TODO): migrating the remaining six hand-rolling services onto
+      the posting-rule library
 
 ### Canonical posting acceptance tests (build spec §6 table)
 
-- [ ] Invoice issue → Dr Accounts Receivable / Cr Revenue + Tax Payable
-- [ ] Customer payment → Dr Bank/Cash / Cr Accounts Receivable
-- [ ] Bill posting → Dr Expense/Inventory/Asset + Recoverable Tax / Cr Accounts Payable
-- [ ] Vendor payment → Dr Accounts Payable / Cr Bank/Cash
-- [ ] Inventory cost on sale → Dr Cost of Goods Sold / Cr Inventory Asset
-- [ ] Credit note → Dr Revenue/Tax reversal / Cr Accounts Receivable/customer credit
+- [x] Invoice issue → Dr Accounts Receivable / Cr Revenue + Tax Payable (`invoices.int.test.ts`,
+      now through the rule library, assertions unmodified)
+- [x] Customer payment → Dr Bank/Cash / Cr Accounts Receivable (`payments.int.test.ts`)
+- [x] Bill posting → Dr Expense/Inventory/Asset + Recoverable Tax / Cr Accounts Payable
+      (`bills.int.test.ts`)
+- [x] Vendor payment → Dr Accounts Payable / Cr Bank/Cash (`payments-made.int.test.ts`)
+- [ ] **BLOCKED on Phase 6 (Inventory)** — Inventory cost on sale → Dr Cost of Goods Sold / Cr
+      Inventory Asset: deliberately not faked; no inventory subsystem exists yet
+- [x] Credit note → Dr Revenue/Tax reversal / Cr Accounts Receivable/customer credit
+      (`credit-notes.int.test.ts`)
 
 ---
 

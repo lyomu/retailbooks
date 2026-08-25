@@ -6,99 +6,88 @@ double-entry accounting & invoicing web platform (monorepo: `apps/api` NestJS, `
 
 ## 1. Where things stand
 
-**Phase 3 (Purchases) is complete and verified as of the Phase 3 close-out commit** (the commit
-containing this file's change — see `git log` for "close the Phase 3 verification pass"). All
-milestones 3A–3H are coded, the deferred comprehensive verification pass ran to completion, and
-`docs/PHASE3_TODO.md`'s checkboxes are all checked with per-milestone implementation notes. The
-verification record (what ran, what passed, the three stale Phase 1/2 test pins that were caught and
-fixed wrong-vs-right style) lives in that file's "After 3H" section; `docs/BUILD_ROADMAP.md`'s Phase
-3 rollup is updated to match. Suites at close: 73 unit + 215 integration tests green, typecheck/
-lint/format clean, both production builds green, migration drift zero in both directions, and a
-26-check HTTP golden path through purchase→bill→payment on a fresh synthetic organization.
+**Phase 4 (Accounting Engine remainder) is complete and verified** as of the Phase 4 close-out
+commit (see `git log`). All milestones 4A–4G are coded and verified; `docs/PHASE4_TODO.md`'s
+checkboxes are checked with implementation notes, and `docs/BUILD_ROADMAP.md`'s Phase 4 section +
+status snapshot match. Suites at close: unit 74 (api) + 25 (accounting-core) + 7 (localization) +
+5 (ui), integration **238 tests across 32 files**, typecheck/lint/format clean, production builds
+green, migration drift zero both directions. The three Phase-4 scoping decisions (posting-rule
+library = option (c); Recurring Journal now; deferred testing) were made explicitly via plan mode
+and are recorded at the top of `docs/PHASE4_TODO.md`.
 
-**Next up is Phase 4 — Accounting Engine** (`docs/BUILD_ROADMAP.md`, `## Phase 4`; build spec §6;
-blueprint §10), but **it has not started** — no code exists for it yet. Before writing any Phase 4
-code, several explicit scoping decisions must be settled with the user via plan mode (they are
-recorded in §5 below): most of the accounting engine already shipped in Milestone 1G, so Phase 4 is
-the remainder — Opening Balances wizard, Recurring Journal, FX Revaluation, rounding policy, posting-
-rule library generalization, and the canonical posting acceptance tests — and two of those items
-(posting-rule generalization scope; Recurring Journal now-vs-Phase-10) require an explicit product
-call before coding begins.
+What Phase 4 added, in one paragraph each:
 
-## 2. How Phase 3 was verified (for reference when verifying Phase 4)
+- **Posting-rule library** (`apps/api/src/posting-rules/`): declarative rules → validated lines →
+  `postJournalFromLines`. Journals carry a new nullable `posting_rule` column (`event@vN`).
+- **Opening Balances wizard** (organizations/opening-balances.*): batches with account lines +
+  contact-level AR / vendor-level AP party detail; party lines are the only path to the AR/AP
+  control accounts; balanced-import validation hard-gates finalize.
+- **Recurring Journal** (organizations/recurring-journals.*): cadence templates posting through the
+  library; occurrence claims live in a separate `'RECURRING_JOURNAL_CLAIM'` idempotency namespace
+  from the posting's own `'RECURRING_JOURNAL_GENERATE'` — keep them separate.
+- **FX Revaluation batch** (organizations/fx-revaluation.*): restates foreign-currency monetary
+  positions per account×currency at the reporting rate, posts only the delta to fx_gain/fx_loss;
+  unique per run date. `prepareFxPosting`'s per-journal conversion is untouched.
+- **Rounding policy**: `RoundingMode`+unit on OrganizationPreference (ACCOUNTING section),
+  `computeCashRoundingDelta` in accounting-core, `RoundingService#postAdjustment` wiring the
+  previously-unwired `rounding` system account.
+- **Pilot migration**: `InvoicesService#issueInvoice` posts via `sales/invoice-posting-rule.ts`
+  with byte-identical output; its tests passed unmodified. The other six hand-rolling services are
+  intentionally NOT migrated — that's recorded as an open roadmap item.
 
-Phase 3 was built with all testing deferred to one end-of-phase pass (user-directed); that risk was
-accepted knowingly and it played out cleanly this time — the pass found no logic bugs in the new
-code, only stale pre-Phase-3 test pins (documented in PHASE3_TODO's findings list). The roadmap's
-standing rule still applies though: **money-invariant checks are written as posting logic is built,
-not deferred**, and a phase's own acceptance checklist must be fully checked before a dependent
-phase starts. For Phase 4 — smaller and ledger-critical — per-milestone testing is likely the safer
-default; confirm with the user rather than assuming the deferral carries forward.
+**Next up is Phase 5 — Banking & Reconciliation** (`docs/BUILD_ROADMAP.md`, `## Phase 5`; build
+spec §7). No code exists for it yet.
 
-Environment quirks worth remembering (all hit and solved during the Phase 3 close-out):
+## 2. Environment quirks worth remembering
 
-- `npx prisma migrate dev` hard-fails in this non-interactive shell. Workaround: create throwaway
-  shadow DB `retailbooks_shadow` in the same Postgres (`docker exec retailbooks-postgres-1 psql ...`),
-  run `prisma migrate diff --from-migrations ./prisma/migrations --to-schema-datamodel
-./prisma/schema.prisma --shadow-database-url postgresql://retailbooks:retailbooks@localhost:55432/retailbooks_shadow`
-  (add `--script >` to generate SQL or `--exit-code` to drift-check), hand-create the timestamped
-  migration folder if generating, then `prisma migrate deploy`. **Drop the shadow DB afterwards.**
-- Check for stray `nest start --watch` node processes before `prisma generate` (Windows EPERM).
-- The integration suite's boundary-matrix sweep legitimately needs ~51s (8 roles × ~180 endpoints);
-  it carries its own 180s timeout now — don't "fix" that back to the default.
-- Golden-path scripts: boot isolated API + worker via `node dist/src/main.js` / `dist/src/worker.js`
-  on a scratch `API_PORT` with the env from `apps/api/.env`; signup requires `displayName`;
-  verification tokens come from Mailpit's HTTP API (`localhost:58025`, `/api/v1/messages` +
-  `/api/v1/message/:id`, regex `token=([A-Za-z0-9_-]+)`); delete synthetic orgs (cascade) _and_
-  standalone `users` rows from the shared dev DB when done.
-- Demo-org roles go stale relative to `roles-catalog.ts` between sessions — use a fresh synthetic
-  org for any scripted walkthrough, or re-sync role rows explicitly first.
+All still true from previous phases (see `docs/PHASE3_TODO.md` "After 3H" and `PHASE4_TODO.md`
+findings for details):
 
-## 3. Conventions and context still worth knowing
+- `npx prisma migrate dev` hard-fails non-interactively; use the shadow-db `migrate diff` dance
+  (create `retailbooks_shadow`, diff with `--shadow-database-url`, hand-create the timestamped
+  folder, `migrate deploy`, drop the shadow). **Never edit a migration folder after any database
+  has applied it — add a new folder instead** (Phase 4 hit this twice; recovery required
+  `_prisma_migrations` marker surgery, restored via `prisma migrate resolve --applied`).
+  PowerShell's `Out-File -Encoding utf8` writes a BOM Postgres rejects — strip it with
+  `[System.IO.File]::WriteAllText(..., UTF8Encoding($false))`.
+- Integration suite runs against `retailbooks_test` (auto-provisioned by `migrate deploy` from
+  `test/support/database.ts`), NOT the dev `retailbooks` DB.
+- The boundary-matrix sweep legitimately needs ~50–60s (~195 endpoints × 8 roles) and carries a
+  180s timeout — don't revert it to defaults.
+- Golden-path scripts: boot isolated API+worker via `node dist/src/main.js` / `dist/src/worker.js`
+  on a scratch `API_PORT` with env from `apps/api/.env`; signup requires `displayName`;
+  verification tokens come from Mailpit HTTP (`localhost:58025`, `/api/v1/messages` then
+  `/api/v1/message/:id`, regex `token=([A-Za-z0-9_-]+)`); delete synthetic orgs (cascade) AND
+  standalone `users` rows afterwards. A ready-made Phase 3 script shape lives in git history if
+  needed; extend through banking once Phase 5 exists.
+- Demo-org roles go stale vs `roles-catalog.ts`; use fresh synthetic orgs for scripted walkthroughs.
 
-Everything from earlier handovers (tenant isolation via `organizationId`, BigInt money as strings
-over the wire, immutable posted journals reversed not edited, `$transaction` + `writeAuditEvent`
-together, controller/guard shape, document numbering via `allocateDocumentNumberWithClient`) applies
-and held throughout Phases 2–3. Additionally:
+## 3. Conventions still worth knowing
 
-- Every permission key lands in **four** places: `permission-catalog.ts` (keys array + catalog
-  entry), `roles-catalog.ts` (role wiring), `packages/contracts/src/index.ts`'s
-  `permissionKeySchema`, and its `group` enum. At Phase 3 close there were 109 keys, programmatically
-  cross-checked as drift-free; re-run that check only if you edit either file again.
-- Vendor is a standalone model (not generalized Contact) by explicit user choice; do not resurrect
-  any `type: 'VENDOR'` contact path.
-- `apps/api/src/common/cadence.ts` is the shared cadence helper (imported by all recurring-template
-  services). Touch cadence math in exactly one place.
-- System accounts are lazily seeded per organization (`vendor_credit`, code 1140, included since
-  3E); a pre-existing demo org's chart won't show a new key until something needs it.
-- Attachments live in `apps/api/src/attachments/` (`AttachmentsService`, no shared controller);
-  BillsController/ExpensesController own nested `/attachments` routes. No `@types/multer`
-  dependency — keep using the local `UploadedFileLike` type.
+Everything from earlier handovers holds (tenant scoping via `organizationId`, BigInt money as
+strings over the wire, immutable posted journals reversed not edited, `$transaction` +
+`writeAuditEvent` together, permission keys land in FOUR places — catalog keys array + entries,
+roles-catalog, contracts `permissionKeySchema`, contracts group enum). Additionally after Phase 4:
 
-## 4. Phase 4 scoping notes (from the user's brief — resolve before coding)
+- New posting code should declare a `PostingRule` and post through `PostingRulesService`
+  (exported from `OrganizationsModule`) rather than calling `postJournalFromLines` directly.
+- Sweep/occurrence claims must use their own idempotency operation namespace, never share the rule
+  event's namespace (the executor treats an existing record under the operation as its completed
+  result).
+- System accounts resolve only via `accountBySystemKey` — never codes/names.
+- `docs/PHASE<N>_TODO.md` files are the durable milestone records; BUILD_ROADMAP sections are
+  their rollups; HANDOVER.md is refreshed each close-out.
 
-- Most of "the accounting engine" already shipped in Phase 1 Milestone 1G (`ledger.service.ts`:
-  chart of accounts, manual journals, posting engine, trial balance, reversal, per-transaction FX).
-  Read that file before touching anything FX-related so batch revaluation isn't duplicated with
-  what exists.
-- Opening Balances wizard uses the already-reserved `accounts.opening_balances.manage` permission
-  key — don't add a new one. Balanced-import validation required before finalize.
-- Recurring Journal: build one-off template now (mirroring the three existing recurring-template
-  services + shared `advanceCadence`) vs hold until Phase 10 defines the shared recurring engine —
-  open question, ask the user.
-- Rounding: a `rounding` system account already exists in `ledger-starter-chart.ts`; check whether
-  it's wired to anything before assuming greenfield.
-- Posting-rule library generalization is retroactive across seven shipped services
-  (Invoices/Bills/CreditNotes/VendorCredits/Payments/PaymentsMade/Expenses all hand-roll
-  `postJournalFromLines`). Forward-looking-only vs refactor-the-seven is the biggest decision in
-  the phase — get explicit sign-off before touching shipped, tested code.
-- Canonical posting acceptance tests (build spec §6 table): five of six already have de facto
-  coverage from Phase 2/3 suites; only "Inventory cost on sale → Dr COGS / Cr Inventory Asset" is
-  unimplemented and blocked (Inventory doesn't exist until Phase 6) — flag as blocked, don't fake.
+## 4. Phase 5 preview (from the roadmap)
+
+Entities: `FinancialAccount`, `StatementImport`, `BankTransaction`, `Match`, `Reconciliation`,
+`BankRule`, `Transfer`. Key acceptance: duplicate-fingerprint detection on re-import; matches
+cannot double-allocate sources; reconciliation completes only at zero difference and locks;
+transfers post balanced linked journals. This will be the first consumer of the rounding hook and
+a natural second candidate for migrating a posting flow onto the rule library (Transfers).
 
 ## 5. Plan file (supplementary, not durable across machines/sessions)
 
-This build's full incremental plan and progress log for Phase 3 lived at
-`C:\Users\gmnyo\.claude\plans\buzzing-jumping-planet.md`. Treat `docs/PHASE3_TODO.md` as the source
-of truth where they disagree — plan files are scratch memory, not committed artifacts. Start a fresh
-plan file for Phase 4 once its scoping questions are answered.
+Phase 4's scratch plan lived at `C:\Users\gmnyo\.claude\plans\*.md`. Treat the
+`docs/PHASE*_TODO.md` files as source of truth where they disagree; start a fresh plan file for
+Phase 5.

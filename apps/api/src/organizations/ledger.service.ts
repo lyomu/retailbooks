@@ -431,6 +431,8 @@ export class LedgerService {
       description: string;
       sourceType: string;
       sourceId: string;
+      /** Optional `event@vN` tag identifying the declarative posting rule that produced the lines. */
+      postingRule?: string;
       lines: readonly {
         accountId: string;
         description?: string | null;
@@ -466,6 +468,7 @@ export class LedgerService {
           description: input.description,
           sourceType: input.sourceType,
           sourceId: input.sourceId,
+          postingRule: input.postingRule,
           createdByUserId: user.id,
           lines: {
             create: input.lines.map((line, index) => ({
@@ -1194,6 +1197,7 @@ function journalSummary(journal: Journal & { lines: JournalLine[] }) {
     lineCount: journal.lines.length,
     postedAt: journal.postedAt?.toISOString() ?? null,
     createdAt: journal.createdAt.toISOString(),
+    postingRule: journal.postingRule ?? null,
   };
 }
 
