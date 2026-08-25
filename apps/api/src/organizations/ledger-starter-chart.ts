@@ -27,6 +27,7 @@ export const SYSTEM_ACCOUNT_KEYS = [
   'fx_gain',
   'fx_loss',
   'rounding',
+  'customer_credit',
 ] as const;
 
 export type SystemAccountKey = (typeof SYSTEM_ACCOUNT_KEYS)[number];
@@ -88,6 +89,14 @@ const generalBusinessAccounts: readonly StarterAccount[] = Object.freeze([
   },
   { code: '2010', name: 'Accrued expenses', type: 'LIABILITY', normalBalance: c },
   { code: '2020', name: 'Customer deposits', type: 'LIABILITY', normalBalance: c },
+  {
+    code: '2025',
+    name: 'Customer credit balance',
+    type: 'LIABILITY',
+    normalBalance: c,
+    systemKey: 'customer_credit',
+    isControl: true,
+  },
   { code: '2030', name: 'Payroll payable', type: 'LIABILITY', normalBalance: c },
   { code: '2040', name: 'Withholding tax payable', type: 'LIABILITY', normalBalance: c },
   {
