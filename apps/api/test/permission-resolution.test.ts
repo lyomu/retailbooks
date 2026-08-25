@@ -78,7 +78,7 @@ describe('SYSTEM_ROLE_TEMPLATES', () => {
     }
   });
 
-  it('gives SALES its real Phase 2 customer, catalog, and invoice permissions', () => {
+  it('gives SALES its real Phase 2 forward-workflow permissions', () => {
     const template = SYSTEM_ROLE_TEMPLATES.find((t) => t.key === 'SALES');
     expect(template?.permissions).toEqual([
       'organization.view',
@@ -90,6 +90,21 @@ describe('SYSTEM_ROLE_TEMPLATES', () => {
       'sales.invoices.view',
       'sales.invoices.manage',
       'sales.invoices.issue',
+      'sales.payments.view',
+      'sales.payments.record',
+      'sales.credit_notes.view',
+      'sales.credit_notes.manage',
+      'sales.credit_notes.issue',
+      'sales.quotes.view',
+      'sales.quotes.manage',
+      'sales.quotes.convert',
+      'sales.orders.view',
+      'sales.orders.manage',
+      'sales.orders.convert',
+      'sales.documents.send',
+      'sales.recurring_invoices.view',
+      'sales.recurring_invoices.manage',
+      'sales.statements.view',
     ]);
   });
 });

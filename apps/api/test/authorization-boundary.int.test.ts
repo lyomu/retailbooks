@@ -16,8 +16,14 @@ import type { PermissionKey } from '../src/organizations/permission-catalog.js';
 import { SYSTEM_ROLE_KEYS, type SystemRoleKey } from '../src/organizations/roles-catalog.js';
 import { TaxController } from '../src/organizations/tax.controller.js';
 import { CatalogController } from '../src/sales/catalog.controller.js';
+import { CreditNotesController } from '../src/sales/credit-notes.controller.js';
 import { CustomersController } from '../src/sales/customers.controller.js';
 import { InvoicesController } from '../src/sales/invoices.controller.js';
+import { PaymentsController } from '../src/sales/payments.controller.js';
+import { QuotesController } from '../src/sales/quotes.controller.js';
+import { RecurringInvoicesController } from '../src/sales/recurring-invoices.controller.js';
+import { SalesOrdersController } from '../src/sales/sales-orders.controller.js';
+import { StatementsController } from '../src/sales/statements.controller.js';
 import { API, createTestHarness, type TestHarness } from './support/app.js';
 
 type HttpMethod = 'get' | 'post' | 'patch' | 'delete';
@@ -318,6 +324,11 @@ const ENDPOINTS: readonly EndpointCase[] = [
   },
   {
     method: 'get',
+    path: 'organizations/:organizationId/customers/:contactId/statement',
+    permission: 'sales.statements.view',
+  },
+  {
+    method: 'get',
     path: 'organizations/:organizationId/catalog/units',
     permission: 'catalog.view',
   },
@@ -414,6 +425,238 @@ const ENDPOINTS: readonly EndpointCase[] = [
     path: 'organizations/:organizationId/invoices/:invoiceId/void',
     permission: 'sales.invoices.void',
   },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/invoices/:invoiceId/send',
+    permission: 'sales.documents.send',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/payments',
+    permission: 'sales.payments.view',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/payments/:paymentId',
+    permission: 'sales.payments.view',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/payments/:paymentId/open-invoices',
+    permission: 'sales.payments.view',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/payments',
+    permission: 'sales.payments.record',
+    body: {},
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/payments/:paymentId/allocate',
+    permission: 'sales.payments.allocate',
+    body: {},
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/credit-notes',
+    permission: 'sales.credit_notes.view',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/credit-notes/:creditNoteId',
+    permission: 'sales.credit_notes.view',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/credit-notes/:creditNoteId/open-invoices',
+    permission: 'sales.credit_notes.view',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/credit-notes',
+    permission: 'sales.credit_notes.manage',
+    body: {},
+  },
+  {
+    method: 'patch',
+    path: 'organizations/:organizationId/credit-notes/:creditNoteId',
+    permission: 'sales.credit_notes.manage',
+    body: {},
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/credit-notes/:creditNoteId/issue',
+    permission: 'sales.credit_notes.issue',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/credit-notes/:creditNoteId/void',
+    permission: 'sales.credit_notes.void',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/credit-notes/:creditNoteId/allocate',
+    permission: 'sales.credit_notes.allocate',
+    body: {},
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/credit-notes/:creditNoteId/refund',
+    permission: 'sales.credit_notes.refund',
+    body: {},
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/credit-notes/:creditNoteId/send',
+    permission: 'sales.documents.send',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/quotes',
+    permission: 'sales.quotes.view',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/quotes/:quoteId',
+    permission: 'sales.quotes.view',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/quotes',
+    permission: 'sales.quotes.manage',
+    body: {},
+  },
+  {
+    method: 'patch',
+    path: 'organizations/:organizationId/quotes/:quoteId',
+    permission: 'sales.quotes.manage',
+    body: {},
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/quotes/:quoteId/submit',
+    permission: 'sales.quotes.manage',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/quotes/:quoteId/approve',
+    permission: 'sales.quotes.approve',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/quotes/:quoteId/send',
+    permission: 'sales.quotes.manage',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/quotes/:quoteId/accept',
+    permission: 'sales.quotes.manage',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/quotes/:quoteId/decline',
+    permission: 'sales.quotes.manage',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/quotes/:quoteId/expire',
+    permission: 'sales.quotes.manage',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/quotes/:quoteId/convert',
+    permission: 'sales.quotes.convert',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/sales-orders',
+    permission: 'sales.orders.view',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/sales-orders/:orderId',
+    permission: 'sales.orders.view',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/sales-orders',
+    permission: 'sales.orders.manage',
+    body: {},
+  },
+  {
+    method: 'patch',
+    path: 'organizations/:organizationId/sales-orders/:orderId',
+    permission: 'sales.orders.manage',
+    body: {},
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/sales-orders/:orderId/approve',
+    permission: 'sales.orders.approve',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/sales-orders/:orderId/confirm',
+    permission: 'sales.orders.manage',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/sales-orders/:orderId/partially-fulfill',
+    permission: 'sales.orders.manage',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/sales-orders/:orderId/fulfill',
+    permission: 'sales.orders.manage',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/sales-orders/:orderId/cancel',
+    permission: 'sales.orders.manage',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/sales-orders/:orderId/convert',
+    permission: 'sales.orders.convert',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/recurring-invoices',
+    permission: 'sales.recurring_invoices.view',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/recurring-invoices/:templateId',
+    permission: 'sales.recurring_invoices.view',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/recurring-invoices',
+    permission: 'sales.recurring_invoices.manage',
+    body: {},
+  },
+  {
+    method: 'patch',
+    path: 'organizations/:organizationId/recurring-invoices/:templateId',
+    permission: 'sales.recurring_invoices.manage',
+    body: {},
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/recurring-invoices/:templateId/deactivate',
+    permission: 'sales.recurring_invoices.manage',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/recurring-invoices/:templateId/reactivate',
+    permission: 'sales.recurring_invoices.manage',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/recurring-invoices/run-due',
+    permission: 'sales.recurring_invoices.manage',
+  },
 ];
 
 const CONTROLLERS: readonly Type[] = [
@@ -425,6 +668,12 @@ const CONTROLLERS: readonly Type[] = [
   CustomersController,
   CatalogController,
   InvoicesController,
+  PaymentsController,
+  CreditNotesController,
+  QuotesController,
+  SalesOrdersController,
+  RecurringInvoicesController,
+  StatementsController,
 ];
 
 describe('organization authorization boundary over HTTP', () => {
@@ -622,7 +871,12 @@ describe('organization authorization boundary over HTTP', () => {
       .replace(':unitId', ID)
       .replace(':categoryId', ID)
       .replace(':itemId', ID)
-      .replace(':invoiceId', ID);
+      .replace(':invoiceId', ID)
+      .replace(':paymentId', ID)
+      .replace(':creditNoteId', ID)
+      .replace(':quoteId', ID)
+      .replace(':orderId', ID)
+      .replace(':templateId', ID);
     const test = harness.http()[endpoint.method](path).set('Cookie', cookie);
     if (endpoint.body !== undefined) test.send(endpoint.body);
     return test;

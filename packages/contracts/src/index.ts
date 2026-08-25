@@ -131,6 +131,27 @@ export const permissionKeySchema = z.enum([
   'sales.invoices.issue',
   'sales.invoices.void',
   'sales.invoices.revenue_account_override',
+  'sales.payments.view',
+  'sales.payments.record',
+  'sales.payments.allocate',
+  'sales.credit_notes.view',
+  'sales.credit_notes.manage',
+  'sales.credit_notes.issue',
+  'sales.credit_notes.void',
+  'sales.credit_notes.allocate',
+  'sales.credit_notes.refund',
+  'sales.quotes.view',
+  'sales.quotes.manage',
+  'sales.quotes.approve',
+  'sales.quotes.convert',
+  'sales.orders.view',
+  'sales.orders.manage',
+  'sales.orders.approve',
+  'sales.orders.convert',
+  'sales.documents.send',
+  'sales.recurring_invoices.view',
+  'sales.recurring_invoices.manage',
+  'sales.statements.view',
 ]);
 
 export const organizationSummarySchema = z.object({
@@ -790,6 +811,412 @@ export const createInvoiceDto = z.object({
 
 export const updateInvoiceDto = createInvoiceDto.partial();
 
+// --- Sales: Payments Received ---
+
+export const paymentStatusSchema = z.enum(['UNAPPLIED', 'PARTIALLY_ALLOCATED', 'FULLY_ALLOCATED']);
+
+export const paymentAllocationSchema = z.object({
+  id: z.uuid(),
+  paymentId: z.uuid(),
+  invoiceId: z.uuid(),
+  invoiceNumber: z.string().nullable(),
+  amountMinor: z.string().regex(/^\d+$/),
+  createdAt: z.iso.datetime(),
+});
+
+export const paymentReceivedSchema = z.object({
+  id: z.uuid(),
+  contactId: z.uuid(),
+  contactName: z.string().min(1),
+  paymentNumber: z.string().nullable(),
+  status: paymentStatusSchema,
+  receivedDate: z.iso.date(),
+  currency: z.string().length(3),
+  amountMinor: z.string().regex(/^\d+$/),
+  allocatedMinor: z.string().regex(/^\d+$/),
+  unappliedMinor: z.string().regex(/^\d+$/),
+  depositAccountId: z.uuid().nullable(),
+  journalId: z.uuid().nullable(),
+  allocations: z.array(paymentAllocationSchema),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+});
+
+export const paymentListResponseSchema = z.object({ data: z.array(paymentReceivedSchema) });
+export const paymentResponseSchema = z.object({ data: paymentReceivedSchema });
+
+export const openInvoiceForAllocationSchema = z.object({
+  id: z.uuid(),
+  invoiceNumber: z.string().nullable(),
+  issueDate: z.iso.date().nullable(),
+  dueDate: z.iso.date().nullable(),
+  currency: z.string().length(3),
+  totalMinor: z.string().regex(/^\d+$/),
+  paidMinor: z.string().regex(/^\d+$/),
+  balanceMinor: z.string().regex(/^\d+$/),
+});
+
+export const openInvoiceListResponseSchema = z.object({
+  data: z.array(openInvoiceForAllocationSchema),
+});
+
+export const createPaymentDto = z.object({
+  contactId: z.uuid(),
+  receivedDate: z.iso.date(),
+  currency: z.string().length(3).optional(),
+  amountMinor: z.string().regex(/^\d+$/),
+});
+
+export const paymentAllocationLineDto = z.object({
+  invoiceId: z.uuid(),
+  amountMinor: z.string().regex(/^\d+$/),
+});
+
+export const allocatePaymentDto = z.object({
+  allocations: z.array(paymentAllocationLineDto).min(1).max(200),
+});
+
+// --- Sales: Credit Notes ---
+
+export const creditNoteStatusSchema = z.enum(['DRAFT', 'ISSUED', 'APPLIED', 'REFUNDED', 'VOID']);
+
+export const creditNoteLineSchema = z.object({
+  id: z.uuid(),
+  lineNumber: z.number().int(),
+  itemId: z.uuid().nullable(),
+  descriptionSnapshot: z.string().min(1),
+  quantity: z.string(),
+  unitPriceMinor: z.string().regex(/^\d+$/),
+  discountMinor: z.string().regex(/^\d+$/),
+  lineTotalMinor: z.string().regex(/^\d+$/),
+  taxCodeId: z.uuid().nullable(),
+  taxCodeSnapshot: z.string().nullable(),
+  taxTreatmentSnapshot: taxTreatmentSchema.nullable(),
+  taxRecoverableSnapshot: z.boolean().nullable(),
+  taxRatePercentSnapshot: z.string().nullable(),
+  taxableAmountMinor: z.string().nullable(),
+  taxAmountMinor: z.string().nullable(),
+  revenueAccountId: z.uuid().nullable(),
+  projectTag: z.string().nullable(),
+});
+
+export const creditNoteAllocationSchema = z.object({
+  id: z.uuid(),
+  creditNoteId: z.uuid(),
+  invoiceId: z.uuid(),
+  invoiceNumber: z.string().nullable(),
+  amountMinor: z.string().regex(/^\d+$/),
+  journalId: z.uuid(),
+  createdAt: z.iso.datetime(),
+});
+
+export const creditNoteRefundSchema = z.object({
+  id: z.uuid(),
+  creditNoteId: z.uuid(),
+  amountMinor: z.string().regex(/^\d+$/),
+  journalId: z.uuid(),
+  createdAt: z.iso.datetime(),
+});
+
+export const creditNoteSchema = z.object({
+  id: z.uuid(),
+  contactId: z.uuid(),
+  contactName: z.string().min(1),
+  creditNoteNumber: z.string().nullable(),
+  status: creditNoteStatusSchema,
+  issueDate: z.iso.date().nullable(),
+  currency: z.string().length(3),
+  subtotalMinor: z.string().regex(/^\d+$/),
+  taxTotalMinor: z.string().regex(/^\d+$/),
+  totalMinor: z.string().regex(/^\d+$/),
+  appliedMinor: z.string().regex(/^\d+$/),
+  refundedMinor: z.string().regex(/^\d+$/),
+  remainingMinor: z.string().regex(/^\d+$/),
+  journalId: z.uuid().nullable(),
+  voidedAt: z.iso.datetime().nullable(),
+  sentAt: z.iso.datetime().nullable(),
+  lines: z.array(creditNoteLineSchema),
+  allocations: z.array(creditNoteAllocationSchema),
+  refunds: z.array(creditNoteRefundSchema),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+});
+
+export const creditNoteListResponseSchema = z.object({ data: z.array(creditNoteSchema) });
+export const creditNoteResponseSchema = z.object({ data: creditNoteSchema });
+
+export const creditNoteLineDto = z.object({
+  itemId: z.uuid().optional(),
+  description: z.string().max(240).optional(),
+  quantity: z.string(),
+  unitPriceMinor: z.string().regex(/^\d+$/).optional(),
+  discountMinor: z.string().regex(/^\d+$/).optional(),
+  taxCodeId: z.uuid().optional(),
+  revenueAccountId: z.uuid().optional(),
+  projectTag: z.string().max(80).optional(),
+});
+
+export const createCreditNoteDto = z.object({
+  contactId: z.uuid(),
+  currency: z.string().length(3).optional(),
+  lines: z.array(creditNoteLineDto).min(1).max(200),
+});
+
+export const updateCreditNoteDto = createCreditNoteDto.partial();
+
+export const creditNoteAllocationLineDto = z.object({
+  invoiceId: z.uuid(),
+  amountMinor: z.string().regex(/^\d+$/),
+});
+
+export const allocateCreditNoteDto = z.object({
+  allocations: z.array(creditNoteAllocationLineDto).min(1).max(200),
+});
+
+export const refundCreditNoteDto = z.object({
+  amountMinor: z.string().regex(/^\d+$/),
+});
+
+// --- Sales: Customer Statements ---
+
+export const statementTransactionTypeSchema = z.enum([
+  'INVOICE_ISSUED',
+  'PAYMENT_RECEIVED',
+  'PAYMENT_ALLOCATED',
+  'CREDIT_NOTE_ISSUED',
+  'CREDIT_NOTE_ALLOCATED',
+  'CREDIT_NOTE_REFUNDED',
+]);
+
+export const statementTransactionSchema = z.object({
+  id: z.uuid(),
+  type: statementTransactionTypeSchema,
+  date: z.iso.date(),
+  description: z.string().min(1),
+  invoiceId: z.uuid().nullable(),
+  invoiceNumber: z.string().nullable(),
+  paymentId: z.uuid().nullable(),
+  paymentNumber: z.string().nullable(),
+  creditNoteId: z.uuid().nullable(),
+  creditNoteNumber: z.string().nullable(),
+  debitMinor: z.string().regex(/^\d+$/),
+  creditMinor: z.string().regex(/^\d+$/),
+  balanceMinor: z.string().regex(/^-?\d+$/),
+});
+
+export const statementSchema = z.object({
+  contact: z.object({
+    id: z.uuid(),
+    displayName: z.string().min(1),
+    currency: z.string().length(3),
+  }),
+  from: z.iso.date().nullable(),
+  to: z.iso.date(),
+  summary: z.object({
+    openingBalanceMinor: z.string().regex(/^-?\d+$/),
+    closingBalanceMinor: z.string().regex(/^-?\d+$/),
+    invoicedMinor: z.string().regex(/^\d+$/),
+    paymentsAllocatedMinor: z.string().regex(/^\d+$/),
+    creditNotesAllocatedMinor: z.string().regex(/^\d+$/),
+  }),
+  transactions: z.array(statementTransactionSchema),
+});
+
+export const statementResponseSchema = z.object({ data: statementSchema });
+
+// --- Sales: Quotes ---
+
+export const quoteStatusSchema = z.enum([
+  'DRAFT',
+  'PENDING_APPROVAL',
+  'APPROVED',
+  'SENT',
+  'ACCEPTED',
+  'DECLINED',
+  'EXPIRED',
+  'CONVERTED',
+]);
+
+export const quoteLineSchema = z.object({
+  id: z.uuid(),
+  lineNumber: z.number().int(),
+  itemId: z.uuid().nullable(),
+  descriptionSnapshot: z.string().min(1),
+  quantity: z.string(),
+  unitPriceMinor: z.string().regex(/^\d+$/),
+  discountMinor: z.string().regex(/^\d+$/),
+  lineTotalMinor: z.string().regex(/^\d+$/),
+  taxCodeId: z.uuid().nullable(),
+});
+
+export const quoteSchema = z.object({
+  id: z.uuid(),
+  contactId: z.uuid(),
+  contactName: z.string().min(1),
+  quoteNumber: z.string().nullable(),
+  status: quoteStatusSchema,
+  issueDate: z.iso.date().nullable(),
+  expiryDate: z.iso.date().nullable(),
+  currency: z.string().length(3),
+  subtotalMinor: z.string().regex(/^\d+$/),
+  totalMinor: z.string().regex(/^\d+$/),
+  convertedInvoiceId: z.uuid().nullable(),
+  sentAt: z.iso.datetime().nullable(),
+  lines: z.array(quoteLineSchema),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+});
+
+export const quoteListResponseSchema = z.object({ data: z.array(quoteSchema) });
+export const quoteResponseSchema = z.object({ data: quoteSchema });
+
+export const quoteLineDto = z.object({
+  itemId: z.uuid().optional(),
+  description: z.string().max(240).optional(),
+  quantity: z.string(),
+  unitPriceMinor: z.string().regex(/^\d+$/).optional(),
+  discountMinor: z.string().regex(/^\d+$/).optional(),
+  taxCodeId: z.uuid().optional(),
+});
+
+export const createQuoteDto = z.object({
+  contactId: z.uuid(),
+  expiryDate: z.iso.date().optional(),
+  currency: z.string().length(3).optional(),
+  lines: z.array(quoteLineDto).min(1).max(200),
+});
+
+export const updateQuoteDto = createQuoteDto.partial();
+
+// --- Sales: Sales Orders ---
+
+export const salesOrderStatusSchema = z.enum([
+  'DRAFT',
+  'APPROVED',
+  'CONFIRMED',
+  'PARTIALLY_FULFILLED',
+  'FULFILLED',
+  'CANCELLED',
+]);
+
+export const salesOrderLineSchema = z.object({
+  id: z.uuid(),
+  lineNumber: z.number().int(),
+  itemId: z.uuid().nullable(),
+  descriptionSnapshot: z.string().min(1),
+  quantity: z.string(),
+  unitPriceMinor: z.string().regex(/^\d+$/),
+  discountMinor: z.string().regex(/^\d+$/),
+  lineTotalMinor: z.string().regex(/^\d+$/),
+  taxCodeId: z.uuid().nullable(),
+});
+
+export const salesOrderSchema = z.object({
+  id: z.uuid(),
+  contactId: z.uuid(),
+  contactName: z.string().min(1),
+  orderNumber: z.string().nullable(),
+  status: salesOrderStatusSchema,
+  issueDate: z.iso.date().nullable(),
+  currency: z.string().length(3),
+  subtotalMinor: z.string().regex(/^\d+$/),
+  totalMinor: z.string().regex(/^\d+$/),
+  convertedInvoiceId: z.uuid().nullable(),
+  lines: z.array(salesOrderLineSchema),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+});
+
+export const salesOrderListResponseSchema = z.object({ data: z.array(salesOrderSchema) });
+export const salesOrderResponseSchema = z.object({ data: salesOrderSchema });
+
+export const salesOrderLineDto = z.object({
+  itemId: z.uuid().optional(),
+  description: z.string().max(240).optional(),
+  quantity: z.string(),
+  unitPriceMinor: z.string().regex(/^\d+$/).optional(),
+  discountMinor: z.string().regex(/^\d+$/).optional(),
+  taxCodeId: z.uuid().optional(),
+});
+
+export const createSalesOrderDto = z.object({
+  contactId: z.uuid(),
+  currency: z.string().length(3).optional(),
+  lines: z.array(salesOrderLineDto).min(1).max(200),
+});
+
+export const updateSalesOrderDto = createSalesOrderDto.partial();
+
+// --- Sales: Recurring Invoices ---
+
+export const recurringCadenceSchema = z.enum(['WEEKLY', 'MONTHLY', 'QUARTERLY', 'ANNUALLY']);
+
+export const recurringInvoiceTemplateLineSchema = z.object({
+  id: z.uuid(),
+  lineNumber: z.number().int(),
+  itemId: z.uuid().nullable(),
+  descriptionSnapshot: z.string().min(1),
+  quantity: z.string(),
+  unitPriceMinor: z.string().regex(/^\d+$/),
+  discountMinor: z.string().regex(/^\d+$/),
+  lineTotalMinor: z.string().regex(/^\d+$/),
+  taxCodeId: z.uuid().nullable(),
+});
+
+export const recurringInvoiceTemplateSchema = z.object({
+  id: z.uuid(),
+  contactId: z.uuid(),
+  contactName: z.string().min(1),
+  cadence: recurringCadenceSchema,
+  startDate: z.iso.date(),
+  endDate: z.iso.date().nullable(),
+  nextRunDate: z.iso.date(),
+  autoCreate: z.boolean(),
+  autoSend: z.boolean(),
+  active: z.boolean(),
+  currency: z.string().length(3),
+  lastRunOccurrenceKey: z.string().nullable(),
+  lines: z.array(recurringInvoiceTemplateLineSchema),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+});
+
+export const recurringInvoiceTemplateListResponseSchema = z.object({
+  data: z.array(recurringInvoiceTemplateSchema),
+});
+export const recurringInvoiceTemplateResponseSchema = z.object({
+  data: recurringInvoiceTemplateSchema,
+});
+
+export const recurringInvoiceTemplateLineDto = z.object({
+  itemId: z.uuid().optional(),
+  description: z.string().max(240).optional(),
+  quantity: z.string(),
+  unitPriceMinor: z.string().regex(/^\d+$/).optional(),
+  discountMinor: z.string().regex(/^\d+$/).optional(),
+  taxCodeId: z.uuid().optional(),
+});
+
+export const createRecurringInvoiceTemplateDto = z.object({
+  contactId: z.uuid(),
+  cadence: recurringCadenceSchema,
+  startDate: z.iso.date(),
+  endDate: z.iso.date().optional(),
+  currency: z.string().length(3).optional(),
+  autoCreate: z.boolean().optional(),
+  autoSend: z.boolean().optional(),
+  lines: z.array(recurringInvoiceTemplateLineDto).min(1).max(200),
+});
+
+export const updateRecurringInvoiceTemplateDto = z.object({
+  contactId: z.uuid().optional(),
+  cadence: recurringCadenceSchema.optional(),
+  endDate: z.iso.date().optional(),
+  autoCreate: z.boolean().optional(),
+  autoSend: z.boolean().optional(),
+  lines: z.array(recurringInvoiceTemplateLineDto).min(1).max(200).optional(),
+});
+
 export const apiErrorSchema = z.object({
   error: z.object({
     code: z.string().min(1),
@@ -879,6 +1306,63 @@ export type InvoiceListResponse = z.infer<typeof invoiceListResponseSchema>;
 export type InvoiceResponse = z.infer<typeof invoiceResponseSchema>;
 export type CreateInvoiceDto = z.infer<typeof createInvoiceDto>;
 export type UpdateInvoiceDto = z.infer<typeof updateInvoiceDto>;
+
+export type PaymentStatus = z.infer<typeof paymentStatusSchema>;
+export type PaymentAllocation = z.infer<typeof paymentAllocationSchema>;
+export type PaymentReceived = z.infer<typeof paymentReceivedSchema>;
+export type PaymentListResponse = z.infer<typeof paymentListResponseSchema>;
+export type PaymentResponse = z.infer<typeof paymentResponseSchema>;
+export type OpenInvoiceForAllocation = z.infer<typeof openInvoiceForAllocationSchema>;
+export type OpenInvoiceListResponse = z.infer<typeof openInvoiceListResponseSchema>;
+export type CreatePaymentDto = z.infer<typeof createPaymentDto>;
+export type PaymentAllocationLineDto = z.infer<typeof paymentAllocationLineDto>;
+export type AllocatePaymentDto = z.infer<typeof allocatePaymentDto>;
+
+export type CreditNoteStatus = z.infer<typeof creditNoteStatusSchema>;
+export type CreditNoteLine = z.infer<typeof creditNoteLineSchema>;
+export type CreditNoteAllocation = z.infer<typeof creditNoteAllocationSchema>;
+export type CreditNoteRefund = z.infer<typeof creditNoteRefundSchema>;
+export type CreditNote = z.infer<typeof creditNoteSchema>;
+export type CreditNoteListResponse = z.infer<typeof creditNoteListResponseSchema>;
+export type CreditNoteResponse = z.infer<typeof creditNoteResponseSchema>;
+export type CreateCreditNoteDto = z.infer<typeof createCreditNoteDto>;
+export type UpdateCreditNoteDto = z.infer<typeof updateCreditNoteDto>;
+export type CreditNoteAllocationLineDto = z.infer<typeof creditNoteAllocationLineDto>;
+export type AllocateCreditNoteDto = z.infer<typeof allocateCreditNoteDto>;
+export type RefundCreditNoteDto = z.infer<typeof refundCreditNoteDto>;
+
+export type StatementTransactionType = z.infer<typeof statementTransactionTypeSchema>;
+export type StatementTransaction = z.infer<typeof statementTransactionSchema>;
+export type Statement = z.infer<typeof statementSchema>;
+export type StatementResponse = z.infer<typeof statementResponseSchema>;
+
+export type QuoteStatus = z.infer<typeof quoteStatusSchema>;
+export type QuoteLine = z.infer<typeof quoteLineSchema>;
+export type Quote = z.infer<typeof quoteSchema>;
+export type QuoteListResponse = z.infer<typeof quoteListResponseSchema>;
+export type QuoteResponse = z.infer<typeof quoteResponseSchema>;
+export type CreateQuoteDto = z.infer<typeof createQuoteDto>;
+export type UpdateQuoteDto = z.infer<typeof updateQuoteDto>;
+
+export type SalesOrderStatus = z.infer<typeof salesOrderStatusSchema>;
+export type SalesOrderLine = z.infer<typeof salesOrderLineSchema>;
+export type SalesOrder = z.infer<typeof salesOrderSchema>;
+export type SalesOrderListResponse = z.infer<typeof salesOrderListResponseSchema>;
+export type SalesOrderResponse = z.infer<typeof salesOrderResponseSchema>;
+export type CreateSalesOrderDto = z.infer<typeof createSalesOrderDto>;
+export type UpdateSalesOrderDto = z.infer<typeof updateSalesOrderDto>;
+
+export type RecurringCadence = z.infer<typeof recurringCadenceSchema>;
+export type RecurringInvoiceTemplateLine = z.infer<typeof recurringInvoiceTemplateLineSchema>;
+export type RecurringInvoiceTemplate = z.infer<typeof recurringInvoiceTemplateSchema>;
+export type RecurringInvoiceTemplateListResponse = z.infer<
+  typeof recurringInvoiceTemplateListResponseSchema
+>;
+export type RecurringInvoiceTemplateResponse = z.infer<
+  typeof recurringInvoiceTemplateResponseSchema
+>;
+export type CreateRecurringInvoiceTemplateDto = z.infer<typeof createRecurringInvoiceTemplateDto>;
+export type UpdateRecurringInvoiceTemplateDto = z.infer<typeof updateRecurringInvoiceTemplateDto>;
 
 /** Shape of `GET /organizations/reference-data`. Values stay configurable per organization. */
 export interface OrganizationReferenceData {

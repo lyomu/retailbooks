@@ -11,6 +11,7 @@ import {
   DropdownTrigger,
 } from '@retailbooks/ui';
 import {
+  Banknote,
   Bell,
   BookOpenText,
   Building2,
@@ -21,17 +22,21 @@ import {
   ChevronLeft,
   ChevronRight,
   CircleHelp,
+  ClipboardList,
   FileClock,
+  FileQuestion,
   FileText,
   Landmark,
   LayoutDashboard,
   Menu,
   Package,
   Receipt,
+  Repeat,
   Search,
   Settings,
   ShieldCheck,
   SlidersHorizontal,
+  Undo2,
   Users,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -67,6 +72,11 @@ const navigationGroups: NavigationGroup[] = [
       { label: 'Customers', icon: Users, href: '/customers' },
       { label: 'Items & services', icon: Package, href: '/catalog/items' },
       { label: 'Invoices', icon: Receipt, href: '/invoices' },
+      { label: 'Payments', icon: Banknote, href: '/payments' },
+      { label: 'Credit notes', icon: Undo2, href: '/credit-notes' },
+      { label: 'Quotes', icon: FileQuestion, href: '/quotes' },
+      { label: 'Sales orders', icon: ClipboardList, href: '/sales-orders' },
+      { label: 'Recurring invoices', icon: Repeat, href: '/recurring-invoices' },
     ],
   },
   {
