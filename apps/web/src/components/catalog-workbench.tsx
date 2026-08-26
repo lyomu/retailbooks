@@ -85,6 +85,9 @@ export function ItemsPage() {
       name: formValue(data, 'name'),
       sku: formValue(data, 'sku') || undefined,
       itemType: formValue(data, 'itemType'),
+      inventoryTracked: data.get('inventoryTracked') === 'on',
+      reorderThreshold: formValue(data, 'reorderThreshold') || undefined,
+      reorderQuantity: formValue(data, 'reorderQuantity') || undefined,
       freeDescriptionAllowed: data.get('freeDescriptionAllowed') === 'on',
       prices: priceAmount
         ? [{ currency, unitPriceMinor: String(Math.round(Number(priceAmount) * 100)) }]
@@ -144,6 +147,21 @@ export function ItemsPage() {
       ),
     },
     { key: 'type', header: 'Type', cell: (item) => item.itemType },
+    {
+      key: 'inventory',
+      header: 'Inventory',
+      cell: (item) =>
+        item.inventoryTracked ? (
+          <div>
+            <strong>Tracked</strong>
+            <span className="rb-table-secondary">
+              Reorder at {item.reorderThreshold ?? 'not set'}
+            </span>
+          </div>
+        ) : (
+          'Not tracked'
+        ),
+    },
     {
       key: 'price',
       header: 'Price',
@@ -270,6 +288,35 @@ export function ItemsPage() {
                         : ''
                     }
                   />
+                </div>
+                <div className="rb-field">
+                  <Label htmlFor="item-reorder-threshold">Reorder threshold</Label>
+                  <Input
+                    id="item-reorder-threshold"
+                    name="reorderThreshold"
+                    inputMode="decimal"
+                    defaultValue={formTarget?.reorderThreshold ?? ''}
+                  />
+                </div>
+                <div className="rb-field">
+                  <Label htmlFor="item-reorder-quantity">Suggested reorder quantity</Label>
+                  <Input
+                    id="item-reorder-quantity"
+                    name="reorderQuantity"
+                    inputMode="decimal"
+                    defaultValue={formTarget?.reorderQuantity ?? ''}
+                  />
+                </div>
+                <div className="rb-field">
+                  <Label htmlFor="item-inventory-tracked">
+                    <input
+                      id="item-inventory-tracked"
+                      name="inventoryTracked"
+                      type="checkbox"
+                      defaultChecked={formTarget?.inventoryTracked ?? false}
+                    />{' '}
+                    Track stock for this goods item
+                  </Label>
                 </div>
                 <div className="rb-field">
                   <Label htmlFor="item-free-description">

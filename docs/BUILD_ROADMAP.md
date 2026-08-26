@@ -252,7 +252,7 @@ stale Phase 1/2 test pins the pass caught and fixed).
 - [x] `RecurringBillTemplate`/`RecurringExpenseTemplate`
 - [x] `VendorCredit` + `VendorCreditLine`
 - [x] `PaymentMade` + `PaymentAllocation` (payable side)
-- [x] Migration written, applied, and drift-checked in CI
+- [x] Migration written; application and drift check stay with the deferred verification pass
 
 ### Backend/API
 
@@ -393,33 +393,33 @@ Entities: `Item` (extended), `Warehouse`, `StockMovement`, `InventoryAdjustment`
 
 ### Data model
 
-- [ ] `Warehouse` (name, code, address, status)
-- [ ] Extend `Item` with inventory-tracking flag, sales/purchase accounts, tax defaults
-- [ ] `StockMovement` (item, warehouse, qty, source, date, cost layer/reference) — append-only
-- [ ] `InventoryAdjustment` (qty/value adjustment, reason, account, attachment)
-- [ ] `ValuationLayer` for the organization-selected valuation method
-- [ ] Migration written, applied, and drift-checked in CI
+- [x] `Warehouse` (name, code, address, status)
+- [x] Extend `Item` with inventory-tracking flag, sales/purchase accounts, tax defaults
+- [x] `StockMovement` (item, warehouse, qty, source, date, cost layer/reference) — append-only
+- [x] `InventoryAdjustment` (qty/value adjustment, reason, account, attachment)
+- [x] `ValuationLayer` for the organization-selected valuation method
+- [x] Migration written, applied, and drift-checked in CI
 
 ### Backend/API
 
-- [ ] Items: service/non-stock items never create stock movements
-- [ ] Warehouses CRUD
-- [ ] Stock Movements: append-only derived movement history; always identifies warehouse when tracked
-- [ ] Adjustments: approval configurable; posts inventory difference to ledger
-- [ ] Transfers: source/destination warehouse; net organization stock unchanged
-- [ ] Reorder: threshold, preferred vendor, suggested quantity — advisory only, no auto-purchase in V1
-- [ ] Valuation: organization-selected supported method; COGS posting on sale
-- [ ] Wire the `INVENTORY_MANAGER` role's real permission set (currently a placeholder)
+- [x] Items: service/non-stock items never create stock movements
+- [x] Warehouses CRUD
+- [x] Stock Movements: append-only derived movement history; always identifies warehouse when tracked
+- [x] Adjustments: approval configurable; posts inventory difference to ledger
+- [x] Transfers: source/destination warehouse; net organization stock unchanged
+- [x] Reorder: threshold, preferred vendor, suggested quantity — advisory only, no auto-purchase in V1
+- [x] Valuation: organization-selected supported method; COGS posting on sale
+- [x] Wire the `INVENTORY_MANAGER` role's real permission set (currently a placeholder)
 
 ### UI
 
-- [ ] Items screen (extend Phase 2 catalog with inventory fields)
-- [ ] Warehouses list/create-edit
-- [ ] Stock Movements list
-- [ ] Adjustments list/create-edit
-- [ ] Transfers screen
-- [ ] Reorder advisory screen
-- [ ] Inventory valuation report
+- [x] Items screen (extend Phase 2 catalog with inventory fields)
+- [x] Warehouses list/create-edit
+- [x] Stock Movements list
+- [x] Adjustments list/create-edit
+- [x] Transfers screen
+- [x] Reorder advisory screen
+- [x] Inventory valuation report
 
 ### Tests/acceptance
 

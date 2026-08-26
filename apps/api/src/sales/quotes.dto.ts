@@ -65,6 +65,11 @@ export class QuoteLineDto {
   @IsString()
   @Length(36, 36)
   taxCodeId?: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(36, 36)
+  warehouseId?: string;
 }
 
 export class CreateQuoteDto {

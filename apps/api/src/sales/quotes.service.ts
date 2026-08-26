@@ -382,6 +382,7 @@ export class QuotesService {
           unitPriceMinor: line.unitPriceMinor.toString(),
           discountMinor: line.discountMinor.toString(),
           taxCodeId: line.taxCodeId ?? undefined,
+          warehouseId: line.warehouseId ?? undefined,
         })),
       },
       metadata,
@@ -505,6 +506,7 @@ export class QuotesService {
         discountMinor,
         lineTotalMinor,
         taxCodeId: line.taxCodeId ?? item?.defaultTaxCodeId ?? null,
+        warehouseId: line.warehouseId ?? null,
       };
     });
   }
@@ -548,6 +550,7 @@ function lineCreateData(
     discountMinor: bigint;
     lineTotalMinor: bigint;
     taxCodeId: string | null;
+    warehouseId: string | null;
   },
   index: number,
   organizationId: string,
@@ -562,6 +565,7 @@ function lineCreateData(
     discountMinor: line.discountMinor,
     lineTotalMinor: line.lineTotalMinor,
     taxCodeId: line.taxCodeId,
+    warehouseId: line.warehouseId,
   };
 }
 
@@ -589,6 +593,7 @@ function summarizeQuote(quote: QuoteWithLines) {
       discountMinor: line.discountMinor.toString(),
       lineTotalMinor: line.lineTotalMinor.toString(),
       taxCodeId: line.taxCodeId,
+      warehouseId: line.warehouseId,
     })),
     createdAt: quote.createdAt.toISOString(),
     updatedAt: quote.updatedAt.toISOString(),

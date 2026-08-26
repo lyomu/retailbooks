@@ -131,7 +131,42 @@ export class CreateItemDto {
   @IsOptional()
   @IsString()
   @Length(36, 36)
+  purchaseAccountId?: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(36, 36)
   defaultTaxCodeId?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  inventoryTracked?: boolean;
+
+  @IsOptional()
+  @IsString()
+  @Length(36, 36)
+  defaultPurchaseTaxCodeId?: string;
+
+  @IsOptional()
+  @IsString()
+  @Matches(/^\d+(\.\d{1,4})?$/, {
+    message: 'reorderThreshold must be a non-negative decimal string with up to 4 places',
+  })
+  @Transform(trimOrUndefined)
+  reorderThreshold?: string;
+
+  @IsOptional()
+  @IsString()
+  @Matches(/^\d+(\.\d{1,4})?$/, {
+    message: 'reorderQuantity must be a non-negative decimal string with up to 4 places',
+  })
+  @Transform(trimOrUndefined)
+  reorderQuantity?: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(36, 36)
+  preferredVendorId?: string;
 
   @IsOptional()
   @IsBoolean()
@@ -180,7 +215,42 @@ export class UpdateItemDto {
   @IsOptional()
   @IsString()
   @Length(36, 36)
+  purchaseAccountId?: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(36, 36)
   defaultTaxCodeId?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  inventoryTracked?: boolean;
+
+  @IsOptional()
+  @IsString()
+  @Length(36, 36)
+  defaultPurchaseTaxCodeId?: string;
+
+  @IsOptional()
+  @IsString()
+  @Matches(/^\d+(\.\d{1,4})?$/, {
+    message: 'reorderThreshold must be a non-negative decimal string with up to 4 places',
+  })
+  @Transform(trimOrUndefined)
+  reorderThreshold?: string;
+
+  @IsOptional()
+  @IsString()
+  @Matches(/^\d+(\.\d{1,4})?$/, {
+    message: 'reorderQuantity must be a non-negative decimal string with up to 4 places',
+  })
+  @Transform(trimOrUndefined)
+  reorderQuantity?: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(36, 36)
+  preferredVendorId?: string;
 
   @IsOptional()
   @IsBoolean()

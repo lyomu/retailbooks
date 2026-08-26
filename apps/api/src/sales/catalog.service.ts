@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { AuditAction, type Prisma } from '@prisma/client';
 
 import type { PublicUser } from '../auth/auth.service.js';
@@ -202,6 +202,9 @@ export class CatalogService {
     metadata: RequestMetadata,
   ) {
     if (input.sku) await this.assertSkuAvailable(context.id, input.sku);
+    if (input.inventoryTracked && input.itemType !== 'GOODS') {
+      throw new BadRequestException('Only goods items can track inventory.');
+    }
 
     const organization = await this.prisma.organization.findUniqueOrThrow({
       where: { id: context.id },
@@ -218,7 +221,13 @@ export class CatalogService {
           categoryId: input.categoryId ?? null,
           defaultUnitId: input.defaultUnitId ?? null,
           revenueAccountId: input.revenueAccountId ?? null,
+          purchaseAccountId: input.purchaseAccountId ?? null,
           defaultTaxCodeId: input.defaultTaxCodeId ?? null,
+          defaultPurchaseTaxCodeId: input.defaultPurchaseTaxCodeId ?? null,
+          inventoryTracked: input.itemType === 'GOODS' ? (input.inventoryTracked ?? false) : false,
+          reorderThreshold: input.reorderThreshold ?? null,
+          reorderQuantity: input.reorderQuantity ?? null,
+          preferredVendorId: input.preferredVendorId ?? null,
           freeDescriptionAllowed:
             input.freeDescriptionAllowed ??
             organization.preferences?.salesFreeDescriptionDefault ??
@@ -256,6 +265,11 @@ export class CatalogService {
     if (input.sku && input.sku !== existing.sku) {
       await this.assertSkuAvailable(context.id, input.sku, itemId);
     }
+    const nextItemType = input.itemType ?? existing.itemType;
+    const nextInventoryTracked = input.inventoryTracked ?? existing.inventoryTracked;
+    if (nextInventoryTracked && nextItemType !== 'GOODS') {
+      throw new BadRequestException('Only goods items can track inventory.');
+    }
 
     const updated = await this.prisma.$transaction(async (tx) => {
       if (input.prices) {
@@ -275,10 +289,29 @@ export class CatalogService {
             input.revenueAccountId !== undefined
               ? input.revenueAccountId
               : existing.revenueAccountId,
+          purchaseAccountId:
+            input.purchaseAccountId !== undefined
+              ? input.purchaseAccountId
+              : existing.purchaseAccountId,
           defaultTaxCodeId:
             input.defaultTaxCodeId !== undefined
               ? input.defaultTaxCodeId
               : existing.defaultTaxCodeId,
+          defaultPurchaseTaxCodeId:
+            input.defaultPurchaseTaxCodeId !== undefined
+              ? input.defaultPurchaseTaxCodeId
+              : existing.defaultPurchaseTaxCodeId,
+          inventoryTracked: nextItemType === 'GOODS' ? nextInventoryTracked : false,
+          reorderThreshold:
+            input.reorderThreshold !== undefined
+              ? input.reorderThreshold
+              : existing.reorderThreshold,
+          reorderQuantity:
+            input.reorderQuantity !== undefined ? input.reorderQuantity : existing.reorderQuantity,
+          preferredVendorId:
+            input.preferredVendorId !== undefined
+              ? input.preferredVendorId
+              : existing.preferredVendorId,
           freeDescriptionAllowed: input.freeDescriptionAllowed ?? existing.freeDescriptionAllowed,
           ...(input.prices
             ? { prices: { create: input.prices.map((p) => priceData(p, context.id)) } }
@@ -377,7 +410,13 @@ function summarizeItem(item: ItemWithPrices) {
     categoryId: item.categoryId,
     defaultUnitId: item.defaultUnitId,
     revenueAccountId: item.revenueAccountId,
+    purchaseAccountId: item.purchaseAccountId,
     defaultTaxCodeId: item.defaultTaxCodeId,
+    defaultPurchaseTaxCodeId: item.defaultPurchaseTaxCodeId,
+    inventoryTracked: item.inventoryTracked,
+    reorderThreshold: item.reorderThreshold?.toString() ?? null,
+    reorderQuantity: item.reorderQuantity?.toString() ?? null,
+    preferredVendorId: item.preferredVendorId,
     freeDescriptionAllowed: item.freeDescriptionAllowed,
     status: item.status,
     prices: item.prices.map((price) => ({

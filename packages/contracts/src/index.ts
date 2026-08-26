@@ -195,6 +195,17 @@ export const permissionKeySchema = z.enum([
   'banking.reconciliations.view',
   'banking.reconciliations.manage',
   'banking.reconciliations.reopen',
+  'inventory.warehouses.view',
+  'inventory.warehouses.manage',
+  'inventory.movements.view',
+  'inventory.adjustments.view',
+  'inventory.adjustments.manage',
+  'inventory.adjustments.approve',
+  'inventory.adjustments.post',
+  'inventory.transfers.view',
+  'inventory.transfers.manage',
+  'inventory.reorder.view',
+  'inventory.valuation.view',
 ]);
 
 export const organizationSummarySchema = z.object({
@@ -213,6 +224,7 @@ export const organizationSummarySchema = z.object({
 });
 
 export const taxTreatmentSchema = z.enum(['EXCLUSIVE', 'INCLUSIVE']);
+export const inventoryValuationMethodSchema = z.enum(['FIFO', 'WEIGHTED_AVERAGE']);
 
 export const organizationPreferencesSchema = z.object({
   accountingBasis: z.enum(['ACCRUAL', 'CASH']),
@@ -228,6 +240,7 @@ export const organizationPreferencesSchema = z.object({
   numberingReset: z.enum(['NEVER', 'ANNUAL', 'MONTHLY']),
   countryPackCode: z.string().min(1),
   countryPackVersion: z.string().min(1),
+  inventoryValuationMethod: inventoryValuationMethodSchema,
 });
 
 export const organizationDetailSchema = z.object({
@@ -319,6 +332,7 @@ export const permissionDefinitionSchema = z.object({
     'Sales',
     'Purchases',
     'Banking',
+    'Inventory',
   ]),
   protected: z.boolean(),
 });
@@ -819,7 +833,13 @@ export const itemSchema = z.object({
   categoryId: z.uuid().nullable(),
   defaultUnitId: z.uuid().nullable(),
   revenueAccountId: z.uuid().nullable(),
+  purchaseAccountId: z.uuid().nullable(),
   defaultTaxCodeId: z.uuid().nullable(),
+  defaultPurchaseTaxCodeId: z.uuid().nullable(),
+  inventoryTracked: z.boolean(),
+  reorderThreshold: z.string().nullable(),
+  reorderQuantity: z.string().nullable(),
+  preferredVendorId: z.uuid().nullable(),
   freeDescriptionAllowed: z.boolean(),
   status: itemStatusSchema,
   prices: z.array(itemPriceSchema),
@@ -859,7 +879,13 @@ export const createItemDto = z.object({
   categoryId: z.uuid().optional(),
   defaultUnitId: z.uuid().optional(),
   revenueAccountId: z.uuid().optional(),
+  purchaseAccountId: z.uuid().optional(),
   defaultTaxCodeId: z.uuid().optional(),
+  defaultPurchaseTaxCodeId: z.uuid().optional(),
+  inventoryTracked: z.boolean().optional(),
+  reorderThreshold: z.string().regex(/^\d+(\.\d{1,4})?$/).optional(),
+  reorderQuantity: z.string().regex(/^\d+(\.\d{1,4})?$/).optional(),
+  preferredVendorId: z.uuid().optional(),
   freeDescriptionAllowed: z.boolean().optional(),
   prices: z.array(itemPriceDto).max(10).optional(),
 });
@@ -895,6 +921,7 @@ export const invoiceLineSchema = z.object({
   taxableAmountMinor: z.string().nullable(),
   taxAmountMinor: z.string().nullable(),
   revenueAccountId: z.uuid().nullable(),
+  warehouseId: z.uuid().nullable(),
   projectTag: z.string().nullable(),
 });
 
@@ -932,6 +959,7 @@ export const invoiceLineDto = z.object({
   discountMinor: z.string().regex(/^\d+$/).optional(),
   taxCodeId: z.uuid().optional(),
   revenueAccountId: z.uuid().optional(),
+  warehouseId: z.uuid().optional(),
   projectTag: z.string().max(80).optional(),
 });
 
@@ -966,6 +994,7 @@ export const billLineSchema = z.object({
   taxableAmountMinor: z.string().nullable(),
   taxAmountMinor: z.string().nullable(),
   accountId: z.uuid().nullable(),
+  warehouseId: z.uuid().nullable(),
   projectTag: z.string().nullable(),
 });
 
@@ -1078,6 +1107,7 @@ export const billLineDto = z.object({
   discountMinor: z.string().regex(/^\d+$/).optional(),
   taxCodeId: z.uuid().optional(),
   accountId: z.uuid().optional(),
+  warehouseId: z.uuid().optional(),
   projectTag: z.string().max(80).optional(),
 });
 
@@ -1574,6 +1604,7 @@ export const quoteLineSchema = z.object({
   discountMinor: z.string().regex(/^\d+$/),
   lineTotalMinor: z.string().regex(/^\d+$/),
   taxCodeId: z.uuid().nullable(),
+  warehouseId: z.uuid().nullable(),
 });
 
 export const quoteSchema = z.object({
@@ -1604,6 +1635,7 @@ export const quoteLineDto = z.object({
   unitPriceMinor: z.string().regex(/^\d+$/).optional(),
   discountMinor: z.string().regex(/^\d+$/).optional(),
   taxCodeId: z.uuid().optional(),
+  warehouseId: z.uuid().optional(),
 });
 
 export const createQuoteDto = z.object({
@@ -1636,6 +1668,7 @@ export const salesOrderLineSchema = z.object({
   discountMinor: z.string().regex(/^\d+$/),
   lineTotalMinor: z.string().regex(/^\d+$/),
   taxCodeId: z.uuid().nullable(),
+  warehouseId: z.uuid().nullable(),
 });
 
 export const salesOrderSchema = z.object({
@@ -1664,6 +1697,7 @@ export const salesOrderLineDto = z.object({
   unitPriceMinor: z.string().regex(/^\d+$/).optional(),
   discountMinor: z.string().regex(/^\d+$/).optional(),
   taxCodeId: z.uuid().optional(),
+  warehouseId: z.uuid().optional(),
 });
 
 export const createSalesOrderDto = z.object({
@@ -1699,6 +1733,7 @@ export const purchaseOrderLineSchema = z.object({
   discountMinor: z.string().regex(/^\d+$/),
   lineTotalMinor: z.string().regex(/^\d+$/),
   taxCodeId: z.uuid().nullable(),
+  warehouseId: z.uuid().nullable(),
 });
 
 export const purchaseOrderSchema = z.object({
@@ -1730,6 +1765,7 @@ export const purchaseOrderLineDto = z.object({
   unitPriceMinor: z.string().regex(/^\d+$/).optional(),
   discountMinor: z.string().regex(/^\d+$/).optional(),
   taxCodeId: z.uuid().optional(),
+  warehouseId: z.uuid().optional(),
 });
 
 export const createPurchaseOrderDto = z.object({
@@ -1743,7 +1779,149 @@ export const createPurchaseOrderDto = z.object({
 export const updatePurchaseOrderDto = createPurchaseOrderDto.partial();
 
 export const recordPurchaseOrderReceiptDto = z.object({
-  receiptStatus: z.enum(['PARTIALLY_RECEIVED', 'RECEIVED']),
+  lines: z
+    .array(
+      z.object({
+        purchaseOrderLineId: z.uuid(),
+        quantity: z.string(),
+        warehouseId: z.uuid().optional(),
+      }),
+    )
+    .min(1)
+    .max(200),
+});
+
+// --- Inventory ---
+
+export const warehouseStatusSchema = z.enum(['ACTIVE', 'INACTIVE']);
+export const stockMovementDirectionSchema = z.enum(['IN', 'OUT']);
+export const stockMovementSourceTypeSchema = z.enum([
+  'PURCHASE_RECEIPT',
+  'SALES_ISSUE',
+  'ADJUSTMENT',
+  'TRANSFER',
+]);
+export const inventoryAdjustmentStatusSchema = z.enum([
+  'DRAFT',
+  'PENDING_APPROVAL',
+  'APPROVED',
+  'POSTED',
+  'VOID',
+  'CANCELLED',
+]);
+
+export const warehouseSchema = z.object({
+  id: z.uuid(),
+  code: z.string().min(1),
+  name: z.string().min(1),
+  address: z.string().nullable(),
+  status: warehouseStatusSchema,
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+});
+
+export const stockMovementSchema = z.object({
+  id: z.uuid(),
+  itemId: z.uuid(),
+  itemName: z.string().min(1),
+  sku: z.string().nullable(),
+  warehouseId: z.uuid(),
+  warehouseName: z.string().min(1),
+  movementDate: z.iso.date(),
+  direction: stockMovementDirectionSchema,
+  quantity: z.string(),
+  unitCostMinor: z.string().regex(/^-?\d+$/),
+  totalCostMinor: z.string().regex(/^-?\d+$/),
+  sourceType: stockMovementSourceTypeSchema,
+  sourceId: z.uuid(),
+  sourceLineId: z.uuid().nullable(),
+  createdAt: z.iso.datetime(),
+});
+
+export const inventoryAdjustmentSchema = z.object({
+  id: z.uuid(),
+  itemId: z.uuid(),
+  itemName: z.string().min(1),
+  sku: z.string().nullable(),
+  warehouseId: z.uuid(),
+  warehouseName: z.string().min(1),
+  adjustmentDate: z.iso.date(),
+  quantityDelta: z.string(),
+  valueDeltaMinor: z.string().regex(/^-?\d+$/),
+  reason: z.string().min(1),
+  accountId: z.uuid().nullable(),
+  status: inventoryAdjustmentStatusSchema,
+  journalId: z.uuid().nullable(),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+});
+
+export const reorderAdviceSchema = z.object({
+  id: z.uuid(),
+  itemId: z.uuid(),
+  itemName: z.string().min(1),
+  sku: z.string().nullable(),
+  onHand: z.string(),
+  reorderThreshold: z.string().nullable(),
+  suggestedQuantity: z.string().nullable(),
+  preferredVendorId: z.uuid().nullable(),
+  preferredVendorName: z.string().nullable(),
+});
+
+export const inventoryValuationRowSchema = z.object({
+  id: z.string().min(1),
+  itemId: z.uuid(),
+  itemName: z.string().min(1),
+  sku: z.string().nullable(),
+  warehouseId: z.uuid(),
+  warehouseName: z.string().min(1),
+  quantityOnHand: z.string(),
+  valueMinor: z.string().regex(/^-?\d+$/),
+});
+
+export const inventoryValuationSchema = z.object({
+  rows: z.array(inventoryValuationRowSchema),
+  totalValueMinor: z.string().regex(/^-?\d+$/),
+});
+
+export const warehouseListResponseSchema = z.object({ data: z.array(warehouseSchema) });
+export const warehouseResponseSchema = z.object({ data: warehouseSchema });
+export const stockMovementListResponseSchema = z.object({ data: z.array(stockMovementSchema) });
+export const inventoryAdjustmentListResponseSchema = z.object({
+  data: z.array(inventoryAdjustmentSchema),
+});
+export const inventoryAdjustmentResponseSchema = z.object({ data: inventoryAdjustmentSchema });
+export const reorderAdviceResponseSchema = z.object({ data: z.array(reorderAdviceSchema) });
+export const inventoryValuationResponseSchema = z.object({ data: inventoryValuationSchema });
+
+export const createWarehouseDto = z.object({
+  code: z.string().min(1).max(32),
+  name: z.string().min(1).max(120),
+  address: z.string().max(240).optional(),
+});
+
+export const updateWarehouseDto = createWarehouseDto.extend({
+  status: warehouseStatusSchema.optional(),
+}).partial();
+
+export const createInventoryAdjustmentDto = z.object({
+  itemId: z.uuid(),
+  warehouseId: z.uuid(),
+  adjustmentDate: z.iso.date(),
+  quantityDelta: z.string(),
+  valueDeltaMinor: z.string().regex(/^-?\d+$/).optional(),
+  reason: z.string().min(1).max(240),
+  accountId: z.uuid().optional(),
+});
+
+export const updateInventoryAdjustmentDto = createInventoryAdjustmentDto.partial();
+
+export const createInventoryTransferDto = z.object({
+  itemId: z.uuid(),
+  fromWarehouseId: z.uuid(),
+  toWarehouseId: z.uuid(),
+  transferDate: z.iso.date(),
+  quantity: z.string(),
 });
 
 // --- Sales: Recurring Invoices ---
@@ -1760,6 +1938,7 @@ export const recurringInvoiceTemplateLineSchema = z.object({
   discountMinor: z.string().regex(/^\d+$/),
   lineTotalMinor: z.string().regex(/^\d+$/),
   taxCodeId: z.uuid().nullable(),
+  warehouseId: z.uuid().nullable(),
 });
 
 export const recurringInvoiceTemplateSchema = z.object({
@@ -1794,6 +1973,7 @@ export const recurringInvoiceTemplateLineDto = z.object({
   unitPriceMinor: z.string().regex(/^\d+$/).optional(),
   discountMinor: z.string().regex(/^\d+$/).optional(),
   taxCodeId: z.uuid().optional(),
+  warehouseId: z.uuid().optional(),
 });
 
 export const createRecurringInvoiceTemplateDto = z.object({
@@ -1829,6 +2009,7 @@ export const recurringBillTemplateLineSchema = z.object({
   lineTotalMinor: z.string().regex(/^\d+$/),
   taxCodeId: z.uuid().nullable(),
   accountId: z.uuid().nullable(),
+  warehouseId: z.uuid().nullable(),
 });
 
 export const recurringBillTemplateSchema = z.object({
@@ -1861,6 +2042,7 @@ export const recurringBillTemplateLineDto = z.object({
   discountMinor: z.string().regex(/^\d+$/).optional(),
   taxCodeId: z.uuid().optional(),
   accountId: z.uuid().optional(),
+  warehouseId: z.uuid().optional(),
 });
 
 export const createRecurringBillTemplateDto = z.object({
@@ -2132,6 +2314,31 @@ export type PurchaseOrderListResponse = z.infer<typeof purchaseOrderListResponse
 export type PurchaseOrderResponse = z.infer<typeof purchaseOrderResponseSchema>;
 export type CreatePurchaseOrderDto = z.infer<typeof createPurchaseOrderDto>;
 export type UpdatePurchaseOrderDto = z.infer<typeof updatePurchaseOrderDto>;
+export type RecordPurchaseOrderReceiptDto = z.infer<typeof recordPurchaseOrderReceiptDto>;
+
+export type InventoryValuationMethod = z.infer<typeof inventoryValuationMethodSchema>;
+export type WarehouseStatus = z.infer<typeof warehouseStatusSchema>;
+export type StockMovementDirection = z.infer<typeof stockMovementDirectionSchema>;
+export type StockMovementSourceType = z.infer<typeof stockMovementSourceTypeSchema>;
+export type InventoryAdjustmentStatus = z.infer<typeof inventoryAdjustmentStatusSchema>;
+export type Warehouse = z.infer<typeof warehouseSchema>;
+export type StockMovement = z.infer<typeof stockMovementSchema>;
+export type InventoryAdjustment = z.infer<typeof inventoryAdjustmentSchema>;
+export type ReorderAdvice = z.infer<typeof reorderAdviceSchema>;
+export type InventoryValuationRow = z.infer<typeof inventoryValuationRowSchema>;
+export type InventoryValuation = z.infer<typeof inventoryValuationSchema>;
+export type WarehouseListResponse = z.infer<typeof warehouseListResponseSchema>;
+export type WarehouseResponse = z.infer<typeof warehouseResponseSchema>;
+export type StockMovementListResponse = z.infer<typeof stockMovementListResponseSchema>;
+export type InventoryAdjustmentListResponse = z.infer<typeof inventoryAdjustmentListResponseSchema>;
+export type InventoryAdjustmentResponse = z.infer<typeof inventoryAdjustmentResponseSchema>;
+export type ReorderAdviceResponse = z.infer<typeof reorderAdviceResponseSchema>;
+export type InventoryValuationResponse = z.infer<typeof inventoryValuationResponseSchema>;
+export type CreateWarehouseDto = z.infer<typeof createWarehouseDto>;
+export type UpdateWarehouseDto = z.infer<typeof updateWarehouseDto>;
+export type CreateInventoryAdjustmentDto = z.infer<typeof createInventoryAdjustmentDto>;
+export type UpdateInventoryAdjustmentDto = z.infer<typeof updateInventoryAdjustmentDto>;
+export type CreateInventoryTransferDto = z.infer<typeof createInventoryTransferDto>;
 
 export type RecurringCadence = z.infer<typeof recurringCadenceSchema>;
 export type RecurringInvoiceTemplateLine = z.infer<typeof recurringInvoiceTemplateLineSchema>;

@@ -11,7 +11,6 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { IsIn } from 'class-validator';
 
 import { AuthService } from '../auth/auth.service.js';
 import { requestMetadata } from '../auth/request-context.js';
@@ -24,14 +23,10 @@ import { OrganizationGuard } from '../organizations/organization.guard.js';
 import {
   CreatePurchaseOrderDto,
   ListPurchaseOrdersQueryDto,
+  RecordPurchaseOrderReceiptDto,
   UpdatePurchaseOrderDto,
 } from './purchase-orders.dto.js';
 import { PurchaseOrdersService } from './purchase-orders.service.js';
-
-class RecordReceiptDto {
-  @IsIn(['PARTIALLY_RECEIVED', 'RECEIVED'])
-  receiptStatus!: 'PARTIALLY_RECEIVED' | 'RECEIVED';
-}
 
 @Controller('organizations/:organizationId/purchase-orders')
 @UseGuards(SessionGuard, OrganizationGuard)
@@ -116,7 +111,7 @@ export class PurchaseOrdersController {
   @RequirePermission('purchases.orders.manage')
   async recordReceipt(
     @Param('orderId', new ParseUUIDPipe()) orderId: string,
-    @Body() input: RecordReceiptDto,
+    @Body() input: RecordPurchaseOrderReceiptDto,
     @Req() request: OrganizationRequest,
   ) {
     const metadata = requestMetadata(request, this.auth.pepper);
@@ -125,7 +120,7 @@ export class PurchaseOrdersController {
         request.organization,
         request.auth.user,
         orderId,
-        input.receiptStatus,
+        input,
         metadata,
       ),
     };

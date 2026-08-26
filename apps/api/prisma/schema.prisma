@@ -150,6 +150,37 @@ enum ItemStatus {
   INACTIVE
 }
 
+enum InventoryValuationMethod {
+  FIFO
+  WEIGHTED_AVERAGE
+}
+
+enum WarehouseStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum StockMovementDirection {
+  IN
+  OUT
+}
+
+enum StockMovementSourceType {
+  PURCHASE_RECEIPT
+  SALES_ISSUE
+  ADJUSTMENT
+  TRANSFER
+}
+
+enum InventoryAdjustmentStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  POSTED
+  VOID
+  CANCELLED
+}
+
 enum InvoiceStatus {
   DRAFT
   PENDING_APPROVAL
@@ -188,6 +219,10 @@ model User {
   bankRulesCreated                 BankRule[]                 @relation("BankRuleCreatedBy")
   reconciliationsCompleted         Reconciliation[]           @relation("ReconciliationCompletedBy")
   reconciliationsReopened          Reconciliation[]           @relation("ReconciliationReopenedBy")
+  stockMovementsCreated            StockMovement[]            @relation("StockMovementCreatedBy")
+  inventoryAdjustmentsCreated      InventoryAdjustment[]      @relation("InventoryAdjustmentCreatedBy")
+  inventoryAdjustmentsApproved     InventoryAdjustment[]      @relation("InventoryAdjustmentApprovedBy")
+  inventoryAdjustmentsPosted       InventoryAdjustment[]      @relation("InventoryAdjustmentPostedBy")
   transfersCreated                 Transfer[]                 @relation("TransferCreatedBy")
   invoicesCreated                  Invoice[]                  @relation("InvoiceCreatedBy")
   paymentsReceivedCreated          PaymentReceived[]          @relation("PaymentReceivedCreatedBy")
@@ -393,6 +428,10 @@ model Organization {
   bankRules                     BankRule[]
   reconciliations               Reconciliation[]
   transfers                     Transfer[]
+  warehouses                    Warehouse[]
+  stockMovements                StockMovement[]
+  inventoryAdjustments          InventoryAdjustment[]
+  valuationLayers               ValuationLayer[]
 
   @@index([createdByUserId])
   @@index([status])
@@ -552,6 +591,7 @@ model OrganizationPreference {
   chartTemplate               String          @default("general-business") @map("chart_template") @db.VarChar(60)
   roundingMode                RoundingMode    @default(NONE) @map("rounding_mode")
   roundingUnitMinor           Int?            @map("rounding_unit_minor")
+  inventoryValuationMethod    InventoryValuationMethod @default(FIFO) @map("inventory_valuation_method")
   booksStartDate              DateTime?       @map("books_start_date") @db.Date
   taxRegistered               Boolean         @default(false) @map("tax_registered")
   taxIdentifier               String?         @map("tax_identifier") @db.VarChar(60)
@@ -680,6 +720,7 @@ model LedgerAccount {
   taxCodesAsPurchaseAccount                     TaxCode[]                      @relation("TaxCodePurchaseAccount")
   contactsAsReceivableAccount                   Contact[]                      @relation("ContactReceivableAccount")
   itemsAsRevenueAccount                         Item[]                         @relation("ItemRevenueAccount")
+  itemsAsPurchaseAccount                        Item[]                         @relation("ItemPurchaseAccount")
   invoiceLinesAsRevenueAccount                  InvoiceLine[]                  @relation("InvoiceLineRevenueAccount")
   paymentsReceivedAsDepositAccount              PaymentReceived[]              @relation("PaymentReceivedDepositAccount")
   creditNoteLinesAsRevenueAccount               CreditNoteLine[]               @relation("CreditNoteLineRevenueAccount")
@@ -696,6 +737,7 @@ model LedgerAccount {
   financialAccountsAsGlAccount                  FinancialAccount[]             @relation("FinancialAccountGlAccount")
   bankTransactionsAsSuggestedAccount            BankTransaction[]              @relation("BankTransactionSuggestedAccount")
   bankRulesAsSuggestAccount                     BankRule[]                     @relation("BankRuleSuggestAccount")
+  inventoryAdjustmentsAsAccount                 InventoryAdjustment[]          @relation("InventoryAdjustmentAccount")
 
   @@unique([organizationId, code])
   @@unique([organizationId, systemKey])
@@ -744,6 +786,7 @@ model Journal {
   bankTransaction        BankTransaction?        @relation("BankTransactionPostedJournal")
   transfer               Transfer?               @relation("TransferJournal")
   transferVoid           Transfer?               @relation("TransferVoidJournal")
+  inventoryAdjustment    InventoryAdjustment?    @relation("InventoryAdjustmentJournal")
 
   @@unique([organizationId, reference])
   @@index([organizationId, status, journalDate])
@@ -820,7 +863,8 @@ model TaxCode {
   purchaseTaxAccount            LedgerAccount?                 @relation("TaxCodePurchaseAccount", fields: [purchaseTaxAccountId], references: [id], onDelete: SetNull)
   rates                         TaxRate[]
   journalLines                  JournalLine[]
-  itemsAsDefaultTaxCode         Item[]
+  itemsAsDefaultTaxCode         Item[]                         @relation("ItemDefaultTaxCode")
+  itemsAsDefaultPurchaseTaxCode Item[]                         @relation("ItemDefaultPurchaseTaxCode")
   invoiceLines                  InvoiceLine[]
   creditNoteLines               CreditNoteLine[]
   quoteLines                    QuoteLine[]
@@ -953,6 +997,7 @@ model Vendor {
   paymentsMade                     PaymentMade[]
   recurringBillTemplates           RecurringBillTemplate[]
   recurringExpenseTemplatesAsPayee RecurringExpenseTemplate[]
+  itemsAsPreferredVendor           Item[]                     @relation("ItemPreferredVendor")
   openingBalancePartyLines         OpeningBalancePartyLine[]
   recurringJournalTemplates        RecurringJournalTemplate[]
 
@@ -1035,7 +1080,13 @@ model Item {
   categoryId                    String?                        @map("category_id") @db.Uuid
   defaultUnitId                 String?                        @map("default_unit_id") @db.Uuid
   revenueAccountId              String?                        @map("revenue_account_id") @db.Uuid
+  purchaseAccountId             String?                        @map("purchase_account_id") @db.Uuid
   defaultTaxCodeId              String?                        @map("default_tax_code_id") @db.Uuid
+  defaultPurchaseTaxCodeId      String?                        @map("default_purchase_tax_code_id") @db.Uuid
+  inventoryTracked              Boolean                        @default(false) @map("inventory_tracked")
+  reorderThreshold              Decimal?                       @map("reorder_threshold") @db.Decimal(18, 4)
+  reorderQuantity               Decimal?                       @map("reorder_quantity") @db.Decimal(18, 4)
+  preferredVendorId             String?                        @map("preferred_vendor_id") @db.Uuid
   freeDescriptionAllowed        Boolean                        @default(true) @map("free_description_allowed")
   status                        ItemStatus                     @default(ACTIVE)
   createdAt                     DateTime                       @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -1044,8 +1095,14 @@ model Item {
   category                      Category?                      @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   defaultUnit                   Unit?                          @relation(fields: [defaultUnitId], references: [id], onDelete: SetNull)
   revenueAccount                LedgerAccount?                 @relation("ItemRevenueAccount", fields: [revenueAccountId], references: [id], onDelete: SetNull)
-  defaultTaxCode                TaxCode?                       @relation(fields: [defaultTaxCodeId], references: [id], onDelete: SetNull)
+  purchaseAccount               LedgerAccount?                 @relation("ItemPurchaseAccount", fields: [purchaseAccountId], references: [id], onDelete: SetNull)
+  defaultTaxCode                TaxCode?                       @relation("ItemDefaultTaxCode", fields: [defaultTaxCodeId], references: [id], onDelete: SetNull)
+  defaultPurchaseTaxCode        TaxCode?                       @relation("ItemDefaultPurchaseTaxCode", fields: [defaultPurchaseTaxCodeId], references: [id], onDelete: SetNull)
+  preferredVendor               Vendor?                        @relation("ItemPreferredVendor", fields: [preferredVendorId], references: [id], onDelete: SetNull)
   prices                        ItemPrice[]
+  stockMovements                StockMovement[]
+  valuationLayers               ValuationLayer[]
+  inventoryAdjustments          InventoryAdjustment[]
   invoiceLines                  InvoiceLine[]
   recurringInvoiceTemplateLines RecurringInvoiceTemplateLine[]
   creditNoteLines               CreditNoteLine[]
@@ -1057,7 +1114,120 @@ model Item {
   recurringBillTemplateLines    RecurringBillTemplateLine[]
 
   @@index([organizationId, status])
+  @@index([organizationId, inventoryTracked])
   @@map("items")
+}
+
+model Warehouse {
+  id                       String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId           String                @map("organization_id") @db.Uuid
+  code                     String                @db.VarChar(32)
+  name                     String                @db.VarChar(120)
+  address                  String?               @db.VarChar(240)
+  status                   WarehouseStatus       @default(ACTIVE)
+  createdAt                DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                DateTime              @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization             Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  stockMovements           StockMovement[]
+  valuationLayers          ValuationLayer[]
+  inventoryAdjustments     InventoryAdjustment[]
+  invoiceLines             InvoiceLine[]
+  quoteLines               QuoteLine[]
+  salesOrderLines          SalesOrderLine[]
+  purchaseOrderLines       PurchaseOrderLine[]
+  billLines                BillLine[]
+  recurringInvoiceLines    RecurringInvoiceTemplateLine[]
+  recurringBillLines       RecurringBillTemplateLine[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId, status])
+  @@map("warehouses")
+}
+
+/// Append-only inventory movement ledger. Stock changes are represented by inserting another
+/// movement, never by updating or deleting an existing row.
+model StockMovement {
+  id                String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId    String                 @map("organization_id") @db.Uuid
+  itemId            String                 @map("item_id") @db.Uuid
+  warehouseId       String                 @map("warehouse_id") @db.Uuid
+  movementDate      DateTime               @map("movement_date") @db.Date
+  direction         StockMovementDirection
+  quantity          Decimal                @db.Decimal(18, 4)
+  unitCostMinor     BigInt                 @default(0) @map("unit_cost_minor") @db.BigInt
+  totalCostMinor    BigInt                 @default(0) @map("total_cost_minor") @db.BigInt
+  sourceType        StockMovementSourceType @map("source_type")
+  sourceId          String                 @map("source_id") @db.Uuid
+  sourceLineId      String?                @map("source_line_id") @db.Uuid
+  valuationLayerId  String?                @map("valuation_layer_id") @db.Uuid
+  createdByUserId   String                 @map("created_by_user_id") @db.Uuid
+  createdAt         DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  organization      Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  item              Item                   @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  warehouse         Warehouse              @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  valuationLayer    ValuationLayer?        @relation(fields: [valuationLayerId], references: [id], onDelete: SetNull)
+  createdBy         User                   @relation("StockMovementCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, itemId, warehouseId, movementDate])
+  @@index([organizationId, sourceType, sourceId])
+  @@map("stock_movements")
+}
+
+model InventoryAdjustment {
+  id                  String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId      String                    @map("organization_id") @db.Uuid
+  itemId              String                    @map("item_id") @db.Uuid
+  warehouseId         String                    @map("warehouse_id") @db.Uuid
+  adjustmentDate      DateTime                  @map("adjustment_date") @db.Date
+  quantityDelta       Decimal                   @map("quantity_delta") @db.Decimal(18, 4)
+  valueDeltaMinor     BigInt                    @default(0) @map("value_delta_minor") @db.BigInt
+  reason              String                    @db.VarChar(240)
+  accountId           String?                   @map("account_id") @db.Uuid
+  status              InventoryAdjustmentStatus @default(DRAFT)
+  journalId           String?                   @unique @map("journal_id") @db.Uuid
+  createdByUserId     String                    @map("created_by_user_id") @db.Uuid
+  approvedByUserId    String?                   @map("approved_by_user_id") @db.Uuid
+  postedByUserId      String?                   @map("posted_by_user_id") @db.Uuid
+  voidedAt            DateTime?                 @map("voided_at") @db.Timestamptz(6)
+  createdAt           DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime                  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization        Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  item                Item                      @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  warehouse           Warehouse                 @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  account             LedgerAccount?            @relation("InventoryAdjustmentAccount", fields: [accountId], references: [id], onDelete: Restrict)
+  journal             Journal?                  @relation("InventoryAdjustmentJournal", fields: [journalId], references: [id], onDelete: Restrict)
+  createdBy           User                      @relation("InventoryAdjustmentCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  approvedBy          User?                     @relation("InventoryAdjustmentApprovedBy", fields: [approvedByUserId], references: [id], onDelete: Restrict)
+  postedBy            User?                     @relation("InventoryAdjustmentPostedBy", fields: [postedByUserId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, status, adjustmentDate])
+  @@index([organizationId, itemId, warehouseId])
+  @@map("inventory_adjustments")
+}
+
+model ValuationLayer {
+  id                      String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId          String                 @map("organization_id") @db.Uuid
+  itemId                  String                 @map("item_id") @db.Uuid
+  warehouseId             String                 @map("warehouse_id") @db.Uuid
+  sourceType              StockMovementSourceType @map("source_type")
+  sourceId                String                 @map("source_id") @db.Uuid
+  sourceLineId            String?                @map("source_line_id") @db.Uuid
+  layerDate               DateTime               @map("layer_date") @db.Date
+  quantityIn              Decimal                @map("quantity_in") @db.Decimal(18, 4)
+  quantityRemaining       Decimal                @map("quantity_remaining") @db.Decimal(18, 4)
+  unitCostMinor           BigInt                 @map("unit_cost_minor") @db.BigInt
+  costRemainingMinor      BigInt                 @map("cost_remaining_minor") @db.BigInt
+  createdAt               DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt               DateTime               @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization            Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  item                    Item                   @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  warehouse               Warehouse              @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  stockMovements          StockMovement[]
+
+  @@index([organizationId, itemId, warehouseId, layerDate])
+  @@index([organizationId, sourceType, sourceId])
+  @@map("valuation_layers")
 }
 
 model ItemPrice {
@@ -1136,6 +1306,7 @@ model InvoiceLine {
   taxableAmountMinor     BigInt?        @map("taxable_amount_minor") @db.BigInt
   taxAmountMinor         BigInt?        @map("tax_amount_minor") @db.BigInt
   revenueAccountId       String?        @map("revenue_account_id") @db.Uuid
+  warehouseId            String?        @map("warehouse_id") @db.Uuid
   projectTag             String?        @map("project_tag") @db.VarChar(80)
   createdAt              DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
   organization           Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
@@ -1143,6 +1314,7 @@ model InvoiceLine {
   item                   Item?          @relation(fields: [itemId], references: [id], onDelete: Restrict)
   taxCode                TaxCode?       @relation(fields: [taxCodeId], references: [id], onDelete: Restrict)
   revenueAccount         LedgerAccount? @relation("InvoiceLineRevenueAccount", fields: [revenueAccountId], references: [id], onDelete: Restrict)
+  warehouse              Warehouse?     @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
 
   @@unique([invoiceId, lineNumber])
   @@index([organizationId, invoiceId])
@@ -1386,11 +1558,13 @@ model QuoteLine {
   discountMinor       BigInt       @default(0) @map("discount_minor") @db.BigInt
   lineTotalMinor      BigInt       @map("line_total_minor") @db.BigInt
   taxCodeId           String?      @map("tax_code_id") @db.Uuid
+  warehouseId         String?      @map("warehouse_id") @db.Uuid
   createdAt           DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
   organization        Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   quote               Quote        @relation(fields: [quoteId], references: [id], onDelete: Cascade)
   item                Item?        @relation(fields: [itemId], references: [id], onDelete: Restrict)
   taxCode             TaxCode?     @relation(fields: [taxCodeId], references: [id], onDelete: Restrict)
+  warehouse           Warehouse?   @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
 
   @@unique([quoteId, lineNumber])
   @@index([organizationId, quoteId])
@@ -1447,11 +1621,13 @@ model SalesOrderLine {
   discountMinor       BigInt       @default(0) @map("discount_minor") @db.BigInt
   lineTotalMinor      BigInt       @map("line_total_minor") @db.BigInt
   taxCodeId           String?      @map("tax_code_id") @db.Uuid
+  warehouseId         String?      @map("warehouse_id") @db.Uuid
   createdAt           DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
   organization        Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   salesOrder          SalesOrder   @relation(fields: [salesOrderId], references: [id], onDelete: Cascade)
   item                Item?        @relation(fields: [itemId], references: [id], onDelete: Restrict)
   taxCode             TaxCode?     @relation(fields: [taxCodeId], references: [id], onDelete: Restrict)
+  warehouse           Warehouse?   @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
 
   @@unique([salesOrderId, lineNumber])
   @@index([organizationId, salesOrderId])
@@ -1524,11 +1700,13 @@ model RecurringInvoiceTemplateLine {
   discountMinor       BigInt                   @default(0) @map("discount_minor") @db.BigInt
   lineTotalMinor      BigInt                   @map("line_total_minor") @db.BigInt
   taxCodeId           String?                  @map("tax_code_id") @db.Uuid
+  warehouseId         String?                  @map("warehouse_id") @db.Uuid
   createdAt           DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
   organization        Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   template            RecurringInvoiceTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
   item                Item?                    @relation(fields: [itemId], references: [id], onDelete: Restrict)
   taxCode             TaxCode?                 @relation(fields: [taxCodeId], references: [id], onDelete: Restrict)
+  warehouse           Warehouse?               @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
 
   @@unique([templateId, lineNumber])
   @@index([organizationId, templateId])
@@ -1545,9 +1723,9 @@ enum PurchaseOrderStatus {
   CANCELLED
 }
 
-/// Independent of `status`: whether goods against this PO have arrived. A manually-set flag, not a
-/// quantity-tracked subsystem -- Phase 3 has no stock-movement/inventory-line modeling (that's the
-/// separate "Inventory" domain in the blueprint's core data model, a later phase).
+/// Independent of `status`: whether goods against this PO have arrived. From Phase 6 onward this
+/// status is derived from stock movements for tracked item lines; the receipt endpoint is the one
+/// path that writes those receipt movements.
 enum PurchaseOrderReceiptStatus {
   NOT_RECEIVED
   PARTIALLY_RECEIVED
@@ -1600,11 +1778,13 @@ model PurchaseOrderLine {
   discountMinor       BigInt        @default(0) @map("discount_minor") @db.BigInt
   lineTotalMinor      BigInt        @map("line_total_minor") @db.BigInt
   taxCodeId           String?       @map("tax_code_id") @db.Uuid
+  warehouseId         String?       @map("warehouse_id") @db.Uuid
   createdAt           DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
   organization        Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   purchaseOrder       PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
   item                Item?         @relation(fields: [itemId], references: [id], onDelete: Restrict)
   taxCode             TaxCode?      @relation(fields: [taxCodeId], references: [id], onDelete: Restrict)
+  warehouse           Warehouse?    @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
   billLines           BillLine[]
 
   @@unique([purchaseOrderId, lineNumber])
@@ -1684,6 +1864,7 @@ model BillLine {
   taxableAmountMinor     BigInt?            @map("taxable_amount_minor") @db.BigInt
   taxAmountMinor         BigInt?            @map("tax_amount_minor") @db.BigInt
   accountId              String?            @map("account_id") @db.Uuid
+  warehouseId            String?            @map("warehouse_id") @db.Uuid
   projectTag             String?            @map("project_tag") @db.VarChar(80)
   createdAt              DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
   organization           Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
@@ -1692,6 +1873,7 @@ model BillLine {
   item                   Item?              @relation(fields: [itemId], references: [id], onDelete: Restrict)
   taxCode                TaxCode?           @relation(fields: [taxCodeId], references: [id], onDelete: Restrict)
   account                LedgerAccount?     @relation("BillLineAccount", fields: [accountId], references: [id], onDelete: Restrict)
+  warehouse              Warehouse?         @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
 
   @@unique([billId, lineNumber])
   @@index([organizationId, billId])
@@ -1702,6 +1884,7 @@ model BillLine {
 enum AttachmentEntityType {
   BILL
   EXPENSE
+  INVENTORY_ADJUSTMENT
 }
 
 /// Generic polymorphic attachment (entityType + entityId, no FK relation to the entity tables --
@@ -1998,12 +2181,14 @@ model RecurringBillTemplateLine {
   lineTotalMinor      BigInt                @map("line_total_minor") @db.BigInt
   taxCodeId           String?               @map("tax_code_id") @db.Uuid
   accountId           String?               @map("account_id") @db.Uuid
+  warehouseId         String?               @map("warehouse_id") @db.Uuid
   createdAt           DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
   organization        Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   template            RecurringBillTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
   item                Item?                 @relation(fields: [itemId], references: [id], onDelete: Restrict)
   taxCode             TaxCode?              @relation(fields: [taxCodeId], references: [id], onDelete: Restrict)
   account             LedgerAccount?        @relation("RecurringBillTemplateLineAccount", fields: [accountId], references: [id], onDelete: Restrict)
+  warehouse           Warehouse?            @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
 
   @@unique([templateId, lineNumber])
   @@index([organizationId, templateId])

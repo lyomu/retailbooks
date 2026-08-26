@@ -64,6 +64,11 @@ export class PurchaseOrderLineDto {
   @IsString()
   @Length(36, 36)
   taxCodeId?: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(36, 36)
+  warehouseId?: string;
 }
 
 export class CreatePurchaseOrderDto {
@@ -132,4 +137,31 @@ export class ListPurchaseOrdersQueryDto {
   @IsOptional()
   @IsIn(['DRAFT', 'APPROVED', 'ISSUED', 'CLOSED', 'CANCELLED'])
   status?: string;
+}
+
+export class PurchaseOrderReceiptLineDto {
+  @IsString()
+  @Length(36, 36)
+  purchaseOrderLineId!: string;
+
+  @IsString()
+  @Matches(/^\d+(\.\d{1,4})?$/, {
+    message: 'quantity must be a non-negative decimal string with up to 4 places',
+  })
+  @Transform(trim)
+  quantity!: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(36, 36)
+  warehouseId?: string;
+}
+
+export class RecordPurchaseOrderReceiptDto {
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(200)
+  @ValidateNested({ each: true })
+  @Type(() => PurchaseOrderReceiptLineDto)
+  lines!: PurchaseOrderReceiptLineDto[];
 }

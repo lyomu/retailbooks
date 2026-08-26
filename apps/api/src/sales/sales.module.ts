@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 
 import { AuthModule } from '../auth/auth.module.js';
+import { InventoryModule } from '../inventory/inventory.module.js';
 import { JobsModule } from '../jobs/jobs.module.js';
 import { OrganizationsModule } from '../organizations/organizations.module.js';
 import { StorageModule } from '../storage/storage.module.js';
@@ -25,7 +26,7 @@ import { StatementsController } from './statements.controller.js';
 import { StatementsService } from './statements.service.js';
 
 @Module({
-  imports: [AuthModule, OrganizationsModule, JobsModule, StorageModule],
+  imports: [AuthModule, OrganizationsModule, JobsModule, StorageModule, InventoryModule],
   controllers: [
     CustomersController,
     CatalogController,

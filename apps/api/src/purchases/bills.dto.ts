@@ -77,6 +77,11 @@ export class BillLineDto {
 
   @IsOptional()
   @IsString()
+  @Length(36, 36)
+  warehouseId?: string;
+
+  @IsOptional()
+  @IsString()
   @MaxLength(80)
   @Transform(trimOrUndefined)
   projectTag?: string;

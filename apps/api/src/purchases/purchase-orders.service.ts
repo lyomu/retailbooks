@@ -10,6 +10,7 @@ import { roundHalfUpDivide } from '@retailbooks/accounting-core';
 import type { PublicUser } from '../auth/auth.service.js';
 import type { RequestMetadata } from '../auth/request-context.js';
 import { PrismaService } from '../database/prisma.service.js';
+import { InventoryService } from '../inventory/inventory.service.js';
 import { writeAuditEvent } from '../organizations/audit-event.js';
 import { PURCHASE_ORDER_DOCUMENT_TYPE } from '../organizations/document-numbering.js';
 import { DocumentNumberingService } from '../organizations/document-numbering.service.js';
@@ -17,6 +18,7 @@ import type { OrganizationContext } from '../organizations/organization-context.
 import type {
   CreatePurchaseOrderDto,
   PurchaseOrderLineDto,
+  RecordPurchaseOrderReceiptDto,
   UpdatePurchaseOrderDto,
 } from './purchase-orders.dto.js';
 
@@ -36,6 +38,7 @@ export class PurchaseOrdersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly numbering: DocumentNumberingService,
+    private readonly inventory: InventoryService,
   ) {}
 
   async list(organizationId: string, status?: string) {
@@ -251,31 +254,21 @@ export class PurchaseOrdersService {
     context: OrganizationContext,
     user: PublicUser,
     orderId: string,
-    receiptStatus: 'PARTIALLY_RECEIVED' | 'RECEIVED',
+    input: RecordPurchaseOrderReceiptDto | 'PARTIALLY_RECEIVED' | 'RECEIVED',
     metadata: RequestMetadata,
   ) {
-    const existing = await this.findOrThrow(context.id, orderId);
-    if (existing.status !== 'ISSUED') {
-      throw new ConflictException('Only issued orders can have receipts recorded.');
+    if (typeof input === 'string') {
+      throw new BadRequestException('Receipt status is derived from stock receipt movements.');
     }
     const updated = await this.prisma.$transaction(async (tx) => {
-      const order = await tx.purchaseOrder.update({
-        where: { id: orderId },
-        data: { receiptStatus },
-        include: orderDetailInclude,
-      });
-      await writeAuditEvent(tx, {
-        organizationId: context.id,
-        actorUserId: user.id,
-        eventKey: 'purchases.order_receipt_recorded',
-        entityType: 'purchase_order',
-        entityId: orderId,
-        action: AuditAction.UPDATE,
-        before: { receiptStatus: existing.receiptStatus },
-        after: { receiptStatus },
-        ipHash: metadata.ipHash,
-      });
-      return order;
+      return this.inventory.recordPurchaseOrderReceipt(
+        context,
+        user,
+        orderId,
+        input,
+        metadata,
+        tx,
+      );
     });
     return summarizeOrder(updated);
   }
@@ -368,6 +361,17 @@ export class PurchaseOrdersService {
           });
     const itemsById = new Map(items.map((item) => [item.id, item]));
 
+    const warehouseIds = Array.from(
+      new Set(lines.map((line) => line.warehouseId).filter((id): id is string => Boolean(id))),
+    );
+    const warehouses =
+      warehouseIds.length === 0
+        ? []
+        : await this.prisma.warehouse.findMany({
+            where: { id: { in: warehouseIds }, organizationId },
+          });
+    const warehousesById = new Map(warehouses.map((warehouse) => [warehouse.id, warehouse]));
+
     return lines.map((line, index) => {
       const label = `Line ${index + 1}`;
       const item = line.itemId ? itemsById.get(line.itemId) : undefined;
@@ -387,6 +391,16 @@ export class PurchaseOrdersService {
       }
       const descriptionSnapshot = line.description ?? item?.name;
       if (!descriptionSnapshot) throw new BadRequestException(`${label}: needs a description.`);
+      if (item?.inventoryTracked && !line.warehouseId) {
+        throw new BadRequestException(`${label}: tracked items need a warehouse.`);
+      }
+      const warehouse = line.warehouseId ? warehousesById.get(line.warehouseId) : undefined;
+      if (line.warehouseId && !warehouse) {
+        throw new BadRequestException(`${label}: warehouse not found.`);
+      }
+      if (warehouse?.status !== 'ACTIVE') {
+        throw new BadRequestException(`${label}: warehouse is inactive.`);
+      }
 
       if (!line.unitPriceMinor) {
         throw new BadRequestException(
@@ -405,7 +419,8 @@ export class PurchaseOrdersService {
         unitPriceMinor,
         discountMinor,
         lineTotalMinor,
-        taxCodeId: line.taxCodeId ?? item?.defaultTaxCodeId ?? null,
+        taxCodeId: line.taxCodeId ?? item?.defaultPurchaseTaxCodeId ?? item?.defaultTaxCodeId ?? null,
+        warehouseId: line.warehouseId ?? null,
       };
     });
   }
@@ -438,6 +453,7 @@ function lineCreateData(
     discountMinor: bigint;
     lineTotalMinor: bigint;
     taxCodeId: string | null;
+    warehouseId: string | null;
   },
   index: number,
   organizationId: string,
@@ -452,6 +468,7 @@ function lineCreateData(
     discountMinor: line.discountMinor,
     lineTotalMinor: line.lineTotalMinor,
     taxCodeId: line.taxCodeId,
+    warehouseId: line.warehouseId,
   };
 }
 
@@ -480,6 +497,7 @@ function summarizeOrder(order: PurchaseOrderWithLines) {
       discountMinor: line.discountMinor.toString(),
       lineTotalMinor: line.lineTotalMinor.toString(),
       taxCodeId: line.taxCodeId,
+      warehouseId: line.warehouseId,
     })),
     createdAt: order.createdAt.toISOString(),
     updatedAt: order.updatedAt.toISOString(),

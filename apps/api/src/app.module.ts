@@ -10,6 +10,7 @@ import { DatabaseModule } from './database/database.module.js';
 import { DemoSeedService } from './demo-seed.service.js';
 import { HealthController } from './health.controller.js';
 import { HealthService } from './health.service.js';
+import { InventoryModule } from './inventory/inventory.module.js';
 import { JobsModule } from './jobs/jobs.module.js';
 import { OrganizationsModule } from './organizations/organizations.module.js';
 import { PurchasesModule } from './purchases/purchases.module.js';
@@ -26,6 +27,7 @@ import { SalesModule } from './sales/sales.module.js';
     SalesModule,
     PurchasesModule,
     BankingModule,
+    InventoryModule,
   ],
   controllers: [HealthController],
   providers: [

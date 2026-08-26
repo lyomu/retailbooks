@@ -129,6 +129,17 @@ export const PERMISSION_KEYS = [
   'banking.reconciliations.view',
   'banking.reconciliations.manage',
   'banking.reconciliations.reopen',
+  'inventory.warehouses.view',
+  'inventory.warehouses.manage',
+  'inventory.movements.view',
+  'inventory.adjustments.view',
+  'inventory.adjustments.manage',
+  'inventory.adjustments.approve',
+  'inventory.adjustments.post',
+  'inventory.transfers.view',
+  'inventory.transfers.manage',
+  'inventory.reorder.view',
+  'inventory.valuation.view',
 ] as const;
 
 export type PermissionKey = (typeof PERMISSION_KEYS)[number];
@@ -153,7 +164,8 @@ export interface PermissionDefinition {
     | 'Security'
     | 'Sales'
     | 'Purchases'
-    | 'Banking';
+    | 'Banking'
+    | 'Inventory';
   /**
    * Permanently OWNER-only. No role -- system or custom -- can hold a protected key; there is no
    * grant path for it anywhere, which is the entire privilege-escalation defence.
@@ -1020,6 +1032,83 @@ export const PERMISSION_CATALOG: readonly PermissionDefinition[] = Object.freeze
     label: 'Reopen reconciliations',
     description: 'Reopen a completed reconciliation with a recorded reason.',
     group: 'Banking',
+    protected: false,
+  },
+  {
+    key: 'inventory.warehouses.view',
+    label: 'View warehouses',
+    description: 'See inventory warehouse records and status.',
+    group: 'Inventory',
+    protected: false,
+  },
+  {
+    key: 'inventory.warehouses.manage',
+    label: 'Manage warehouses',
+    description: 'Create and edit warehouses.',
+    group: 'Inventory',
+    protected: false,
+  },
+  {
+    key: 'inventory.movements.view',
+    label: 'View stock movements',
+    description: 'See append-only inventory movement history.',
+    group: 'Inventory',
+    protected: false,
+  },
+  {
+    key: 'inventory.adjustments.view',
+    label: 'View inventory adjustments',
+    description: 'See draft, pending, approved, posted, and cancelled adjustments.',
+    group: 'Inventory',
+    protected: false,
+  },
+  {
+    key: 'inventory.adjustments.manage',
+    label: 'Manage inventory adjustments',
+    description: 'Create, edit, submit, and cancel inventory adjustment drafts.',
+    group: 'Inventory',
+    protected: false,
+  },
+  {
+    key: 'inventory.adjustments.approve',
+    label: 'Approve inventory adjustments',
+    description: 'Approve inventory adjustments pending approval.',
+    group: 'Inventory',
+    protected: false,
+  },
+  {
+    key: 'inventory.adjustments.post',
+    label: 'Post inventory adjustments',
+    description: 'Post inventory adjustments to stock and the general ledger.',
+    group: 'Inventory',
+    protected: false,
+  },
+  {
+    key: 'inventory.transfers.view',
+    label: 'View inventory transfers',
+    description: 'See warehouse-to-warehouse transfer movements.',
+    group: 'Inventory',
+    protected: false,
+  },
+  {
+    key: 'inventory.transfers.manage',
+    label: 'Manage inventory transfers',
+    description: 'Move tracked stock between warehouses without changing organization quantity.',
+    group: 'Inventory',
+    protected: false,
+  },
+  {
+    key: 'inventory.reorder.view',
+    label: 'View reorder advice',
+    description: 'See advisory reorder suggestions for tracked items below threshold.',
+    group: 'Inventory',
+    protected: false,
+  },
+  {
+    key: 'inventory.valuation.view',
+    label: 'View inventory valuation',
+    description: 'See valuation layers and inventory value by item and warehouse.',
+    group: 'Inventory',
     protected: false,
   },
 ]);

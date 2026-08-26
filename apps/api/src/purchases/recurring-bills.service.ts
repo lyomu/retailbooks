@@ -358,6 +358,17 @@ export class RecurringBillsService {
         ? []
         : await this.prisma.item.findMany({ where: { id: { in: itemIds }, organizationId } });
     const itemsById = new Map(items.map((item) => [item.id, item]));
+    const needsInventoryAccount = lines.some((line) => {
+      const item = line.itemId ? itemsById.get(line.itemId) : undefined;
+      return item?.inventoryTracked && !line.accountId && !item.purchaseAccountId;
+    });
+    const inventoryAccountId = needsInventoryAccount
+      ? (
+          await this.prisma.ledgerAccount.findUniqueOrThrow({
+            where: { organizationId_systemKey: { organizationId, systemKey: 'inventory_asset' } },
+          })
+        ).id
+      : null;
 
     return lines.map((line, index) => {
       const label = `Line ${index + 1}`;
@@ -390,8 +401,9 @@ export class RecurringBillsService {
         unitPriceMinor,
         discountMinor,
         lineTotalMinor,
-        taxCodeId: line.taxCodeId ?? null,
-        accountId: line.accountId ?? null,
+        taxCodeId: line.taxCodeId ?? item?.defaultPurchaseTaxCodeId ?? item?.defaultTaxCodeId ?? null,
+        accountId: line.accountId ?? item?.purchaseAccountId ?? (item?.inventoryTracked ? inventoryAccountId : null),
+        warehouseId: line.warehouseId ?? null,
       };
     });
   }
@@ -425,6 +437,7 @@ function lineCreateData(
     lineTotalMinor: bigint;
     taxCodeId: string | null;
     accountId: string | null;
+    warehouseId: string | null;
   },
   index: number,
   organizationId: string,
@@ -440,6 +453,7 @@ function lineCreateData(
     lineTotalMinor: line.lineTotalMinor,
     taxCodeId: line.taxCodeId,
     accountId: line.accountId,
+    warehouseId: line.warehouseId,
   };
 }
 
@@ -467,6 +481,7 @@ function summarizeTemplate(template: TemplateWithLines) {
       lineTotalMinor: line.lineTotalMinor.toString(),
       taxCodeId: line.taxCodeId,
       accountId: line.accountId,
+      warehouseId: line.warehouseId,
     })),
     createdAt: template.createdAt.toISOString(),
     updatedAt: template.updatedAt.toISOString(),

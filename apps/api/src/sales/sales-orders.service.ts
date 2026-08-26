@@ -317,6 +317,7 @@ export class SalesOrdersService {
           unitPriceMinor: line.unitPriceMinor.toString(),
           discountMinor: line.discountMinor.toString(),
           taxCodeId: line.taxCodeId ?? undefined,
+          warehouseId: line.warehouseId ?? undefined,
         })),
       },
       metadata,
@@ -439,6 +440,7 @@ export class SalesOrdersService {
         discountMinor,
         lineTotalMinor,
         taxCodeId: line.taxCodeId ?? item?.defaultTaxCodeId ?? null,
+        warehouseId: line.warehouseId ?? null,
       };
     });
   }
@@ -482,6 +484,7 @@ function lineCreateData(
     discountMinor: bigint;
     lineTotalMinor: bigint;
     taxCodeId: string | null;
+    warehouseId: string | null;
   },
   index: number,
   organizationId: string,
@@ -496,6 +499,7 @@ function lineCreateData(
     discountMinor: line.discountMinor,
     lineTotalMinor: line.lineTotalMinor,
     taxCodeId: line.taxCodeId,
+    warehouseId: line.warehouseId,
   };
 }
 
@@ -521,6 +525,7 @@ function summarizeOrder(order: SalesOrderWithLines) {
       discountMinor: line.discountMinor.toString(),
       lineTotalMinor: line.lineTotalMinor.toString(),
       taxCodeId: line.taxCodeId,
+      warehouseId: line.warehouseId,
     })),
     createdAt: order.createdAt.toISOString(),
     updatedAt: order.updatedAt.toISOString(),

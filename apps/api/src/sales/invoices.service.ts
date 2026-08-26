@@ -10,6 +10,7 @@ import { roundHalfUpDivide } from '@retailbooks/accounting-core';
 import type { PublicUser } from '../auth/auth.service.js';
 import type { RequestMetadata } from '../auth/request-context.js';
 import { PrismaService } from '../database/prisma.service.js';
+import { InventoryService } from '../inventory/inventory.service.js';
 import { EMAIL_JOB_NAMES } from '../jobs/email-job.js';
 import { EmailQueueService } from '../jobs/email-queue.service.js';
 import { writeAuditEvent } from '../organizations/audit-event.js';
@@ -45,6 +46,7 @@ export class InvoicesService {
     private readonly numbering: DocumentNumberingService,
     private readonly documentRendering: DocumentRenderingService,
     private readonly emailQueue: EmailQueueService,
+    private readonly inventory: InventoryService,
   ) {}
 
   async list(organizationId: string, status?: string) {
@@ -354,6 +356,7 @@ export class InvoicesService {
         include: invoiceDetailInclude,
       });
 
+      await this.inventory.postInvoiceCogs(context, user, invoiceId, metadata, tx);
       await this.recordInvoiceIdempotency(tx, context.id, idempotencyKey, invoiceId);
       await writeAuditEvent(tx, {
         organizationId: context.id,
@@ -541,6 +544,16 @@ export class InvoicesService {
             include: { prices: true },
           });
     const itemsById = new Map(items.map((item) => [item.id, item]));
+    const warehouseIds = Array.from(
+      new Set(lines.map((line) => line.warehouseId).filter((id): id is string => Boolean(id))),
+    );
+    const warehouses =
+      warehouseIds.length === 0
+        ? []
+        : await this.prisma.warehouse.findMany({
+            where: { id: { in: warehouseIds }, organizationId },
+          });
+    const warehousesById = new Map(warehouses.map((warehouse) => [warehouse.id, warehouse]));
 
     return lines.map((line, index) => {
       const label = `Line ${index + 1}`;
@@ -561,6 +574,16 @@ export class InvoicesService {
       }
       const descriptionSnapshot = line.description ?? item?.name;
       if (!descriptionSnapshot) throw new BadRequestException(`${label}: needs a description.`);
+      if (item?.inventoryTracked && !line.warehouseId) {
+        throw new BadRequestException(`${label}: tracked inventory needs a warehouse.`);
+      }
+      const warehouse = line.warehouseId ? warehousesById.get(line.warehouseId) : undefined;
+      if (line.warehouseId && !warehouse) {
+        throw new BadRequestException(`${label}: warehouse not found.`);
+      }
+      if (warehouse?.status !== 'ACTIVE') {
+        throw new BadRequestException(`${label}: warehouse is inactive.`);
+      }
 
       const unitPriceMinor = line.unitPriceMinor
         ? BigInt(line.unitPriceMinor)
@@ -578,6 +601,7 @@ export class InvoicesService {
         lineTotalMinor,
         taxCodeId: line.taxCodeId ?? item?.defaultTaxCodeId ?? null,
         revenueAccountId: line.revenueAccountId ?? item?.revenueAccountId ?? null,
+        warehouseId: line.warehouseId ?? null,
         projectTag: line.projectTag ?? null,
       };
     });
@@ -691,6 +715,7 @@ function lineCreateData(
     lineTotalMinor: bigint;
     taxCodeId: string | null;
     revenueAccountId: string | null;
+    warehouseId: string | null;
     projectTag: string | null;
   },
   index: number,
@@ -707,6 +732,7 @@ function lineCreateData(
     lineTotalMinor: line.lineTotalMinor,
     taxCodeId: line.taxCodeId,
     revenueAccountId: line.revenueAccountId,
+    warehouseId: line.warehouseId,
     projectTag: line.projectTag,
   };
 }
@@ -747,6 +773,7 @@ function summarizeInvoice(invoice: InvoiceWithLines) {
       taxableAmountMinor: line.taxableAmountMinor?.toString() ?? null,
       taxAmountMinor: line.taxAmountMinor?.toString() ?? null,
       revenueAccountId: line.revenueAccountId,
+      warehouseId: line.warehouseId,
       projectTag: line.projectTag,
     })),
     createdAt: invoice.createdAt.toISOString(),

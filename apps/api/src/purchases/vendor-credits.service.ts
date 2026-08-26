@@ -702,6 +702,17 @@ export class VendorCreditsService {
         ? []
         : await this.prisma.item.findMany({ where: { id: { in: itemIds }, organizationId } });
     const itemsById = new Map(items.map((item) => [item.id, item]));
+    const needsInventoryAccount = lines.some((line) => {
+      const item = line.itemId ? itemsById.get(line.itemId) : undefined;
+      return item?.inventoryTracked && !line.accountId && !item.purchaseAccountId;
+    });
+    const inventoryAccountId = needsInventoryAccount
+      ? (
+          await this.prisma.ledgerAccount.findUniqueOrThrow({
+            where: { organizationId_systemKey: { organizationId, systemKey: 'inventory_asset' } },
+          })
+        ).id
+      : null;
 
     return lines.map((line, index) => {
       const label = `Line ${index + 1}`;
@@ -734,8 +745,8 @@ export class VendorCreditsService {
         unitPriceMinor,
         discountMinor,
         lineTotalMinor,
-        taxCodeId: line.taxCodeId ?? null,
-        accountId: line.accountId ?? null,
+        taxCodeId: line.taxCodeId ?? item?.defaultPurchaseTaxCodeId ?? item?.defaultTaxCodeId ?? null,
+        accountId: line.accountId ?? item?.purchaseAccountId ?? (item?.inventoryTracked ? inventoryAccountId : null),
         projectTag: line.projectTag ?? null,
       };
     });

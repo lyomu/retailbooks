@@ -70,6 +70,11 @@ export class RecurringBillTemplateLineDto {
   @IsString()
   @Length(36, 36)
   accountId?: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(36, 36)
+  warehouseId?: string;
 }
 
 export class CreateRecurringBillTemplateDto {

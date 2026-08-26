@@ -120,6 +120,18 @@ const navigationGroups: NavigationGroup[] = [
     ],
   },
   {
+    label: 'Inventory',
+    items: [
+      { label: 'Items & stock', icon: Package, href: '/catalog/items' },
+      { label: 'Warehouses', icon: Building2, href: '/warehouses' },
+      { label: 'Movements', icon: FileClock, href: '/stock-movements' },
+      { label: 'Adjustments', icon: SlidersHorizontal, href: '/inventory-adjustments' },
+      { label: 'Transfers', icon: ArrowRightLeft, href: '/inventory-transfers' },
+      { label: 'Reorder', icon: ListChecks, href: '/reorder' },
+      { label: 'Valuation', icon: Calculator, href: '/inventory-valuation' },
+    ],
+  },
+  {
     label: 'Finance controls',
     items: [
       { label: 'Fiscal periods', icon: CalendarClock, href: '/periods' },
