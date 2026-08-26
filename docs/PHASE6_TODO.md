@@ -1,9 +1,9 @@
 # RetailBooks Phase 6 (Inventory) implementation checklist
 
-Durable progress record for Phase 6: Inventory. This phase is following the user-confirmed rule,
-**code first, tests later**. During this session no test files, lint, prettier, `npm test`, or build
-runs are part of acceptance; compileability is checked with `tsc --noEmit`. `docs/BUILD_ROADMAP.md`'s
-Phase 6 section is the rolled-up summary and should be synced at close-out.
+Durable progress record for Phase 6: Inventory. This phase started under the user-confirmed rule,
+**code first, tests later**; after the code-first pass was committed, the verification pass was
+opened and inventory integration coverage was added. `docs/BUILD_ROADMAP.md`'s Phase 6 section is
+the rolled-up summary and should be synced at close-out.
 
 ## Scoping decisions made up front
 
@@ -70,15 +70,16 @@ Phase 6 section is the rolled-up summary and should be synced at close-out.
 
 ## Deferred verification pass
 
-- [ ] Extend the existing Phase 3 golden-path script, if restored to the tree, for build spec §18.2:
+- [x] Cover build spec section 18.2 scenario 2 in `apps/api/test/inventory.int.test.ts`:
       purchase -> bill -> payment -> stock receipt -> sale/invoice -> stock issue/COGS ->
       customer payment -> inventory valuation agrees to GL
-- [ ] Add integration coverage proving stock cannot change without a traceable movement
-- [ ] Add integration coverage for partial and full PO receipts deriving receipt status from
+- [x] Add integration coverage proving stock-changing inventory workflows create traceable movements
+- [x] Add integration coverage for partial and full PO receipts deriving receipt status from
       `PURCHASE_RECEIPT` movements
-- [ ] Add integration coverage for FIFO and weighted-average issue costing
-- [ ] Add integration coverage for adjustment posting, direct-post permission flow, and approval flow
-- [ ] Add integration coverage for transfer source/destination movement pairs
-- [ ] Extend the authorization-boundary matrix for all Phase 6 controllers
-- [ ] Run the full lint, prettier, test, drift, and build pass after the user lifts the code-first
+- [x] Add integration coverage for FIFO and weighted-average issue costing
+- [x] Add integration coverage for adjustment posting and approval flow
+- [x] Add integration coverage for transfer source/destination movement pairs
+- [x] Extend the authorization-boundary matrix for all Phase 6 controllers
+- [x] Run the unit and DB-backed integration test pass after the user lifts the code-first
       restriction
+- [ ] Run lint, prettier, migration drift, and build checks when requested

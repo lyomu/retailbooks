@@ -398,7 +398,7 @@ export class PurchaseOrdersService {
       if (line.warehouseId && !warehouse) {
         throw new BadRequestException(`${label}: warehouse not found.`);
       }
-      if (warehouse?.status !== 'ACTIVE') {
+      if (warehouse && warehouse.status !== 'ACTIVE') {
         throw new BadRequestException(`${label}: warehouse is inactive.`);
       }
 

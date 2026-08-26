@@ -702,10 +702,13 @@ export class InventoryService {
     }
 
     const totalAvailableCost = layers.reduce((sum, layer) => sum + layer.costRemainingMinor, 0n);
-    const weightedUnit =
-      method === 'WEIGHTED_AVERAGE'
-        ? roundHalfUpDivide(totalAvailableCost * QUANTITY_SCALE, availableScaled)
-        : 0n;
+    if (method === 'WEIGHTED_AVERAGE') {
+      return this.consumeWeightedAverageStock(tx, context, user, input, layers, {
+        availableScaled,
+        totalAvailableCost,
+      });
+    }
+
     let remainingScaled = input.quantityScaled;
     let totalCostMinor = 0n;
 
@@ -714,11 +717,9 @@ export class InventoryService {
       const layerRemainingScaled = toScaled(layer.quantityRemaining.toString());
       const consumeScaled = layerRemainingScaled < remainingScaled ? layerRemainingScaled : remainingScaled;
       const layerCost =
-        method === 'WEIGHTED_AVERAGE'
-          ? roundHalfUpDivide(consumeScaled * weightedUnit, QUANTITY_SCALE)
-          : consumeScaled === layerRemainingScaled
-            ? layer.costRemainingMinor
-            : roundHalfUpDivide(layer.costRemainingMinor * consumeScaled, layerRemainingScaled);
+        consumeScaled === layerRemainingScaled
+          ? layer.costRemainingMinor
+          : roundHalfUpDivide(layer.costRemainingMinor * consumeScaled, layerRemainingScaled);
       const nextRemainingScaled = layerRemainingScaled - consumeScaled;
       await tx.valuationLayer.update({
         where: { id: layer.id },
@@ -735,10 +736,7 @@ export class InventoryService {
           movementDate: input.movementDate,
           direction: 'OUT',
           quantity: scaledToDecimal(consumeScaled),
-          unitCostMinor:
-            method === 'WEIGHTED_AVERAGE'
-              ? weightedUnit
-              : roundHalfUpDivide(layerCost * QUANTITY_SCALE, consumeScaled),
+          unitCostMinor: roundHalfUpDivide(layerCost * QUANTITY_SCALE, consumeScaled),
           totalCostMinor: layerCost,
           sourceType: input.sourceType,
           sourceId: input.sourceId,
@@ -750,6 +748,89 @@ export class InventoryService {
       remainingScaled -= consumeScaled;
       totalCostMinor += layerCost;
     }
+    return totalCostMinor;
+  }
+
+  private async consumeWeightedAverageStock(
+    tx: Tx,
+    context: OrganizationContext,
+    user: PublicUser,
+    input: {
+      itemId: string;
+      warehouseId: string;
+      movementDate: Date;
+      quantityScaled: bigint;
+      sourceType: StockMovementSourceType;
+      sourceId: string;
+      sourceLineId: string | null;
+    },
+    layers: {
+      id: string;
+      quantityRemaining: Prisma.Decimal;
+      costRemainingMinor: bigint;
+    }[],
+    available: {
+      availableScaled: bigint;
+      totalAvailableCost: bigint;
+    },
+  ) {
+    const weightedUnit = roundHalfUpDivide(
+      available.totalAvailableCost * QUANTITY_SCALE,
+      available.availableScaled,
+    );
+    const totalCostMinor = roundHalfUpDivide(
+      input.quantityScaled * available.totalAvailableCost,
+      available.availableScaled,
+    );
+    let remainingScaled = input.quantityScaled;
+    let remainingCostMinor = totalCostMinor;
+
+    for (const [index, layer] of layers.entries()) {
+      if (remainingScaled === 0n) break;
+      const layerRemainingScaled = toScaled(layer.quantityRemaining.toString());
+      const isLastLayer = index === layers.length - 1;
+      const targetScaled = isLastLayer
+        ? remainingScaled
+        : roundHalfUpDivide(layerRemainingScaled * input.quantityScaled, available.availableScaled);
+      const consumeScaled =
+        targetScaled > remainingScaled
+          ? remainingScaled
+          : targetScaled > layerRemainingScaled
+            ? layerRemainingScaled
+            : targetScaled;
+      if (consumeScaled === 0n) continue;
+      const layerCost = isLastLayer
+        ? remainingCostMinor
+        : roundHalfUpDivide(layer.costRemainingMinor * consumeScaled, layerRemainingScaled);
+      const nextRemainingScaled = layerRemainingScaled - consumeScaled;
+      await tx.valuationLayer.update({
+        where: { id: layer.id },
+        data: {
+          quantityRemaining: scaledToDecimal(nextRemainingScaled),
+          costRemainingMinor: layer.costRemainingMinor - layerCost,
+        },
+      });
+      remainingScaled -= consumeScaled;
+      remainingCostMinor -= layerCost;
+    }
+
+    await tx.stockMovement.create({
+      data: {
+        organizationId: context.id,
+        itemId: input.itemId,
+        warehouseId: input.warehouseId,
+        movementDate: input.movementDate,
+        direction: 'OUT',
+        quantity: scaledToDecimal(input.quantityScaled),
+        unitCostMinor: weightedUnit,
+        totalCostMinor,
+        sourceType: input.sourceType,
+        sourceId: input.sourceId,
+        sourceLineId: input.sourceLineId,
+        valuationLayerId: null,
+        createdByUserId: user.id,
+      },
+    });
     return totalCostMinor;
   }
 

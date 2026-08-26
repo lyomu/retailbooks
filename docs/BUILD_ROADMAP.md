@@ -398,7 +398,8 @@ Entities: `Item` (extended), `Warehouse`, `StockMovement`, `InventoryAdjustment`
 - [x] `StockMovement` (item, warehouse, qty, source, date, cost layer/reference) — append-only
 - [x] `InventoryAdjustment` (qty/value adjustment, reason, account, attachment)
 - [x] `ValuationLayer` for the organization-selected valuation method
-- [x] Migration written, applied, and drift-checked in CI
+- [x] Migration written and applied during the DB-backed integration pass; CI drift check remains a
+      release hardening step
 
 ### Backend/API
 
@@ -423,9 +424,9 @@ Entities: `Item` (extended), `Warehouse`, `StockMovement`, `InventoryAdjustment`
 
 ### Tests/acceptance
 
-- [ ] Stock cannot change without a traceable movement (spec-level invariant)
-- [ ] Inventory valuation reconciles to the inventory control account under the chosen policy
-- [ ] Cross-module scenario 2 (retail business, build spec §18.2) passes end to end: purchase →
+- [x] Stock cannot change without a traceable movement (spec-level invariant)
+- [x] Inventory valuation reconciles to the inventory control account under the chosen policy
+- [x] Cross-module scenario 2 (retail business, build spec §18.2) passes end to end: purchase →
       bill → payment → stock receipt → sale/invoice → stock issue/COGS → customer payment → inventory
       valuation agrees to GL
 

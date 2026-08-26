@@ -212,8 +212,32 @@ describe('purchase order workflows against a real database', () => {
   });
 
   describe('receipt status', () => {
-    it('records a receipt status change on an issued order', async () => {
-      const draft = await purchaseOrders.createDraft(context, owner, draftInput(), metadata);
+    it('derives receipt status from tracked stock receipt movements', async () => {
+      const item = await catalog.createItem(
+        context,
+        owner,
+        { name: 'Tracked widget', itemType: 'GOODS', inventoryTracked: true },
+        metadata,
+      );
+      const warehouse = await harness.prisma.warehouse.create({
+        data: { organizationId: context.id, code: 'MAIN', name: 'Main Warehouse' },
+      });
+      const draft = await purchaseOrders.createDraft(
+        context,
+        owner,
+        {
+          vendorId,
+          lines: [
+            {
+              itemId: item.id,
+              quantity: '2',
+              unitPriceMinor: '1000',
+              warehouseId: warehouse.id,
+            },
+          ],
+        },
+        metadata,
+      );
       await purchaseOrders.approve(context, owner, draft.id, metadata);
       const issued = await purchaseOrders.issue(context, owner, draft.id, metadata);
       expect(issued.receiptStatus).toBe('NOT_RECEIVED');
@@ -222,29 +246,66 @@ describe('purchase order workflows against a real database', () => {
         context,
         owner,
         draft.id,
-        'PARTIALLY_RECEIVED',
+        { lines: [{ purchaseOrderLineId: issued.lines[0]!.id, quantity: '1' }] },
         metadata,
       );
       expect(partially.receiptStatus).toBe('PARTIALLY_RECEIVED');
-      // Receipt status is independent of the order's own workflow status.
       expect(partially.status).toBe('ISSUED');
 
       const received = await purchaseOrders.recordReceipt(
         context,
         owner,
         draft.id,
-        'RECEIVED',
+        { lines: [{ purchaseOrderLineId: issued.lines[0]!.id, quantity: '1' }] },
         metadata,
       );
       expect(received.receiptStatus).toBe('RECEIVED');
       expect(received.status).toBe('ISSUED');
+
+      const movements = await harness.prisma.stockMovement.findMany({
+        where: { organizationId: context.id, sourceType: 'PURCHASE_RECEIPT', sourceId: draft.id },
+        orderBy: { createdAt: 'asc' },
+      });
+      expect(movements).toHaveLength(2);
+      expect(movements.every((movement) => movement.warehouseId === warehouse.id)).toBe(true);
+      expect(movements.map((movement) => movement.quantity.toString())).toEqual(['1', '1']);
     });
 
     it('rejects recording a receipt on an order that has not been issued', async () => {
-      const draft = await purchaseOrders.createDraft(context, owner, draftInput(), metadata);
+      const item = await catalog.createItem(
+        context,
+        owner,
+        { name: 'Tracked draft widget', itemType: 'GOODS', inventoryTracked: true },
+        metadata,
+      );
+      const warehouse = await harness.prisma.warehouse.create({
+        data: { organizationId: context.id, code: 'MAIN', name: 'Main Warehouse' },
+      });
+      const draft = await purchaseOrders.createDraft(
+        context,
+        owner,
+        {
+          vendorId,
+          lines: [
+            {
+              itemId: item.id,
+              quantity: '1',
+              unitPriceMinor: '1000',
+              warehouseId: warehouse.id,
+            },
+          ],
+        },
+        metadata,
+      );
 
       await expect(
-        purchaseOrders.recordReceipt(context, owner, draft.id, 'RECEIVED', metadata),
+        purchaseOrders.recordReceipt(
+          context,
+          owner,
+          draft.id,
+          { lines: [{ purchaseOrderLineId: draft.lines[0]!.id, quantity: '1' }] },
+          metadata,
+        ),
       ).rejects.toThrow('Only issued orders can have receipts recorded.');
     });
   });

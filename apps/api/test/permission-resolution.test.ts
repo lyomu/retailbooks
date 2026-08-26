@@ -71,11 +71,29 @@ describe('SYSTEM_ROLE_TEMPLATES', () => {
     expect(viewer?.permissions).toContain('reports.view');
   });
 
-  it('gives the still-Phase-1-minimal roles only organization.view', () => {
-    for (const key of ['INVENTORY_MANAGER', 'PROJECT_MANAGER'] as const) {
-      const template = SYSTEM_ROLE_TEMPLATES.find((t) => t.key === key);
-      expect(template?.permissions).toEqual(['organization.view']);
-    }
+  it('keeps the future Project Manager role minimal until its phase ships', () => {
+    const template = SYSTEM_ROLE_TEMPLATES.find((t) => t.key === 'PROJECT_MANAGER');
+    expect(template?.permissions).toEqual(['organization.view']);
+  });
+
+  it('gives INVENTORY_MANAGER its real Phase 6 forward-workflow permissions', () => {
+    const template = SYSTEM_ROLE_TEMPLATES.find((t) => t.key === 'INVENTORY_MANAGER');
+    expect(template?.permissions).toEqual([
+      'organization.view',
+      'catalog.view',
+      'catalog.manage',
+      'inventory.warehouses.view',
+      'inventory.warehouses.manage',
+      'inventory.movements.view',
+      'inventory.adjustments.view',
+      'inventory.adjustments.manage',
+      'inventory.adjustments.post',
+      'inventory.transfers.view',
+      'inventory.transfers.manage',
+      'inventory.reorder.view',
+      'inventory.valuation.view',
+    ]);
+    expect(template?.permissions).not.toContain('inventory.adjustments.approve');
   });
 
   it('gives SALES its real Phase 2 forward-workflow permissions', () => {
