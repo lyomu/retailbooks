@@ -118,6 +118,17 @@ export const PERMISSION_KEYS = [
   'purchases.recurring_bills.manage',
   'purchases.recurring_expenses.view',
   'purchases.recurring_expenses.manage',
+  'banking.accounts.view',
+  'banking.accounts.manage',
+  'banking.transactions.view',
+  'banking.transactions.manage',
+  'banking.rules.view',
+  'banking.rules.manage',
+  'banking.transfers.view',
+  'banking.transfers.manage',
+  'banking.reconciliations.view',
+  'banking.reconciliations.manage',
+  'banking.reconciliations.reopen',
 ] as const;
 
 export type PermissionKey = (typeof PERMISSION_KEYS)[number];
@@ -141,7 +152,8 @@ export interface PermissionDefinition {
     | 'Audit'
     | 'Security'
     | 'Sales'
-    | 'Purchases';
+    | 'Purchases'
+    | 'Banking';
   /**
    * Permanently OWNER-only. No role -- system or custom -- can hold a protected key; there is no
    * grant path for it anywhere, which is the entire privilege-escalation defence.
@@ -931,6 +943,83 @@ export const PERMISSION_CATALOG: readonly PermissionDefinition[] = Object.freeze
     label: 'Manage recurring expenses',
     description: 'Create, edit, (de)activate recurring expense templates, and run due templates.',
     group: 'Purchases',
+    protected: false,
+  },
+  {
+    key: 'banking.accounts.view',
+    label: 'View financial accounts',
+    description: 'See bank, cash, and credit-card accounts and their GL mapping.',
+    group: 'Banking',
+    protected: false,
+  },
+  {
+    key: 'banking.accounts.manage',
+    label: 'Manage financial accounts',
+    description: 'Create, edit, and (de)activate financial accounts.',
+    group: 'Banking',
+    protected: false,
+  },
+  {
+    key: 'banking.transactions.view',
+    label: 'View bank transactions',
+    description: 'See imported bank transactions and their match/categorize status.',
+    group: 'Banking',
+    protected: false,
+  },
+  {
+    key: 'banking.transactions.manage',
+    label: 'Manage bank transactions',
+    description: 'Import statements, and categorize, split, match, unmatch, and exclude transactions.',
+    group: 'Banking',
+    protected: false,
+  },
+  {
+    key: 'banking.rules.view',
+    label: 'View bank rules',
+    description: 'See bank rules and their conditions and suggestions.',
+    group: 'Banking',
+    protected: false,
+  },
+  {
+    key: 'banking.rules.manage',
+    label: 'Manage bank rules',
+    description: 'Create, edit, and (de)activate bank rules.',
+    group: 'Banking',
+    protected: false,
+  },
+  {
+    key: 'banking.transfers.view',
+    label: 'View transfers',
+    description: 'See transfers between financial accounts.',
+    group: 'Banking',
+    protected: false,
+  },
+  {
+    key: 'banking.transfers.manage',
+    label: 'Manage transfers',
+    description: 'Post and void transfers between financial accounts.',
+    group: 'Banking',
+    protected: false,
+  },
+  {
+    key: 'banking.reconciliations.view',
+    label: 'View reconciliations',
+    description: 'See reconciliations and their cleared transactions.',
+    group: 'Banking',
+    protected: false,
+  },
+  {
+    key: 'banking.reconciliations.manage',
+    label: 'Manage reconciliations',
+    description: 'Start a reconciliation, mark transactions cleared, and complete it.',
+    group: 'Banking',
+    protected: false,
+  },
+  {
+    key: 'banking.reconciliations.reopen',
+    label: 'Reopen reconciliations',
+    description: 'Reopen a completed reconciliation with a recorded reason.',
+    group: 'Banking',
     protected: false,
   },
 ]);

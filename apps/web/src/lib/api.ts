@@ -41,9 +41,14 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
 
 /** Multipart upload (attachments) -- deliberately skips the JSON `Content-Type` header apiRequest
  * always sets, so the browser can set its own multipart boundary. */
-export async function apiUpload<T>(path: string, file: File): Promise<T> {
+export async function apiUpload<T>(
+  path: string,
+  file: File,
+  fields: Record<string, string> = {},
+): Promise<T> {
   const body = new FormData();
   body.append('file', file);
+  for (const [key, value] of Object.entries(fields)) body.append(key, value);
   const response = await fetch(`${API_URL}/api/v1${path}`, {
     method: 'POST',
     credentials: 'include',

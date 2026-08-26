@@ -184,6 +184,17 @@ export const permissionKeySchema = z.enum([
   'purchases.recurring_bills.manage',
   'purchases.recurring_expenses.view',
   'purchases.recurring_expenses.manage',
+  'banking.accounts.view',
+  'banking.accounts.manage',
+  'banking.transactions.view',
+  'banking.transactions.manage',
+  'banking.rules.view',
+  'banking.rules.manage',
+  'banking.transfers.view',
+  'banking.transfers.manage',
+  'banking.reconciliations.view',
+  'banking.reconciliations.manage',
+  'banking.reconciliations.reopen',
 ]);
 
 export const organizationSummarySchema = z.object({
@@ -307,6 +318,7 @@ export const permissionDefinitionSchema = z.object({
     'Security',
     'Sales',
     'Purchases',
+    'Banking',
   ]),
   protected: z.boolean(),
 });
@@ -2195,3 +2207,304 @@ export interface OrganizationReferenceData {
   taxTreatments: { code: 'EXCLUSIVE' | 'INCLUSIVE'; name: string; description: string }[];
   numberingResets: { code: 'NEVER' | 'ANNUAL' | 'MONTHLY'; name: string }[];
 }
+
+// --- Phase 5: Banking & Reconciliation ---
+
+export const financialAccountTypeSchema = z.enum(['BANK', 'CASH', 'CREDIT_CARD', 'OTHER']);
+
+export const financialAccountSchema = z.object({
+  id: z.uuid(),
+  name: z.string().min(1),
+  type: financialAccountTypeSchema,
+  currency: z.string().length(3),
+  glAccountId: z.uuid(),
+  openingBalanceMinor: z.string().regex(/^-?\d+$/),
+  active: z.boolean(),
+  lastActivityAt: z.iso.datetime().nullable(),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+});
+
+export const financialAccountListResponseSchema = z.object({ data: z.array(financialAccountSchema) });
+export const financialAccountResponseSchema = z.object({ data: financialAccountSchema });
+
+export const createFinancialAccountDto = z.object({
+  name: z.string().min(1).max(120),
+  type: financialAccountTypeSchema,
+  currency: z.string().length(3),
+  glAccountId: z.uuid(),
+  openingBalanceMinor: z.string().regex(/^-?\d+$/).optional(),
+});
+
+export const updateFinancialAccountDto = z.object({
+  name: z.string().min(1).max(120).optional(),
+  type: financialAccountTypeSchema.optional(),
+  currency: z.string().length(3).optional(),
+  glAccountId: z.uuid().optional(),
+  active: z.boolean().optional(),
+});
+
+export const bankRuleFieldSchema = z.enum(['description', 'reference', 'amountMinor', 'direction']);
+export const bankRuleOperatorSchema = z.enum(['contains', 'equals', 'gt', 'gte', 'lt', 'lte']);
+
+export const bankRuleConditionSchema = z.object({
+  field: bankRuleFieldSchema,
+  operator: bankRuleOperatorSchema,
+  value: z.string().min(1),
+});
+
+export const bankRuleSchema = z.object({
+  id: z.uuid(),
+  name: z.string().min(1),
+  priority: z.number().int(),
+  active: z.boolean(),
+  matchAny: z.boolean(),
+  conditions: z.array(bankRuleConditionSchema),
+  suggestAccountId: z.uuid().nullable(),
+  suggestContactId: z.uuid().nullable(),
+  suggestVendorId: z.uuid().nullable(),
+  suggestTags: z.array(z.string()),
+  stopOnMatch: z.boolean(),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+});
+
+export const bankRuleListResponseSchema = z.object({ data: z.array(bankRuleSchema) });
+export const bankRuleResponseSchema = z.object({ data: bankRuleSchema });
+
+export const createBankRuleDto = z.object({
+  name: z.string().min(1).max(120),
+  priority: z.number().int().min(1).max(10_000),
+  matchAny: z.boolean().optional(),
+  conditions: z.array(bankRuleConditionSchema).max(20),
+  suggestAccountId: z.uuid().optional(),
+  suggestContactId: z.uuid().optional(),
+  suggestVendorId: z.uuid().optional(),
+  suggestTags: z.array(z.string()).max(20).optional(),
+  stopOnMatch: z.boolean().optional(),
+});
+
+export const updateBankRuleDto = createBankRuleDto.partial().extend({
+  active: z.boolean().optional(),
+});
+
+export const statementImportFormatSchema = z.enum(['CSV']);
+export const statementImportStatusSchema = z.enum(['IMPORTED', 'PARTIALLY_IMPORTED', 'FAILED']);
+
+export const statementImportSchema = z.object({
+  id: z.uuid(),
+  financialAccountId: z.uuid(),
+  format: statementImportFormatSchema,
+  status: statementImportStatusSchema,
+  fileName: z.string(),
+  totalRows: z.number().int(),
+  importedCount: z.number().int(),
+  duplicateCount: z.number().int(),
+  failedCount: z.number().int(),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+});
+
+export const statementImportListResponseSchema = z.object({ data: z.array(statementImportSchema) });
+export const statementImportResponseSchema = z.object({ data: statementImportSchema });
+
+export const statementImportRowOutcomeSchema = z.object({
+  rowNumber: z.number().int(),
+  date: z.string().nullable(),
+  description: z.string().nullable(),
+  reference: z.string().nullable(),
+  amount: z.string().nullable(),
+  outcome: z.enum(['IMPORTED', 'DUPLICATE', 'FAILED']),
+  error: z.string().optional(),
+  bankTransactionId: z.uuid().optional(),
+});
+
+export const statementImportFailedRowsResponseSchema = z.object({
+  data: z.array(statementImportRowOutcomeSchema),
+});
+
+export const bankTransactionDirectionSchema = z.enum(['INFLOW', 'OUTFLOW']);
+export const bankTransactionDispositionSchema = z.enum(['UNRESOLVED', 'MATCHED', 'POSTED', 'EXCLUDED']);
+export const matchTargetTypeSchema = z.enum(['PAYMENT_RECEIVED', 'PAYMENT_MADE', 'EXPENSE', 'TRANSFER']);
+
+export const matchSchema = z.object({
+  id: z.uuid(),
+  targetType: matchTargetTypeSchema,
+  targetId: z.uuid(),
+  note: z.string().nullable(),
+  createdAt: z.iso.datetime(),
+});
+
+export const bankTransactionSchema = z.object({
+  id: z.uuid(),
+  financialAccountId: z.uuid(),
+  statementImportId: z.uuid().nullable(),
+  transactionDate: z.iso.date(),
+  description: z.string(),
+  reference: z.string().nullable(),
+  direction: bankTransactionDirectionSchema,
+  amountMinor: z.string().regex(/^\d+$/),
+  currency: z.string().length(3),
+  disposition: bankTransactionDispositionSchema,
+  excludeReason: z.string().nullable(),
+  suggestedAccountId: z.uuid().nullable(),
+  suggestedContactId: z.uuid().nullable(),
+  suggestedVendorId: z.uuid().nullable(),
+  suggestedTags: z.array(z.string()),
+  appliedFromRuleId: z.uuid().nullable(),
+  postedJournalId: z.uuid().nullable(),
+  match: matchSchema.nullable(),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+});
+
+export const bankTransactionListResponseSchema = z.object({ data: z.array(bankTransactionSchema) });
+export const bankTransactionResponseSchema = z.object({ data: bankTransactionSchema });
+
+export const categorizeLineDto = z.object({
+  accountId: z.uuid(),
+  amountMinor: z.string().regex(/^\d+$/),
+  description: z.string().max(240).optional(),
+});
+
+export const categorizeBankTransactionDto = z.object({
+  lines: z.array(categorizeLineDto).min(1).max(50),
+});
+
+export const excludeBankTransactionDto = z.object({
+  reason: z.string().min(1).max(240),
+});
+
+export const matchBankTransactionDto = z.object({
+  targetType: matchTargetTypeSchema,
+  targetId: z.uuid(),
+  note: z.string().max(240).optional(),
+});
+
+export const transferStatusSchema = z.enum(['POSTED', 'VOID']);
+
+export const transferSchema = z.object({
+  id: z.uuid(),
+  transferNumber: z.string().nullable(),
+  status: transferStatusSchema,
+  transferDate: z.iso.date(),
+  description: z.string().nullable(),
+  fromFinancialAccountId: z.uuid(),
+  toFinancialAccountId: z.uuid(),
+  fromCurrency: z.string().length(3),
+  toCurrency: z.string().length(3),
+  fromAmountMinor: z.string().regex(/^\d+$/),
+  toAmountMinor: z.string().regex(/^\d+$/),
+  exchangeRate: z.string().nullable(),
+  journalId: z.uuid(),
+  voidedAt: z.iso.datetime().nullable(),
+  voidJournalId: z.uuid().nullable(),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+});
+
+export const transferListResponseSchema = z.object({ data: z.array(transferSchema) });
+export const transferResponseSchema = z.object({ data: transferSchema });
+
+export const createTransferDto = z.object({
+  fromFinancialAccountId: z.uuid(),
+  toFinancialAccountId: z.uuid(),
+  transferDate: z.iso.date(),
+  fromAmountMinor: z.string().regex(/^\d+$/),
+  toAmountMinor: z.string().regex(/^\d+$/),
+  description: z.string().max(240).optional(),
+});
+
+export const reconciliationStatusSchema = z.enum(['IN_PROGRESS', 'COMPLETED']);
+
+export const reconciliationSchema = z.object({
+  id: z.uuid(),
+  financialAccountId: z.uuid(),
+  statementStartDate: z.iso.date(),
+  statementEndDate: z.iso.date(),
+  openingBalanceMinor: z.string().regex(/^-?\d+$/),
+  closingBalanceMinor: z.string().regex(/^-?\d+$/),
+  status: reconciliationStatusSchema,
+  completedAt: z.iso.datetime().nullable(),
+  completedByUserId: z.uuid().nullable(),
+  reopenedAt: z.iso.datetime().nullable(),
+  reopenedByUserId: z.uuid().nullable(),
+  reopenReason: z.string().nullable(),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+});
+
+export const reconciliationDetailSchema = reconciliationSchema.extend({
+  difference: z.string().regex(/^-?\d+$/),
+  clearedTransactionIds: z.array(z.uuid()),
+});
+
+export const reconciliationListResponseSchema = z.object({ data: z.array(reconciliationSchema) });
+export const reconciliationResponseSchema = z.object({ data: reconciliationDetailSchema });
+
+export const startReconciliationDto = z.object({
+  financialAccountId: z.uuid(),
+  statementStartDate: z.iso.date(),
+  statementEndDate: z.iso.date(),
+  openingBalanceMinor: z.string().regex(/^-?\d+$/),
+  closingBalanceMinor: z.string().regex(/^-?\d+$/),
+});
+
+export const setClearedTransactionsDto = z.object({
+  transactionIds: z.array(z.uuid()).min(1).max(500),
+});
+
+export const reopenReconciliationDto = z.object({
+  reason: z.string().min(1).max(240),
+});
+
+export type FinancialAccountType = z.infer<typeof financialAccountTypeSchema>;
+export type FinancialAccount = z.infer<typeof financialAccountSchema>;
+export type FinancialAccountListResponse = z.infer<typeof financialAccountListResponseSchema>;
+export type FinancialAccountResponse = z.infer<typeof financialAccountResponseSchema>;
+export type CreateFinancialAccountDto = z.infer<typeof createFinancialAccountDto>;
+export type UpdateFinancialAccountDto = z.infer<typeof updateFinancialAccountDto>;
+
+export type BankRuleField = z.infer<typeof bankRuleFieldSchema>;
+export type BankRuleOperator = z.infer<typeof bankRuleOperatorSchema>;
+export type BankRuleCondition = z.infer<typeof bankRuleConditionSchema>;
+export type BankRule = z.infer<typeof bankRuleSchema>;
+export type BankRuleListResponse = z.infer<typeof bankRuleListResponseSchema>;
+export type BankRuleResponse = z.infer<typeof bankRuleResponseSchema>;
+export type CreateBankRuleDto = z.infer<typeof createBankRuleDto>;
+export type UpdateBankRuleDto = z.infer<typeof updateBankRuleDto>;
+
+export type StatementImportFormat = z.infer<typeof statementImportFormatSchema>;
+export type StatementImportStatus = z.infer<typeof statementImportStatusSchema>;
+export type StatementImport = z.infer<typeof statementImportSchema>;
+export type StatementImportListResponse = z.infer<typeof statementImportListResponseSchema>;
+export type StatementImportResponse = z.infer<typeof statementImportResponseSchema>;
+export type StatementImportRowOutcome = z.infer<typeof statementImportRowOutcomeSchema>;
+export type StatementImportFailedRowsResponse = z.infer<typeof statementImportFailedRowsResponseSchema>;
+
+export type BankTransactionDirection = z.infer<typeof bankTransactionDirectionSchema>;
+export type BankTransactionDisposition = z.infer<typeof bankTransactionDispositionSchema>;
+export type MatchTargetType = z.infer<typeof matchTargetTypeSchema>;
+export type Match = z.infer<typeof matchSchema>;
+export type BankTransaction = z.infer<typeof bankTransactionSchema>;
+export type BankTransactionListResponse = z.infer<typeof bankTransactionListResponseSchema>;
+export type BankTransactionResponse = z.infer<typeof bankTransactionResponseSchema>;
+export type CategorizeLineDto = z.infer<typeof categorizeLineDto>;
+export type CategorizeBankTransactionDto = z.infer<typeof categorizeBankTransactionDto>;
+export type ExcludeBankTransactionDto = z.infer<typeof excludeBankTransactionDto>;
+export type MatchBankTransactionDto = z.infer<typeof matchBankTransactionDto>;
+
+export type TransferStatus = z.infer<typeof transferStatusSchema>;
+export type Transfer = z.infer<typeof transferSchema>;
+export type TransferListResponse = z.infer<typeof transferListResponseSchema>;
+export type TransferResponse = z.infer<typeof transferResponseSchema>;
+export type CreateTransferDto = z.infer<typeof createTransferDto>;
+
+export type ReconciliationStatus = z.infer<typeof reconciliationStatusSchema>;
+export type Reconciliation = z.infer<typeof reconciliationSchema>;
+export type ReconciliationDetail = z.infer<typeof reconciliationDetailSchema>;
+export type ReconciliationListResponse = z.infer<typeof reconciliationListResponseSchema>;
+export type ReconciliationResponse = z.infer<typeof reconciliationResponseSchema>;
+export type StartReconciliationDto = z.infer<typeof startReconciliationDto>;
+export type SetClearedTransactionsDto = z.infer<typeof setClearedTransactionsDto>;
+export type ReopenReconciliationDto = z.infer<typeof reopenReconciliationDto>;

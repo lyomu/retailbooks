@@ -11,6 +11,7 @@ import {
   DropdownTrigger,
 } from '@retailbooks/ui';
 import {
+  ArrowRightLeft,
   Banknote,
   Bell,
   BookOpenText,
@@ -26,8 +27,10 @@ import {
   FileClock,
   FileQuestion,
   FileText,
+  FileUp,
   Landmark,
   LayoutDashboard,
+  ListChecks,
   Menu,
   Package,
   Plus,
@@ -103,6 +106,17 @@ const navigationGroups: NavigationGroup[] = [
       { label: 'Recurring journals', icon: Repeat, href: '/recurring-journals' },
       { label: 'Trial balance', icon: Calculator, href: '/trial-balance' },
       { label: 'Account ledger', icon: FileClock, href: '/accounts' },
+    ],
+  },
+  {
+    label: 'Banking',
+    items: [
+      { label: 'Financial accounts', icon: Landmark, href: '/financial-accounts' },
+      { label: 'Statement imports', icon: FileUp, href: '/statement-imports' },
+      { label: 'Bank transactions', icon: Banknote, href: '/bank-transactions' },
+      { label: 'Bank rules', icon: SlidersHorizontal, href: '/bank-rules' },
+      { label: 'Transfers', icon: ArrowRightLeft, href: '/transfers' },
+      { label: 'Reconciliation', icon: ListChecks, href: '/reconciliation' },
     ],
   },
   {

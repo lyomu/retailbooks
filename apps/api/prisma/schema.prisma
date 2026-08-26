@@ -182,6 +182,13 @@ model User {
   openingBalancesFinalized         OpeningBalanceBatch[]      @relation("OpeningBalanceFinalizedBy")
   recurringJournalTemplatesCreated RecurringJournalTemplate[] @relation("RecurringJournalTemplateCreatedBy")
   fxRevaluationRunsCreated         FxRevaluationRun[]         @relation("FxRevaluationRunCreatedBy")
+  financialAccountsCreated         FinancialAccount[]         @relation("FinancialAccountCreatedBy")
+  statementImportsCreated          StatementImport[]          @relation("StatementImportCreatedBy")
+  matchesCreated                   Match[]                    @relation("MatchCreatedBy")
+  bankRulesCreated                 BankRule[]                 @relation("BankRuleCreatedBy")
+  reconciliationsCompleted         Reconciliation[]           @relation("ReconciliationCompletedBy")
+  reconciliationsReopened          Reconciliation[]           @relation("ReconciliationReopenedBy")
+  transfersCreated                 Transfer[]                 @relation("TransferCreatedBy")
   invoicesCreated                  Invoice[]                  @relation("InvoiceCreatedBy")
   paymentsReceivedCreated          PaymentReceived[]          @relation("PaymentReceivedCreatedBy")
   creditNotesCreated               CreditNote[]               @relation("CreditNoteCreatedBy")
@@ -379,6 +386,13 @@ model Organization {
   recurringJournalTemplates     RecurringJournalTemplate[]
   recurringJournalTemplateLines RecurringJournalTemplateLine[]
   fxRevaluationRuns             FxRevaluationRun[]
+  financialAccounts             FinancialAccount[]
+  statementImports              StatementImport[]
+  bankTransactions              BankTransaction[]
+  bankTransactionMatches        Match[]
+  bankRules                     BankRule[]
+  reconciliations               Reconciliation[]
+  transfers                     Transfer[]
 
   @@index([createdByUserId])
   @@index([status])
@@ -679,6 +693,9 @@ model LedgerAccount {
   recurringExpenseTemplatesAsPaidThroughAccount RecurringExpenseTemplate[]     @relation("RecurringExpenseTemplatePaidThroughAccount")
   openingBalanceLinesAsAccount                  OpeningBalanceLine[]           @relation("OpeningBalanceLineAccount")
   recurringJournalTemplateLinesAsAccount        RecurringJournalTemplateLine[] @relation("RecurringJournalTemplateLineAccount")
+  financialAccountsAsGlAccount                  FinancialAccount[]             @relation("FinancialAccountGlAccount")
+  bankTransactionsAsSuggestedAccount            BankTransaction[]              @relation("BankTransactionSuggestedAccount")
+  bankRulesAsSuggestAccount                     BankRule[]                     @relation("BankRuleSuggestAccount")
 
   @@unique([organizationId, code])
   @@unique([organizationId, systemKey])
@@ -724,6 +741,9 @@ model Journal {
   expense                Expense?
   openingBalanceBatch    OpeningBalanceBatch?
   fxRevaluationRun       FxRevaluationRun?       @relation("FxRevaluationJournal")
+  bankTransaction        BankTransaction?        @relation("BankTransactionPostedJournal")
+  transfer               Transfer?               @relation("TransferJournal")
+  transferVoid           Transfer?               @relation("TransferVoidJournal")
 
   @@unique([organizationId, reference])
   @@index([organizationId, status, journalDate])
@@ -2164,4 +2184,260 @@ model FxRevaluationRun {
 enum RoundingMode {
   NONE
   HALF_UP
+}
+
+// --- Phase 5: Banking & Reconciliation ---
+
+enum FinancialAccountType {
+  BANK
+  CASH
+  CREDIT_CARD
+  OTHER
+}
+
+/// V1 ships CSV only; the enum is the extension seam for OFX/QIF adapters.
+enum StatementImportFormat {
+  CSV
+}
+
+enum StatementImportStatus {
+  IMPORTED
+  PARTIALLY_IMPORTED
+  FAILED
+}
+
+enum BankTransactionDirection {
+  INFLOW
+  OUTFLOW
+}
+
+/// What became of a transaction after review. MATCHED links to an existing book entry;
+/// POSTED means the transaction itself generated a ledger entry (categorize/split);
+/// EXCLUDED records an explicit reason and has no ledger impact.
+enum BankTransactionDisposition {
+  UNRESOLVED
+  MATCHED
+  POSTED
+  EXCLUDED
+}
+
+enum MatchTargetType {
+  PAYMENT_RECEIVED
+  PAYMENT_MADE
+  EXPENSE
+  TRANSFER
+}
+
+enum ReconciliationStatus {
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum TransferStatus {
+  POSTED
+  VOID
+}
+
+model FinancialAccount {
+  id                   String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId       String               @map("organization_id") @db.Uuid
+  name                 String               @db.VarChar(120)
+  type                 FinancialAccountType
+  currency             String               @db.Char(3)
+  glAccountId          String               @map("gl_account_id") @db.Uuid
+  openingBalanceMinor  BigInt               @default(0) @map("opening_balance_minor")
+  active               Boolean              @default(true)
+  lastActivityAt       DateTime?            @map("last_activity_at") @db.Timestamptz(6)
+  createdByUserId      String               @map("created_by_user_id") @db.Uuid
+  createdAt            DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime             @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization         Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  glAccount            LedgerAccount        @relation("FinancialAccountGlAccount", fields: [glAccountId], references: [id], onDelete: Restrict)
+  createdBy            User                 @relation("FinancialAccountCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  statementImports     StatementImport[]
+  bankTransactions     BankTransaction[]
+  reconciliations      Reconciliation[]
+  transfersFrom        Transfer[]           @relation("TransferFromAccount")
+  transfersTo          Transfer[]           @relation("TransferToAccount")
+
+  @@unique([organizationId, name])
+  @@index([organizationId, active])
+  @@map("financial_accounts")
+}
+
+model StatementImport {
+  id                    String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId        String                @map("organization_id") @db.Uuid
+  financialAccountId    String                @map("financial_account_id") @db.Uuid
+  format                StatementImportFormat
+  status                StatementImportStatus
+  fileName              String                @map("file_name") @db.VarChar(200)
+  totalRows             Int                   @default(0) @map("total_rows")
+  importedCount         Int                   @default(0) @map("imported_count")
+  duplicateCount        Int                   @default(0) @map("duplicate_count")
+  failedCount           Int                   @default(0) @map("failed_count")
+  /// Parsed rows with per-row outcome, kept for the failed-row download.
+  rows                  Json
+  createdByUserId       String                @map("created_by_user_id") @db.Uuid
+  createdAt             DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime              @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization          Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  financialAccount      FinancialAccount      @relation(fields: [financialAccountId], references: [id], onDelete: Restrict)
+  createdBy             User                  @relation("StatementImportCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  bankTransactions      BankTransaction[]
+
+  @@index([organizationId, financialAccountId, createdAt])
+  @@map("statement_imports")
+}
+
+model BankTransaction {
+  id                    String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId        String                     @map("organization_id") @db.Uuid
+  financialAccountId    String                     @map("financial_account_id") @db.Uuid
+  statementImportId     String?                    @map("statement_import_id") @db.Uuid
+  transactionDate       DateTime                   @map("transaction_date") @db.Date
+  description           String                     @db.VarChar(240)
+  reference             String?                    @db.VarChar(120)
+  direction             BankTransactionDirection
+  amountMinor           BigInt                     @map("amount_minor")
+  currency              String                     @db.Char(3)
+  /// sha256 over account|date|direction|amount|normalized description|normalized reference;
+  /// unique per account so re-imports deduplicate instead of double-posting.
+  fingerprint           String                     @db.VarChar(64)
+  disposition           BankTransactionDisposition @default(UNRESOLVED)
+  excludeReason         String?                    @map("exclude_reason") @db.VarChar(240)
+  suggestedAccountId    String?                    @map("suggested_account_id") @db.Uuid
+  suggestedContactId    String?                    @map("suggested_contact_id") @db.Uuid
+  suggestedVendorId     String?                    @map("suggested_vendor_id") @db.Uuid
+  suggestedTags         String[]                   @default([]) @map("suggested_tags")
+  appliedFromRuleId     String?                    @map("applied_from_rule_id") @db.Uuid
+  postedJournalId       String?                    @unique @map("posted_journal_id") @db.Uuid
+  match                 Match?
+  createdAt             DateTime                   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime                   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization          Organization               @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  financialAccount      FinancialAccount           @relation(fields: [financialAccountId], references: [id], onDelete: Restrict)
+  statementImport       StatementImport?           @relation(fields: [statementImportId], references: [id], onDelete: SetNull)
+  suggestedAccount      LedgerAccount?             @relation("BankTransactionSuggestedAccount", fields: [suggestedAccountId], references: [id], onDelete: SetNull)
+  postedJournal         Journal?                   @relation("BankTransactionPostedJournal", fields: [postedJournalId], references: [id], onDelete: Restrict)
+  clearedIn             ReconciliationClearedTransaction[] @relation("ReconciliationClearedTransaction")
+
+  @@unique([financialAccountId, fingerprint])
+  @@index([organizationId, financialAccountId, disposition])
+  @@index([organizationId, financialAccountId, transactionDate])
+  @@map("bank_transactions")
+}
+
+model Match {
+  id                String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId    String          @map("organization_id") @db.Uuid
+  bankTransactionId String          @unique @map("bank_transaction_id") @db.Uuid
+  targetType        MatchTargetType @map("target_type")
+  targetId          String          @map("target_id") @db.Uuid
+  note              String?         @db.VarChar(240)
+  matchedByUserId   String          @map("matched_by_user_id") @db.Uuid
+  createdAt         DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  organization      Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  bankTransaction   BankTransaction @relation(fields: [bankTransactionId], references: [id], onDelete: Cascade)
+  matchedBy         User            @relation("MatchCreatedBy", fields: [matchedByUserId], references: [id], onDelete: Restrict)
+
+  /// The core invariant: one source document can be claimed by at most one bank transaction.
+  @@unique([targetType, targetId])
+  @@index([organizationId, targetType, targetId])
+  @@map("bank_transaction_matches")
+}
+
+model BankRule {
+  id               String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId   String       @map("organization_id") @db.Uuid
+  name             String       @db.VarChar(120)
+  priority         Int
+  active           Boolean      @default(true)
+  /// false = every condition must hold; true = any single condition is enough.
+  matchAny         Boolean      @default(false) @map("match_any")
+  conditions       Json
+  suggestAccountId String?      @map("suggest_account_id") @db.Uuid
+  suggestContactId String?      @map("suggest_contact_id") @db.Uuid
+  suggestVendorId  String?      @map("suggest_vendor_id") @db.Uuid
+  suggestTags      String[]     @default([]) @map("suggest_tags")
+  stopOnMatch      Boolean      @default(false) @map("stop_on_match")
+  createdByUserId  String       @map("created_by_user_id") @db.Uuid
+  createdAt        DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  suggestAccount   LedgerAccount? @relation("BankRuleSuggestAccount", fields: [suggestAccountId], references: [id], onDelete: SetNull)
+  createdBy        User         @relation("BankRuleCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, active, priority])
+  @@map("bank_rules")
+}
+
+model Reconciliation {
+  id                  String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId      String               @map("organization_id") @db.Uuid
+  financialAccountId  String               @map("financial_account_id") @db.Uuid
+  statementStartDate  DateTime             @map("statement_start_date") @db.Date
+  statementEndDate    DateTime             @map("statement_end_date") @db.Date
+  openingBalanceMinor BigInt               @map("opening_balance_minor")
+  closingBalanceMinor BigInt               @map("closing_balance_minor")
+  status              ReconciliationStatus @default(IN_PROGRESS)
+  completedAt         DateTime?            @map("completed_at") @db.Timestamptz(6)
+  completedByUserId   String?              @map("completed_by_user_id") @db.Uuid
+  reopenedAt          DateTime?            @map("reopened_at") @db.Timestamptz(6)
+  reopenedByUserId    String?              @map("reopened_by_user_id") @db.Uuid
+  reopenReason        String?              @map("reopen_reason") @db.VarChar(240)
+  createdAt           DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime             @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization        Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  financialAccount    FinancialAccount     @relation(fields: [financialAccountId], references: [id], onDelete: Restrict)
+  completedBy         User?                @relation("ReconciliationCompletedBy", fields: [completedByUserId], references: [id], onDelete: SetNull)
+  reopenedBy          User?                @relation("ReconciliationReopenedBy", fields: [reopenedByUserId], references: [id], onDelete: SetNull)
+  clearedTransactions ReconciliationClearedTransaction[]
+
+  @@index([organizationId, financialAccountId, status])
+  @@map("reconciliations")
+}
+
+model ReconciliationClearedTransaction {
+  reconciliationId String        @map("reconciliation_id") @db.Uuid
+  transactionId    String        @map("transaction_id") @db.Uuid
+  markedAt         DateTime      @default(now()) @map("marked_at") @db.Timestamptz(6)
+  reconciliation   Reconciliation @relation(fields: [reconciliationId], references: [id], onDelete: Cascade)
+  transaction      BankTransaction @relation("ReconciliationClearedTransaction", fields: [transactionId], references: [id], onDelete: Cascade)
+
+  @@id([reconciliationId, transactionId])
+  @@index([transactionId])
+  @@map("reconciliation_cleared_transactions")
+}
+
+model Transfer {
+  id                    String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId        String         @map("organization_id") @db.Uuid
+  transferNumber        String?        @map("transfer_number") @db.VarChar(64)
+  status                TransferStatus @default(POSTED)
+  transferDate          DateTime       @map("transfer_date") @db.Date
+  description           String?        @db.VarChar(240)
+  fromFinancialAccountId String        @map("from_financial_account_id") @db.Uuid
+  toFinancialAccountId  String         @map("to_financial_account_id") @db.Uuid
+  fromCurrency          String         @map("from_currency") @db.Char(3)
+  toCurrency            String         @map("to_currency") @db.Char(3)
+  fromAmountMinor       BigInt         @map("from_amount_minor")
+  toAmountMinor         BigInt         @map("to_amount_minor")
+  exchangeRate          Decimal?       @map("exchange_rate") @db.Decimal(20, 10)
+  journalId             String         @unique @map("journal_id") @db.Uuid
+  voidedAt              DateTime?      @map("voided_at") @db.Timestamptz(6)
+  voidJournalId         String?        @unique @map("void_journal_id") @db.Uuid
+  createdByUserId       String         @map("created_by_user_id") @db.Uuid
+  createdAt             DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization          Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  fromFinancialAccount  FinancialAccount @relation("TransferFromAccount", fields: [fromFinancialAccountId], references: [id], onDelete: Restrict)
+  toFinancialAccount    FinancialAccount @relation("TransferToAccount", fields: [toFinancialAccountId], references: [id], onDelete: Restrict)
+  journal               Journal        @relation("TransferJournal", fields: [journalId], references: [id], onDelete: Restrict)
+  voidJournal           Journal?       @relation("TransferVoidJournal", fields: [voidJournalId], references: [id], onDelete: Restrict)
+  createdBy             User           @relation("TransferCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, transferNumber])
+  @@index([organizationId, transferDate])
+  @@map("transfers")
 }

@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { APP_FILTER } from '@nestjs/core';
 
 import { AuthModule } from './auth/auth.module.js';
+import { BankingModule } from './banking/banking.module.js';
 import { ApiExceptionFilter } from './common/api-exception.filter.js';
 import { ObservabilityModule } from './common/logging/observability.module.js';
 import { DatabaseModule } from './database/database.module.js';
@@ -24,6 +25,7 @@ import { SalesModule } from './sales/sales.module.js';
     OrganizationsModule,
     SalesModule,
     PurchasesModule,
+    BankingModule,
   ],
   controllers: [HealthController],
   providers: [

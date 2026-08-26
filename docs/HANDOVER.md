@@ -35,8 +35,63 @@ What Phase 4 added, in one paragraph each:
   with byte-identical output; its tests passed unmodified. The other six hand-rolling services are
   intentionally NOT migrated — that's recorded as an open roadmap item.
 
-**Next up is Phase 5 — Banking & Reconciliation** (`docs/BUILD_ROADMAP.md`, `## Phase 5`; build
-spec §7). No code exists for it yet.
+**Phase 5 (Banking & Reconciliation) is in progress, backend-complete, UI partly built.** Governing
+instruction for this phase, given explicitly by the user: **"fix it so that we call phase 5 done. a
+rule, code first, we will write tests later."** No test files are to be written and no
+lint/prettier/`npm test`/build runs are to happen this session — only `tsc --noEmit` as a
+compileability check. This mirrors the Phase 3 precedent of one deferred verification pass, except
+here the deferral was explicit and total (not just "batched to the end").
+
+Done so far:
+
+- **Schema**: `FinancialAccountType`/`StatementImportFormat`/`StatementImportStatus`/
+  `BankTransactionDirection`/`BankTransactionDisposition`/`MatchTargetType`/`ReconciliationStatus`/
+  `TransferStatus` enums + `FinancialAccount`/`StatementImport`/`BankTransaction`/`Match`/
+  `BankRule`/`Reconciliation`/`ReconciliationClearedTransaction`/`Transfer` models, all in
+  `apps/api/prisma/schema.prisma`. A pre-existing draft of this schema was found corrupted (UTF-8
+  BOM + double-encoded comments) and missing back-relations; both were fixed, `npx prisma validate`
+  passes clean.
+- **Migration applied**: `apps/api/prisma/migrations/20260826091556_add_phase5_banking/` was
+  generated via the documented shadow-db `migrate diff` workaround (§2 above) and applied to the
+  dev DB with `prisma migrate deploy`. Prisma client regenerated. This migration is **not yet
+  committed** — it's new/untracked in the working tree along with the rest of Phase 5.
+- **Backend**: all of `apps/api/src/banking/` — `financial-accounts.*`, `bank-rules.*` (+
+  `bank-rule-matching.ts`, a pure condition-matching engine), `statement-imports.*` (+ `csv.ts`
+  hand-rolled parser, `bank-transaction-fingerprint.ts` sha256 dedup key), `bank-transactions.*` (+
+  `bank-transaction-posting-rule.ts`), `transfers.*` (+ `transfer-posting-rule.ts`, handles
+  cross-currency legs via `CurrencyService`/fx_gain/fx_loss), `reconciliations.*`, all registered in
+  `banking.module.ts` and `app.module.ts`. All posting goes through `PostingRulesService` per the
+  Phase 4 convention (§3 above). `npx tsc --noEmit` in `apps/api` is clean.
+- **Permissions**: 11 `banking.*` keys added to `permission-catalog.ts` (group `'Banking'`),
+  `READ_ONLY_BASELINE` gets the 5 `.view` keys, ADMIN and ACCOUNTANT get the full 11 — deliberately
+  **SALES and PURCHASES roles get none** (banking is accounting-team territory, a judgment call).
+  No new `SYSTEM_ROLE_KEYS` entry.
+- **Contracts**: `'Banking'` added to the permission group enum, all 11 keys added to
+  `permissionKeySchema`, and a full `// --- Phase 5: Banking & Reconciliation ---` section appended
+  to `packages/contracts/src/index.ts` with every entity's Zod schema + list/detail response
+  wrappers + create/update DTOs + inferred types. `npx tsc --noEmit` in `packages/contracts` is
+  clean.
+- **UI — in progress**: a background agent was dispatched (not yet confirmed complete at handover
+  time) to build three of the six screens — Financial Accounts, Bank Rules, Transfers — each
+  mirroring an existing sibling workbench (`vendors-workbench.tsx`, `payments-made-workbench.tsx`)
+  exactly. **Not yet started**: Statement Import wizard (CSV upload via `apiUpload`, needed a small
+  extension to `apps/web/src/lib/api.ts`'s `apiUpload()` to accept extra form fields alongside the
+  file — that extension is done, committed to the working tree, and ready to use), Bank Transactions
+  workbench (categorize/split/exclude/match/unmatch actions, feeds off suggestions from Bank
+  Rules), Reconciliation screen (start/clear/unclear/complete/reopen workflow, zero-tolerance
+  difference gate). **Also not yet done**: nav wiring in `apps/web/src/components/app-shell.tsx`
+  (needs a new "Banking" `NavigationGroup` — no items in any group are currently permission-gated at
+  the nav-config level, they just route to pages that self-gate via `ForbiddenState`, so add all six
+  Banking items unconditionally, mirroring the existing group shape), and
+  `docs/PHASE5_TODO.md` (doesn't exist yet — create it mirroring `PHASE3_TODO.md`'s/
+  `PHASE4_TODO.md`'s structure once the UI is done).
+
+All full API route paths, DTO shapes, and contract schema field names for every Phase 5 entity are
+already known/documented (was gathered in-session immediately before this handover) — the next
+session should read `apps/api/src/banking/*.controller.ts` directly rather than re-deriving routes,
+they're short and explicit.
+
+No `git commit` has happened for any Phase 5 work yet.
 
 ## 2. Environment quirks worth remembering
 

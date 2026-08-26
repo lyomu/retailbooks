@@ -13,6 +13,7 @@ export const BILL_DOCUMENT_TYPE = 'BILL';
 export const EXPENSE_DOCUMENT_TYPE = 'EXPENSE';
 export const VENDOR_CREDIT_DOCUMENT_TYPE = 'VENDOR_CREDIT';
 export const PAYMENT_MADE_DOCUMENT_TYPE = 'PAYMENT_MADE';
+export const TRANSFER_DOCUMENT_TYPE = 'TRANSFER';
 
 /**
  * Document types managed through the generalized `DocumentNumberingConfig` table
@@ -30,6 +31,7 @@ export const GENERALIZED_DOCUMENT_TYPES = [
   EXPENSE_DOCUMENT_TYPE,
   VENDOR_CREDIT_DOCUMENT_TYPE,
   PAYMENT_MADE_DOCUMENT_TYPE,
+  TRANSFER_DOCUMENT_TYPE,
 ] as const;
 
 export type GeneralizedDocumentType = (typeof GENERALIZED_DOCUMENT_TYPES)[number];
