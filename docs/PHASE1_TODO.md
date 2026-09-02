@@ -370,8 +370,12 @@ working, not the plan slipping.
       delivered by foundation step 7; backup/restore and runbooks are **Stage 4.8, folded into Phase 14**
 - [ ] Complete threat model, dependency review, secret handling, and production-readiness checklist —
       **Stage 4.4, in progress**; the production-readiness checklist itself stays with Phase 14
-- [ ] Update `DESIGN.md` from the implemented system and close all Phase 1 acceptance gaps —
-      **Stage 4.3, in progress**
+- [x] Update `DESIGN.md` from the implemented system — **Stage 4.3**. Tokens reconciled against
+      `packages/ui/src/tokens.css` (they had not drifted); the gap was vocabulary, not values.
+      Added the module-workbench page composition that twenty-one modules converged on, the
+      self-gating page rule, and the `PageHeader` / `DataTable` / `StatCard` / `ForbiddenState` /
+      `MoneyInput` primitives that post-date Phase 1. The remaining Phase 1 acceptance gaps are
+      Stage 4.5–4.8, folded into Phase 14 above.
 - [x] Add structured observability, request correlation, redaction, and an error-reporting seam —
       foundation step 1
 - [x] Add Redis/BullMQ job infrastructure with a separate worker, retries, retained failed jobs, and

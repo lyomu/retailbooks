@@ -51,6 +51,11 @@ spacing:
   lg: '1.5rem'
   xl: '2rem'
   2xl: '2.5rem'
+layout:
+  sidebar-width: '16rem'
+  sidebar-collapsed-width: '4rem'
+  topbar-height: '3.5rem'
+  content-max: '100rem'
 components:
   button-primary:
     backgroundColor: '{colors.primary-blue}'
@@ -81,6 +86,11 @@ components:
 ---
 
 # Design System: RetailBooks Web Application
+
+**Derived from the implemented interface.** Tokens in the front matter above mirror
+`packages/ui/src/tokens.css`, which is the single source of truth — this file describes it, it does
+not define it. Component guidance below cites the components it was read from. Last reconciled
+against the code on 2026-09-02, covering Phases 1–6 (~75 routes, 21 module workbenches).
 
 ## Overview
 
@@ -186,11 +196,38 @@ corners so they read as labels rather than standalone controls. Full pills are l
 live indicators, and genuinely circular marks. One-pixel borders provide the system’s ledger-like
 precision.
 
+## Page composition — the module workbench
+
+Phases 2–6 converged on one page shape, and twenty-one modules now use it (`*-workbench.tsx` in
+`apps/web/src/components/`). It is the default for any new module surface; a screen that departs
+from it should have a reason.
+
+The shape, in order:
+
+1. **Permission gate first.** A workbench whose view permission is not universal returns
+   `ForbiddenState` before rendering anything else, once loading has settled and an organization is
+   resolved. Twenty-three components do this today.
+2. **`PageHeader`** — title, one-line description, and the primary action in `actions`. The action
+   is rendered conditionally on the manage permission, so a viewer sees the page without a control
+   that would only fail.
+3. **A single vertical stack** (`rb-ledger-stack`, a 1rem grid) holding, in order: an inline error
+   region (`role="alert"`), an inline notice region (`role="status"`), an optional inline form card,
+   and the data table.
+4. **Inline create/edit, not a modal.** The form opens as a `Card` inside the stack rather than a
+   dialog, using `rb-field-grid` — two columns that collapse to one below tablet. A dialog is
+   reserved for a destructive confirmation or a task that genuinely needs protected focus.
+5. **`DataTable`** as the terminal element, with its own loading and empty handling.
+
+**The Self-Gating Page Rule.** Navigation items are unconditional; the page decides. Hiding a nav
+item on a permission the user might legitimately be granted makes the product feel broken and hides
+the existence of a capability. Show the destination, and let it explain the boundary.
+
 ## Components
 
 ### Buttons
 
-- **Shape:** gently curved controls with a 40px default height and compact 36px variant.
+- **Shape:** gently curved controls at three heights — 36px compact, 40px default, 46px large — plus
+  a square icon-only variant.
 - **Primary:** white type on the established cyan-to-blue action treatment with restrained action
   lift.
 - **Hover / Focus:** modest brightness change and a visible blue focus ring; disabled and loading
@@ -231,6 +268,43 @@ Tables use compact body text, uppercase 12px column headings, quiet horizontal r
 alignment, semantic captions, loading feedback, and full empty-state recovery guidance. Secondary
 columns disappear progressively rather than forcing an unreadable mobile table.
 
+`DataTable` (`packages/ui/src/data-table.tsx`) owns all of that so a module does not re-implement
+it: a column declares `align` and `hideBelow: 'tablet' | 'desktop'`, and the component supplies the
+visually-hidden `<caption>`, the horizontal scroll container, the loading spinner, and the empty
+state. Twenty-five components use it. A table that renders raw `<table>` markup is a defect unless
+it has a structural reason a column list cannot express.
+
+### Page Header
+
+`PageHeader` carries the page title, an optional one-line description, and an `actions` slot. It is
+the only place a page title is rendered, which keeps heading level and spacing consistent across
+twenty-six surfaces without each one restating them.
+
+### Stat Cards
+
+`StatCard` presents a single labelled figure with an icon and an optional hint, toned
+`primary | info | success | warning | danger`. It is a summary affordance, not a decoration: use it
+for a figure the user would otherwise compute by reading the table below it.
+
+### Empty, Forbidden, and Error States
+
+`EmptyState` carries an icon, a title, a description, and an action — the action is what makes it a
+recovery rather than a dead end. `ForbiddenState` is `EmptyState` with a lock and honest default
+copy; pass `description` to name the roles that can grant access, so the user knows who to ask.
+
+Inline page-level feedback uses two live regions inside the workbench stack: errors with
+`role="alert"`, confirmations with `role="status"`. A notice that survives a route change is carried
+across in a short-lived `sessionStorage` flash key rather than set in local state before navigating,
+which would unmount it before it rendered.
+
+### Money and Currency
+
+Financial entry uses `MoneyInput`, which shows the currency symbol as an affordance and returns the
+user's decimal string unchanged — callers convert to integer minor units at the domain boundary.
+No money value passes through a JavaScript float anywhere in the product, and the UI does not
+become the exception. `CurrencySelect` lists code, name, and symbol together so an ambiguous symbol
+is never the only identifier. Displayed figures carry `.rb-num` for tabular numerals.
+
 ### Dialogs, Drawers, Menus, and Toasts
 
 All overlays use accessible Radix primitives for labeling, focus containment, keyboard dismissal,
@@ -245,6 +319,9 @@ and portal layering. Motion is brief and functional and is removed when reduced 
 - **Do** align amounts consistently and expose accounting status in text as well as color.
 - **Do** provide a useful next action for empty and error states.
 - **Do** preserve visible keyboard focus and semantic table structure at every breakpoint.
+- **Do** build a new module surface as a workbench, on `PageHeader` + `DataTable` + the shared
+  states, before reaching for a bespoke layout.
+- **Do** gate the page, not the navigation item, and say which roles can grant access.
 
 ### Don't:
 
@@ -254,3 +331,17 @@ and portal layering. Motion is brief and functional and is removed when reduced 
 - **Don't** imply Kenya defaults are universal or certified.
 - **Don't** create broken navigation to unfinished modules; label upcoming capability honestly.
 - **Don't** use a modal for ordinary navigation or a task that does not require protected focus.
+- **Don't** hand-roll a table, an empty state, or a money input when `packages/ui` already exports
+  one — twenty-five workbenches share `DataTable`, and the twenty-sixth diverging is how a design
+  system stops being one.
+
+## Where this drifts next
+
+Phases 7–9 add roughly twenty screens. Two of them will strain this document:
+
+- **Phase 9's shared report shell** (filters, comparison periods, drill-down, export) is a second
+  page archetype alongside the workbench. It is built once, before the first report, and documented
+  here when it exists — not inferred thirty reports later.
+- **Phase 8's locale/language switcher** only appears once a string catalog exists behind it. Until
+  then there is nothing to switch, and a control that implies otherwise is the same dishonesty as
+  an uncertified compliance claim.
