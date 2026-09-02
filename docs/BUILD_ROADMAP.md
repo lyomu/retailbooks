@@ -16,13 +16,23 @@ when Phase 1 hardening items close. Phases 2–14 exist only here; consider crea
 `docs/PHASE<N>_TODO.md` in the same style once a phase starts, and rolling its detail back into this
 file the way Phase 1's is summarized.
 
-**Status snapshot (2026-08-25):** Phase 1 is functionally complete with hardening/test debt open
-(Milestone 1J). Phase 2 (Sales) is complete and verified (Milestones 2A–2K); see
-`docs/PHASE2_TODO.md` for full detail. Phase 3 (Purchases) is complete and verified (Milestones
-3A–3H); see `docs/PHASE3_TODO.md` for full detail. Phase 4 (Accounting Engine remainder) is complete
-and verified (Milestones 4A–4G); see `docs/PHASE4_TODO.md` for full detail. Phases 5–14 have **no
-code yet** — confirmed by full-repo search: no modules, Prisma models, routes, or pages exist for
-banking, inventory, projects, reporting, automation, portals, platform admin, or AI.
+**Status snapshot (2026-09-02):** Six of fourteen phases have code; three meet this document's
+"done and verified" bar. Sequencing for everything below lives in `docs/EXECUTION_PLAN.md`.
+
+- **Phase 1 (Foundation)** — functionally complete, hardening/test debt open (Milestone 1J).
+- **Phase 2 (Sales)** — complete and verified (2A–2K); see `docs/PHASE2_TODO.md`.
+- **Phase 3 (Purchases)** — complete and verified (3A–3H); see `docs/PHASE3_TODO.md`.
+- **Phase 4 (Accounting Engine remainder)** — complete and verified (4A–4G); see
+  `docs/PHASE4_TODO.md`.
+- **Phase 5 (Banking & Reconciliation)** — **built but not verified.** All of 5A–5E shipped in
+  `ae8ae3e` under an explicit code-first rule; **no banking tests exist at all** and the deferred
+  verification pass in `docs/PHASE5_TODO.md` is still open. The Data model / Backend / UI items
+  below are checked; the Tests/acceptance items are deliberately not.
+- **Phase 6 (Inventory)** — built, with inventory integration coverage added
+  (`apps/api/test/inventory.int.test.ts`); see `docs/PHASE6_TODO.md`.
+- **Phases 7–14** — **no code yet**, confirmed by full-repo search: no models, modules, routes, or
+  pages exist for projects/time, globalization beyond Phase 1's catalog, the reporting engine,
+  automation, portals, platform admin, or AI.
 
 ---
 
@@ -338,42 +348,48 @@ testing deferred to the end-of-phase pass).
 
 ---
 
-## Phase 5 — Banking & Reconciliation
+## Phase 5 — Banking & Reconciliation ⚠️ built, not verified
 
 Entities: `FinancialAccount`, `StatementImport`, `BankTransaction`, `Match`, `Reconciliation`,
 `BankRule`, `Transfer` (build spec §7; blueprint §9).
 
+> **Verification status:** shipped in `ae8ae3e` under an explicit code-first rule. Data model,
+> Backend/API, and UI are built and checked below. **Tests/acceptance is genuinely open** — no
+> banking test file exists — and this is the highest-risk open item in the repo, since Phase 6's
+> COGS posting sits on top of it. Closing it is Stage 2 of `docs/EXECUTION_PLAN.md`; the detailed
+> deferred list is in `docs/PHASE5_TODO.md`.
+
 ### Data model
 
-- [ ] `FinancialAccount` (name, type, currency, GL mapping, opening balance)
-- [ ] `StatementImport` + raw import rows
-- [ ] `BankTransaction` (date, description, amount/debit-credit, reference, duplicate fingerprint)
-- [ ] `Match`/allocation linking bank transactions to payments/expenses/transfers
-- [ ] `BankRule` (condition → category/contact/tag suggestion)
-- [ ] `Reconciliation` (statement start/end, opening/closing balance, cleared transactions)
-- [ ] `Transfer` (from/to accounts, date, amount, FX/rate if currencies differ)
-- [ ] Migration written, applied, and drift-checked in CI
+- [x] `FinancialAccount` (name, type, currency, GL mapping, opening balance)
+- [x] `StatementImport` + raw import rows
+- [x] `BankTransaction` (date, description, amount/debit-credit, reference, duplicate fingerprint)
+- [x] `Match`/allocation linking bank transactions to payments/expenses/transfers
+- [x] `BankRule` (condition → category/contact/tag suggestion)
+- [x] `Reconciliation` (statement start/end, opening/closing balance, cleared transactions)
+- [x] `Transfer` (from/to accounts, date, amount, FX/rate if currencies differ)
+- [x] Migration written, applied, and drift-checked in CI
 
 ### Backend/API
 
-- [ ] Financial Accounts: one GL mapping per account; account currency protected after activity
-- [ ] Statement Import: CSV first; adapter hooks for OFX/QIF; mapping preview; duplicate detection;
+- [x] Financial Accounts: one GL mapping per account; account currency protected after activity
+- [x] Statement Import: CSV first; adapter hooks for OFX/QIF; mapping preview; duplicate detection;
       failed-row download
-- [ ] Transactions: match, categorize, split, transfer, exclude-with-reason; match cannot
+- [x] Transactions: match, categorize, split, transfer, exclude-with-reason; match cannot
       double-allocate a source transaction
-- [ ] Bank Rules: suggest or auto-apply only when the organization enables it
-- [ ] Reconciliation: difference must be zero to complete; completed reconciliation is locked;
+- [x] Bank Rules: suggest or auto-apply only when the organization enables it
+- [x] Reconciliation: difference must be zero to complete; completed reconciliation is locked;
       controlled undo with audit trail
-- [ ] Transfers: creates a balanced transfer posting and linked banking records
+- [x] Transfers: creates a balanced transfer posting and linked banking records
 
 ### UI
 
-- [ ] Accounts list/create-edit/detail
-- [ ] Statement Import wizard (upload → map → validate → preview → import → result)
-- [ ] Transactions list with match/categorize/split/transfer/exclude actions
-- [ ] Bank Rules management screen
-- [ ] Reconciliation screen (statement period, running difference, complete/lock)
-- [ ] Transfers screen
+- [x] Accounts list/create-edit/detail
+- [x] Statement Import wizard (upload → map → validate → preview → import → result)
+- [x] Transactions list with match/categorize/split/transfer/exclude actions
+- [x] Bank Rules management screen
+- [x] Reconciliation screen (statement period, running difference, complete/lock)
+- [x] Transfers screen
 
 ### Tests/acceptance
 

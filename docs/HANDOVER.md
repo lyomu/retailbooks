@@ -4,99 +4,62 @@
 double-entry accounting & invoicing web platform (monorepo: `apps/api` NestJS, `apps/web` Next.js,
 `packages/*` shared libs).
 
+**Last refreshed:** 2026-09-02.
+
 ## 1. Where things stand
 
-**Phase 4 (Accounting Engine remainder) is complete and verified** as of the Phase 4 close-out
-commit (see `git log`). All milestones 4A–4G are coded and verified; `docs/PHASE4_TODO.md`'s
-checkboxes are checked with implementation notes, and `docs/BUILD_ROADMAP.md`'s Phase 4 section +
-status snapshot match. Suites at close: unit 74 (api) + 25 (accounting-core) + 7 (localization) +
-5 (ui), integration **238 tests across 32 files**, typecheck/lint/format clean, production builds
-green, migration drift zero both directions. The three Phase-4 scoping decisions (posting-rule
-library = option (c); Recurring Journal now; deferred testing) were made explicitly via plan mode
-and are recorded at the top of `docs/PHASE4_TODO.md`.
+Six of fourteen phases have code. **Three** meet the roadmap's own "done and verified" bar.
 
-What Phase 4 added, in one paragraph each:
+| Phase                      | State                                                          |
+| -------------------------- | -------------------------------------------------------------- |
+| 1 Foundation               | Functionally complete; hardening/test debt open (Milestone 1J) |
+| 2 Sales                    | Complete and verified (2A–2K)                                  |
+| 3 Purchases                | Complete and verified (3A–3H)                                  |
+| 4 Accounting Engine        | Complete and verified (4A–4G)                                  |
+| 5 Banking & Reconciliation | **Built, not verified — no tests exist at all**                |
+| 6 Inventory                | Built, with inventory integration coverage                     |
+| 7–14                       | No code                                                        |
 
-- **Posting-rule library** (`apps/api/src/posting-rules/`): declarative rules → validated lines →
-  `postJournalFromLines`. Journals carry a new nullable `posting_rule` column (`event@vN`).
-- **Opening Balances wizard** (organizations/opening-balances.*): batches with account lines +
-  contact-level AR / vendor-level AP party detail; party lines are the only path to the AR/AP
-  control accounts; balanced-import validation hard-gates finalize.
-- **Recurring Journal** (organizations/recurring-journals.*): cadence templates posting through the
-  library; occurrence claims live in a separate `'RECURRING_JOURNAL_CLAIM'` idempotency namespace
-  from the posting's own `'RECURRING_JOURNAL_GENERATE'` — keep them separate.
-- **FX Revaluation batch** (organizations/fx-revaluation.*): restates foreign-currency monetary
-  positions per account×currency at the reporting rate, posts only the delta to fx_gain/fx_loss;
-  unique per run date. `prepareFxPosting`'s per-journal conversion is untouched.
-- **Rounding policy**: `RoundingMode`+unit on OrganizationPreference (ACCOUNTING section),
-  `computeCashRoundingDelta` in accounting-core, `RoundingService#postAdjustment` wiring the
-  previously-unwired `rounding` system account.
-- **Pilot migration**: `InvoicesService#issueInvoice` posts via `sales/invoice-posting-rule.ts`
-  with byte-identical output; its tests passed unmodified. The other six hand-rolling services are
-  intentionally NOT migrated — that's recorded as an open roadmap item.
+**The active plan is `docs/EXECUTION_PLAN.md`.** It sequences the remaining verification debt
+(Stages 0–4) and Phases 7–9 (Stages 5–7), and records three decisions (D1 ledger dimensions,
+D2 report query strategy, D3 country-pack DB model) that must be made before Phase 7 starts.
+Read it before picking up work.
 
-**Phase 5 (Banking & Reconciliation) is in progress, backend-complete, UI partly built.** Governing
-instruction for this phase, given explicitly by the user: **"fix it so that we call phase 5 done. a
-rule, code first, we will write tests later."** No test files are to be written and no
-lint/prettier/`npm test`/build runs are to happen this session — only `tsc --noEmit` as a
-compileability check. This mirrors the Phase 3 precedent of one deferred verification pass, except
-here the deferral was explicit and total (not just "batched to the end").
+### What is genuinely open, in priority order
 
-Done so far:
+1. **Phase 5 has zero test coverage** (Stage 2 of the execution plan). All of `apps/api/src/banking/`
+   — statement import with CSV parsing and sha256 fingerprint dedup, bank rules with a pure
+   condition-matching engine, transaction categorize/split/exclude/match/unmatch, cross-currency
+   transfers, and reconciliation with a zero-tolerance completion gate — shipped in `ae8ae3e` under
+   an explicit user-confirmed "code first, tests later" rule. That rule was never lifted. There is
+   no `banking.int.test.ts`. Phase 6's COGS posting was then built on top of it. This is the
+   highest-risk item in the repo.
+2. **The authorization-boundary matrix stops at Phase 4.** `CONTROLLERS` in
+   `apps/api/test/authorization-boundary.int.test.ts` ends at `FxRevaluationController`, so 29
+   banking + 14 inventory endpoints have no permission or cross-tenant proof. `PHASE6_TODO.md`
+   claimed this was done; that checkbox was corrected on 2026-09-02. **The structural fix matters
+   more than the backfill:** the suite's "keeps the matrix synchronized" test compares `ENDPOINTS`
+   against `discoverOrganizationEndpoints(CONTROLLERS)`, both hand-maintained, so a controller
+   omitted from both is invisible. Stage 2B.2 replaces the hardcoded array with a walk of the
+   booted Nest module graph so future phases fail loudly instead of shipping uncovered.
+3. **`JournalLine` has no dimension columns.** Phase 7 profitability and Phase 9 dimension-filtered
+   reports both need them; `InvoiceLine.projectTag` is free text, not a relation. See D1.
+4. **`LedgerService.trialBalance` reduces every posted journal line in memory.** Fine for one
+   report, fatal as the base of Phase 9's ~30. See D2 and Stage 4.1.
+5. **No domain event bus.** A Phase 10 blocker, not a Phase 9 one, but decide during Phase 9.
 
-- **Schema**: `FinancialAccountType`/`StatementImportFormat`/`StatementImportStatus`/
-  `BankTransactionDirection`/`BankTransactionDisposition`/`MatchTargetType`/`ReconciliationStatus`/
-  `TransferStatus` enums + `FinancialAccount`/`StatementImport`/`BankTransaction`/`Match`/
-  `BankRule`/`Reconciliation`/`ReconciliationClearedTransaction`/`Transfer` models, all in
-  `apps/api/prisma/schema.prisma`. A pre-existing draft of this schema was found corrupted (UTF-8
-  BOM + double-encoded comments) and missing back-relations; both were fixed, `npx prisma validate`
-  passes clean.
-- **Migration applied**: `apps/api/prisma/migrations/20260826091556_add_phase5_banking/` was
-  generated via the documented shadow-db `migrate diff` workaround (§2 above) and applied to the
-  dev DB with `prisma migrate deploy`. Prisma client regenerated. This migration is **not yet
-  committed** — it's new/untracked in the working tree along with the rest of Phase 5.
-- **Backend**: all of `apps/api/src/banking/` — `financial-accounts.*`, `bank-rules.*` (+
-  `bank-rule-matching.ts`, a pure condition-matching engine), `statement-imports.*` (+ `csv.ts`
-  hand-rolled parser, `bank-transaction-fingerprint.ts` sha256 dedup key), `bank-transactions.*` (+
-  `bank-transaction-posting-rule.ts`), `transfers.*` (+ `transfer-posting-rule.ts`, handles
-  cross-currency legs via `CurrencyService`/fx_gain/fx_loss), `reconciliations.*`, all registered in
-  `banking.module.ts` and `app.module.ts`. All posting goes through `PostingRulesService` per the
-  Phase 4 convention (§3 above). `npx tsc --noEmit` in `apps/api` is clean.
-- **Permissions**: 11 `banking.*` keys added to `permission-catalog.ts` (group `'Banking'`),
-  `READ_ONLY_BASELINE` gets the 5 `.view` keys, ADMIN and ACCOUNTANT get the full 11 — deliberately
-  **SALES and PURCHASES roles get none** (banking is accounting-team territory, a judgment call).
-  No new `SYSTEM_ROLE_KEYS` entry.
-- **Contracts**: `'Banking'` added to the permission group enum, all 11 keys added to
-  `permissionKeySchema`, and a full `// --- Phase 5: Banking & Reconciliation ---` section appended
-  to `packages/contracts/src/index.ts` with every entity's Zod schema + list/detail response
-  wrappers + create/update DTOs + inferred types. `npx tsc --noEmit` in `packages/contracts` is
-  clean.
-- **UI — in progress**: a background agent was dispatched (not yet confirmed complete at handover
-  time) to build three of the six screens — Financial Accounts, Bank Rules, Transfers — each
-  mirroring an existing sibling workbench (`vendors-workbench.tsx`, `payments-made-workbench.tsx`)
-  exactly. **Not yet started**: Statement Import wizard (CSV upload via `apiUpload`, needed a small
-  extension to `apps/web/src/lib/api.ts`'s `apiUpload()` to accept extra form fields alongside the
-  file — that extension is done, committed to the working tree, and ready to use), Bank Transactions
-  workbench (categorize/split/exclude/match/unmatch actions, feeds off suggestions from Bank
-  Rules), Reconciliation screen (start/clear/unclear/complete/reopen workflow, zero-tolerance
-  difference gate). **Also not yet done**: nav wiring in `apps/web/src/components/app-shell.tsx`
-  (needs a new "Banking" `NavigationGroup` — no items in any group are currently permission-gated at
-  the nav-config level, they just route to pages that self-gate via `ForbiddenState`, so add all six
-  Banking items unconditionally, mirroring the existing group shape), and
-  `docs/PHASE5_TODO.md` (doesn't exist yet — create it mirroring `PHASE3_TODO.md`'s/
-  `PHASE4_TODO.md`'s structure once the UI is done).
+### Recently closed (2026-09-02)
 
-All full API route paths, DTO shapes, and contract schema field names for every Phase 5 entity are
-already known/documented (was gathered in-session immediately before this handover) — the next
-session should read `apps/api/src/banking/*.controller.ts` directly rather than re-deriving routes,
-they're short and explicit.
-
-No `git commit` has happened for any Phase 5 work yet.
+- CI was red on `main`: two lint errors (`csv.ts` wrote the U+FEFF BOM it strips as a literal;
+  `inventory-workbench.tsx` had two unused icon imports) and 22 unformatted files, all from Phases
+  5 and 6 skipping the gates. Fixed on `chore/verification-closure`; lint, format, typecheck, and
+  all 112 unit tests are green.
+- `BUILD_ROADMAP.md`'s status snapshot and Phase 5 section were two phases stale and have been
+  synced; this file was rewritten.
 
 ## 2. Environment quirks worth remembering
 
-All still true from previous phases (see `docs/PHASE3_TODO.md` "After 3H" and `PHASE4_TODO.md`
-findings for details):
+All still true (see `docs/PHASE3_TODO.md` "After 3H" and `PHASE4_TODO.md` findings for details):
 
 - `npx prisma migrate dev` hard-fails non-interactively; use the shadow-db `migrate diff` dance
   (create `retailbooks_shadow`, diff with `--shadow-database-url`, hand-create the timestamped
@@ -107,22 +70,23 @@ findings for details):
   `[System.IO.File]::WriteAllText(..., UTF8Encoding($false))`.
 - Integration suite runs against `retailbooks_test` (auto-provisioned by `migrate deploy` from
   `test/support/database.ts`), NOT the dev `retailbooks` DB.
+- **Run `npm run infra:up` first.** Other projects' Postgres containers are often running on this
+  machine, which reads as "the DB is up" when RetailBooks' own containers are not.
 - The boundary-matrix sweep legitimately needs ~50–60s (~195 endpoints × 8 roles) and carries a
-  180s timeout — don't revert it to defaults.
+  180s timeout — don't revert it to defaults. It needs raising when Stage 2B adds ~43 endpoints.
 - Golden-path scripts: boot isolated API+worker via `node dist/src/main.js` / `dist/src/worker.js`
   on a scratch `API_PORT` with env from `apps/api/.env`; signup requires `displayName`;
   verification tokens come from Mailpit HTTP (`localhost:58025`, `/api/v1/messages` then
   `/api/v1/message/:id`, regex `token=([A-Za-z0-9_-]+)`); delete synthetic orgs (cascade) AND
-  standalone `users` rows afterwards. A ready-made Phase 3 script shape lives in git history if
-  needed; extend through banking once Phase 5 exists.
+  standalone `users` rows afterwards.
 - Demo-org roles go stale vs `roles-catalog.ts`; use fresh synthetic orgs for scripted walkthroughs.
 
 ## 3. Conventions still worth knowing
 
-Everything from earlier handovers holds (tenant scoping via `organizationId`, BigInt money as
-strings over the wire, immutable posted journals reversed not edited, `$transaction` +
-`writeAuditEvent` together, permission keys land in FOUR places — catalog keys array + entries,
-roles-catalog, contracts `permissionKeySchema`, contracts group enum). Additionally after Phase 4:
+Tenant scoping via `organizationId`; BigInt money as strings over the wire; immutable posted
+journals reversed not edited; `$transaction` + `writeAuditEvent` together; permission keys land in
+FOUR places (catalog keys array + entries, roles-catalog, contracts `permissionKeySchema`,
+contracts group enum). Additionally:
 
 - New posting code should declare a `PostingRule` and post through `PostingRulesService`
   (exported from `OrganizationsModule`) rather than calling `postJournalFromLines` directly.
@@ -132,17 +96,8 @@ roles-catalog, contracts `permissionKeySchema`, contracts group enum). Additiona
 - System accounts resolve only via `accountBySystemKey` — never codes/names.
 - `docs/PHASE<N>_TODO.md` files are the durable milestone records; BUILD_ROADMAP sections are
   their rollups; HANDOVER.md is refreshed each close-out.
-
-## 4. Phase 5 preview (from the roadmap)
-
-Entities: `FinancialAccount`, `StatementImport`, `BankTransaction`, `Match`, `Reconciliation`,
-`BankRule`, `Transfer`. Key acceptance: duplicate-fingerprint detection on re-import; matches
-cannot double-allocate sources; reconciliation completes only at zero difference and locks;
-transfers post balanced linked journals. This will be the first consumer of the rounding hook and
-a natural second candidate for migrating a posting flow onto the rule library (Transfers).
-
-## 5. Plan file (supplementary, not durable across machines/sessions)
-
-Phase 4's scratch plan lived at `C:\Users\gmnyo\.claude\plans\*.md`. Treat the
-`docs/PHASE*_TODO.md` files as source of truth where they disagree; start a fresh plan file for
-Phase 5.
+- **Roll the roadmap section up in the same commit as the phase, not as a follow-up step.** Phase 5
+  drifted for two phases precisely because that roll-up was optional and got skipped at close-out.
+- **Never check a box you have not verified.** Phase 6's boundary-matrix item was checked off while
+  the work was never done, which is worse than leaving it open — it hides the gap from the next
+  session instead of flagging it.
