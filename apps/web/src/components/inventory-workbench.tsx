@@ -25,7 +25,7 @@ import {
   Textarea,
   type DataTableColumn,
 } from '@retailbooks/ui';
-import { ArrowRightLeft, CheckCircle2, Plus, Save, Search, Send } from 'lucide-react';
+import { ArrowRightLeft, Plus, Save, Search } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 
 import { ApiError, apiRequest } from '../lib/api';

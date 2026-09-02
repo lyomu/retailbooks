@@ -9,7 +9,7 @@ export function parseCsv(text: string): string[][] {
   let field = '';
   let inQuotes = false;
   let i = 0;
-  const source = text.replace(/^﻿/, ''); // strip a UTF-8 BOM if the export included one
+  const source = text.replace(/^\uFEFF/, ''); // strip a UTF-8 BOM if the export included one
 
   while (i < source.length) {
     const char = source[i];
