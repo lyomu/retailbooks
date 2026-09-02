@@ -28,15 +28,17 @@ Read it before picking up work.
 
 ### What is genuinely open, in priority order
 
-1. **Phase 1 hardening debt, Stage 4.1–4.4 — in progress.** The execution plan splits Milestone
-   1J: performance/index review, audit-log and immutable-posting verification, the `DESIGN.md`
-   refresh, and a scoped threat model close now because Phases 7–9 build on them; visual
-   regression, WCAG, and the backup drill fold into Phase 14. The split is recorded in
-   `PHASE1_TODO.md` Milestone 1J.
-2. **No domain event bus.** A Phase 10 blocker, not a Phase 9 one, but decide during Phase 9.
-3. **Cross-module scenario 1 (§18.1)** is the one Phase 5 acceptance item still open. Banking
+1. **Phase 7 is ready to open.** Stages 0–4.4 are closed and D1 is decided, so the migration can be
+   written. Start at `EXECUTION_PLAN.md` Stage 5.
+2. **Two ADR 0011 follow-ups**, each recorded in `PHASE1_TODO.md` with its owning phase: an
+   attachment content-type allowlist, and validating the environment once at startup
+   (`packages/config` is still a stub, and only `SECURITY_PEPPER` asserts itself).
+3. **No domain event bus.** A Phase 10 blocker, not a Phase 9 one, but decide during Phase 9.
+4. **Cross-module scenario 1 (§18.1)** is the one Phase 5 acceptance item still open. Banking
    import/match/reconcile are covered in isolation, but not the full chain from quote through
    acceptance, invoice, partial and final payment, to P&L/AR/GL agreement.
+5. **Stage 4.5–4.8** — visual-regression baselines, the WCAG 2.2 AA review, and the backup/restore
+   drill — are folded into Phase 14 by decision, not by drift. See `PHASE1_TODO.md` Milestone 1J.
 
 ### Decided (2026-09-02) — the execution plan's three pre-Phase-7 decisions
 
@@ -73,6 +75,19 @@ Stage 5".
   shorter name. Renamed in `20260902130000_fix_phase6_index_names`; drift is now zero both ways.
 - Whole-repo gate green: lint, prettier, typecheck, 112 unit tests, 34 integration files / 258
   tests, zero drift, both production builds.
+- **Stage 4.1–4.4 closed** (the Phase 1 hardening debt that protects Phases 7–9):
+  - Four ledger read paths reduced every posted journal line in Node; they now aggregate in
+    PostgreSQL. `docs/PERFORMANCE.md` records the rules, the budgets, and the measured plans —
+    including the non-obvious one, that a relation filter must repeat `organizationId` on both
+    sides or the planner seq-scans every tenant's journals.
+  - `audit-coverage.int.test.ts` asserts audit coverage structurally rather than from a list of
+    actions. It found that a reversal journal had no audit row naming it, since `reverseJournal`
+    builds its journal outside `finalizePosting`. Fixed.
+  - `DESIGN.md` re-derived from the code. Tokens had not drifted; the workbench page shape, the
+    self-gating rule, and five shared primitives were undocumented.
+  - ADR 0011 reviewed the untrusted-file-input surfaces. Three upload endpoints were unbounded and
+    object keys used the raw client filename; both fixed, along with a missing 413 mapping.
+- Gate after Stage 4: 112 unit tests, **35 integration files / 267 tests**, zero drift, both builds.
 
 ## 2. Environment quirks worth remembering
 
@@ -89,8 +104,11 @@ All still true (see `docs/PHASE3_TODO.md` "After 3H" and `PHASE4_TODO.md` findin
   `test/support/database.ts`), NOT the dev `retailbooks` DB.
 - **Run `npm run infra:up` first.** Other projects' Postgres containers are often running on this
   machine, which reads as "the DB is up" when RetailBooks' own containers are not.
-- The boundary-matrix sweep legitimately needs ~50–60s (~195 endpoints × 8 roles) and carries a
-  180s timeout — don't revert it to defaults. It needs raising when Stage 2B adds ~43 endpoints.
+- The boundary-matrix sweep legitimately needs ~60s (243 endpoints × 8 roles) and carries a 240s
+  timeout — don't revert it to defaults. Raise it again when a phase adds a batch of controllers.
+- `retailbooks_perf` is a **disposable** scratch database for query-plan work, not part of any
+  suite — see `docs/PERFORMANCE.md` "Re-checking" for how to rebuild and drop it. Two tenants
+  matter when you do: with one, a missing tenant predicate produces the same plan either way.
 - Golden-path scripts: boot isolated API+worker via `node dist/src/main.js` / `dist/src/worker.js`
   on a scratch `API_PORT` with env from `apps/api/.env`; signup requires `displayName`;
   verification tokens come from Mailpit HTTP (`localhost:58025`, `/api/v1/messages` then

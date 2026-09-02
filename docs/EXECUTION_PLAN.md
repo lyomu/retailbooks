@@ -163,20 +163,35 @@ them twice — Phases 7–9 add ~20 screens and a report engine.
 
 ### Close now (protects Phases 7–9)
 
-- [ ] **4.1 Performance budgets and query/index review.** Do this _before_ Phase 9, not after.
+- [x] **4.1 Performance budgets and query/index review.** Do this _before_ Phase 9, not after.
       `LedgerService.trialBalance` (`ledger.service.ts:684`) loads every posted `JournalLine` into
       memory and reduces in JS. That is survivable for a trial balance on a demo org and fatal as
       the foundation of nine report families. Establish the SQL-aggregation pattern here, then
       Phase 9 inherits it. See Decision D2.
-- [ ] **4.2 Audit-log coverage and immutable-posting invariant verification.** Assert every
+      **Done:** four such read paths, not one, now aggregate in SQL. The plan review also found
+      that a Prisma relation filter must repeat `organizationId` on both sides or the planner
+      seq-scans every tenant's journals. Rules, budgets and measured plans in `docs/PERFORMANCE.md`.
+      No index was needed — the right ones already existed.
+- [x] **4.2 Audit-log coverage and immutable-posting invariant verification.** Assert every
       money-moving Phase 5/6 action writes an audit event, and that no posted journal is ever
       updated in place. Cheap to add alongside Stage 2's tests, expensive to retrofit across 14
       phases.
-- [ ] **4.3 Update `DESIGN.md` from the implemented system.** It predates ~50 screens. Phases 7–9
+      **Done:** `audit-coverage.int.test.ts`, asserted structurally over every posted journal
+      rather than from a list of actions — the 2B.2 lesson applied to audit events. It found a real
+      gap: a reversal journal had no audit row naming it, because `reverseJournal` builds its
+      journal outside `finalizePosting`. Fixed.
+- [x] **4.3 Update `DESIGN.md` from the implemented system.** It predates ~50 screens. Phases 7–9
       add ~20 more against it as reference; stale reference means drift compounding.
-- [ ] **4.4 Threat model and secret-handling review.** Scoped review now that banking (statement
+      **Done:** tokens had not drifted — the gap was vocabulary. Added the module-workbench page
+      composition twenty-one modules converged on, the self-gating page rule, and the five shared
+      primitives that post-date Phase 1.
+- [x] **4.4 Threat model and secret-handling review.** Scoped review now that banking (statement
       upload, CSV parsing, file storage) exists. CSV import is untrusted-input parsing — it deserves
       a look before more import paths land in Phases 8 and 9.
+      **Done:** `docs/adr/0011-threat-model-and-secret-handling.md`. Three upload endpoints were
+      unbounded and object keys interpolated the raw client filename; fixed, with a missing 413
+      mapping. Two gaps left open and owned in `PHASE1_TODO.md`: an attachment content-type
+      allowlist, and startup validation of the environment.
 
 ### Fold into Phase 14 (do once, at the end)
 
@@ -188,7 +203,8 @@ them twice — Phases 7–9 add ~20 screens and a report engine.
 - [ ] **4.8** Backup/restore drill and operational runbooks — no new-feature dependency.
 
 Record this split in `PHASE1_TODO.md` so the deferral is a decision on the record rather than a
-gap someone rediscovers.
+gap someone rediscovers. **Recorded** under Milestone 1J on 2026-09-02, with each item naming its
+stage so a later reader can tell a decision from a gap.
 
 ---
 
