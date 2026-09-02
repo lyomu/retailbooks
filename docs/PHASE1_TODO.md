@@ -355,7 +355,11 @@ working, not the plan slipping.
       into Phase 14** per the scoping decision above
 - [ ] Complete WCAG 2.2 AA keyboard, screen-reader, contrast, and focus review — **Stage 4.7, folded
       into Phase 14**
-- [ ] Complete performance budgets and query/index review — **Stage 4.1, in progress**
+- [x] Complete performance budgets and query/index review — **Stage 4.1**, recorded in
+      `docs/PERFORMANCE.md`. The four ledger read paths that reduced every posted line in Node now
+      aggregate in PostgreSQL, and relation filters scope the tenant on both sides so the planner
+      uses the existing indexes instead of seq-scanning every tenant's journals. Verified against a
+      600k-line scratch database; no new index was needed.
 - [ ] Complete audit-log coverage and immutable-posting review — audit events delivered across every
       service by foundation step 3 and Phases 2–6; invariant verification is **Stage 4.2, in progress**
 - [ ] Complete backup/restore, migration, seed, and operational runbooks — service-driven demo seed

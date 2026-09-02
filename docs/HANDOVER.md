@@ -107,6 +107,10 @@ contracts group enum). Additionally:
 
 - New posting code should declare a `PostingRule` and post through `PostingRulesService`
   (exported from `OrganizationsModule`) rather than calling `postJournalFromLines` directly.
+- **Totals aggregate in the database, and relation filters repeat `organizationId` on both sides.**
+  `docs/PERFORMANCE.md` has the rules, the budgets, and the measured plans. The second half of that
+  is easy to miss: with the tenant predicate only on `journal_lines`, PostgreSQL seq-scans every
+  tenant's journals rather than using the index.
 - Sweep/occurrence claims must use their own idempotency operation namespace, never share the rule
   event's namespace (the executor treats an existing record under the operation as its completed
   result).

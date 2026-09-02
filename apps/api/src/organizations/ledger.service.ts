@@ -94,36 +94,17 @@ export class LedgerService {
 
   async listAccounts(organizationId: string) {
     await this.ensureStarterChartForOrganization(organizationId);
-    const [accounts, lines] = await Promise.all([
+    const [accounts, movement] = await Promise.all([
       this.prisma.ledgerAccount.findMany({
         where: { organizationId },
         orderBy: [{ code: 'asc' }],
       }),
-      this.prisma.journalLine.findMany({
-        where: {
-          organizationId,
-          journal: { status: { in: [...POSTED_STATUSES] } },
-        },
-        select: {
-          accountId: true,
-          debitMinor: true,
-          creditMinor: true,
-          account: { select: { normalBalance: true } },
-        },
-      }),
+      this.postedMovementByAccount(organizationId),
     ]);
 
-    const balances = new Map<string, bigint>();
-    for (const line of lines) {
-      const movement = signedMovement(
-        line.account.normalBalance,
-        line.debitMinor,
-        line.creditMinor,
-      );
-      balances.set(line.accountId, (balances.get(line.accountId) ?? 0n) + movement);
-    }
-
-    return accounts.map((account) => accountSummary(account, balances.get(account.id) ?? 0n));
+    return accounts.map((account) =>
+      accountSummary(account, accountMovement(account, movement.get(account.id))),
+    );
   }
 
   async createAccount(
@@ -231,7 +212,7 @@ export class LedgerService {
       return account;
     });
 
-    return accountSummary(updated, await this.accountBalance(context.id, updated.id));
+    return accountSummary(updated, await this.postedBalance(context.id, updated));
   }
 
   async archiveAccount(
@@ -683,21 +664,16 @@ export class LedgerService {
 
   async trialBalance(organizationId: string, query: TrialBalanceQueryDto) {
     const asOf = query.asOf ?? dateOnly(new Date());
-    const accounts = await this.prisma.ledgerAccount.findMany({
-      where: { organizationId },
-      orderBy: [{ code: 'asc' }],
-    });
-    const lines = await this.prisma.journalLine.findMany({
-      where: {
-        organizationId,
-        journal: { status: { in: [...POSTED_STATUSES] }, journalDate: { lte: isoDate(asOf) } },
-      },
-      include: { account: true },
-    });
+    const [accounts, movementByAccount] = await Promise.all([
+      this.prisma.ledgerAccount.findMany({
+        where: { organizationId },
+        orderBy: [{ code: 'asc' }],
+      }),
+      this.postedMovementByAccount(organizationId, { journalDate: { lte: isoDate(asOf) } }),
+    ]);
 
-    const movementByAccount = movementMap(lines);
     const rows = accounts.map((account) => {
-      const movementMinor = movementByAccount.get(account.id) ?? 0n;
+      const movementMinor = accountMovement(account, movementByAccount.get(account.id));
       const sides = trialSides(account.normalBalance, movementMinor);
       return {
         accountId: account.id,
@@ -731,21 +707,9 @@ export class LedgerService {
 
     const from = query.from;
     const to = query.to ?? dateOnly(new Date());
-    const openingLines = from
-      ? await this.prisma.journalLine.findMany({
-          where: {
-            organizationId,
-            accountId,
-            journal: { status: { in: [...POSTED_STATUSES] }, journalDate: { lt: isoDate(from) } },
-          },
-          include: { journal: true },
-        })
-      : [];
-    const openingBalanceMinor = sum(
-      openingLines.map((line) =>
-        signedMovement(account.normalBalance, line.debitMinor, line.creditMinor),
-      ),
-    );
+    const openingBalanceMinor = from
+      ? await this.postedBalance(organizationId, account, { journalDate: { lt: isoDate(from) } })
+      : 0n;
 
     const lines = await this.prisma.journalLine.findMany({
       where: {
@@ -987,20 +951,54 @@ export class LedgerService {
     }
   }
 
-  private async accountBalance(organizationId: string, accountId: string): Promise<bigint> {
-    const lines = await this.prisma.journalLine.findMany({
+  /**
+   * Sums posted debits and credits per account in PostgreSQL rather than loading every line and
+   * reducing in JS. Ledger reads are unbounded by nature — an organization's posted history only
+   * grows — so the row count that reaches Node has to be the account count, not the line count.
+   *
+   * This is the aggregation shape `docs/PERFORMANCE.md` holds report queries to, and the one
+   * Phase 9's report engine is expected to copy.
+   */
+  private async postedMovementByAccount(
+    organizationId: string,
+    journalFilter: Prisma.JournalWhereInput = {},
+  ): Promise<Map<string, MovementTotals>> {
+    const grouped = await this.prisma.journalLine.groupBy({
+      by: ['accountId'],
       where: {
         organizationId,
-        accountId,
-        journal: { status: { in: [...POSTED_STATUSES] } },
+        journal: postedJournalFilter(organizationId, journalFilter),
       },
-      include: { account: true },
+      _sum: { debitMinor: true, creditMinor: true },
     });
-    return sum(
-      lines.map((line) =>
-        signedMovement(line.account.normalBalance, line.debitMinor, line.creditMinor),
-      ),
+
+    return new Map(
+      grouped.map((row) => [
+        row.accountId,
+        { debitMinor: row._sum.debitMinor ?? 0n, creditMinor: row._sum.creditMinor ?? 0n },
+      ]),
     );
+  }
+
+  /** Single-account form of {@link postedMovementByAccount}, signed to the account's normal side. */
+  private async postedBalance(
+    organizationId: string,
+    account: Pick<LedgerAccount, 'id' | 'normalBalance'>,
+    journalFilter: Prisma.JournalWhereInput = {},
+  ): Promise<bigint> {
+    const totals = await this.prisma.journalLine.aggregate({
+      where: {
+        organizationId,
+        accountId: account.id,
+        journal: postedJournalFilter(organizationId, journalFilter),
+      },
+      _sum: { debitMinor: true, creditMinor: true },
+    });
+
+    return accountMovement(account, {
+      debitMinor: totals._sum.debitMinor ?? 0n,
+      creditMinor: totals._sum.creditMinor ?? 0n,
+    });
   }
 
   private async hasPostedAccountHistory(
@@ -1249,16 +1247,44 @@ function journalTotals(lines: readonly Pick<JournalLine, 'debitMinor' | 'creditM
   };
 }
 
-function movementMap(lines: readonly (JournalLine & { account: LedgerAccount })[]) {
-  const result = new Map<string, bigint>();
-  for (const line of lines) {
-    result.set(
-      line.accountId,
-      (result.get(line.accountId) ?? 0n) +
-        signedMovement(line.account.normalBalance, line.debitMinor, line.creditMinor),
-    );
-  }
-  return result;
+interface MovementTotals {
+  readonly debitMinor: bigint;
+  readonly creditMinor: bigint;
+}
+
+/**
+ * Restricts a ledger aggregate to one organization's posted journals.
+ *
+ * `organizationId` is repeated on the journal side even though a line's journal always belongs to
+ * the same organization. It is not redundant to the planner: with the tenant predicate only on
+ * `journal_lines`, PostgreSQL hash-joins against *every* tenant's journals and sequentially scans
+ * both tables, so a one-month report reads the whole line table. Scoping both sides lets it use
+ * `journals(organization_id, status, journal_date)` and `journal_lines(organization_id,
+ * journal_id)` instead — measured at 300,000 rows scanned versus 8,016 for the same one-month
+ * trial balance, a gap that widens with tenant count rather than with the date range.
+ *
+ * See `docs/PERFORMANCE.md` for the plans this was verified against.
+ */
+function postedJournalFilter(
+  organizationId: string,
+  journalFilter: Prisma.JournalWhereInput,
+): Prisma.JournalWhereInput {
+  return { organizationId, status: { in: [...POSTED_STATUSES] }, ...journalFilter };
+}
+
+/**
+ * Signs an account's aggregated debit/credit totals to its normal side.
+ *
+ * `groupBy` returns no row for an account with no posted movement, so an absent entry has to read
+ * as a zero balance rather than a missing account — every account still appears in the chart and
+ * in the trial balance.
+ */
+function accountMovement(
+  account: Pick<LedgerAccount, 'normalBalance'>,
+  totals: MovementTotals | undefined,
+): bigint {
+  if (!totals) return 0n;
+  return signedMovement(account.normalBalance, totals.debitMinor, totals.creditMinor);
 }
 
 function signedMovement(

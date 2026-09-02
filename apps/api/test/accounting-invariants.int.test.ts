@@ -297,6 +297,110 @@ describe('accounting, period, numbering, and tax invariants', () => {
     });
   });
 
+  // The four ledger read paths below aggregate in PostgreSQL rather than reducing every posted
+  // line in Node (Stage 4.1 / decision D2, docs/PERFORMANCE.md). These tests pin the behaviour
+  // that a grouped query can silently change: accounts with no rows in the group, and the two
+  // surfaces that must keep reporting the same number.
+
+  it('agrees between the account list and the trial balance, including zero-movement accounts', async () => {
+    await postDatedJournal('2026-07-15', '2500', 'aggregate-july');
+    await postDatedJournal('2026-08-20', '1500', 'aggregate-august');
+
+    const trialBalance = await ledger.trialBalance(context.id, { asOf: '2026-08-31' });
+    const accounts = await ledger.listAccounts(context.id);
+
+    // bank is a DEBIT account and revenue a CREDIT account, so both read positive on their own
+    // normal side for the same 4000 of movement.
+    expect(rowFor(trialBalance, bankId)).toMatchObject({ debitMinor: '4000', creditMinor: '0' });
+    expect(rowFor(trialBalance, revenueId)).toMatchObject({ debitMinor: '0', creditMinor: '4000' });
+    expect(balanceFor(accounts, bankId)).toBe('4000');
+    expect(balanceFor(accounts, revenueId)).toBe('4000');
+
+    // groupBy returns no row for an account that was never posted to. It must still appear in
+    // both surfaces at zero rather than vanishing from the chart or the trial balance.
+    const untouched = await ledger.accountBySystemKey(context.id, 'accounts_receivable');
+    expect(rowFor(trialBalance, untouched.id)).toMatchObject({
+      debitMinor: '0',
+      creditMinor: '0',
+    });
+    expect(balanceFor(accounts, untouched.id)).toBe('0');
+    expect(accounts).toHaveLength(trialBalance.rows.length);
+
+    expect(trialBalance.totals).toMatchObject({
+      debitMinor: '4000',
+      creditMinor: '4000',
+      balanced: true,
+    });
+  });
+
+  it('honours the as-of date and excludes unposted journals from every aggregate', async () => {
+    await postDatedJournal('2026-07-15', '2500', 'asof-july');
+    await postDatedJournal('2026-08-20', '1500', 'asof-august');
+    // A draft that is never posted must not reach any balance.
+    await ledger.createJournalDraft(context, owner, {
+      ...journalInput('Unposted draft'),
+      journalDate: '2026-07-20',
+    });
+
+    const throughJuly = await ledger.trialBalance(context.id, { asOf: '2026-07-31' });
+    expect(rowFor(throughJuly, bankId)).toMatchObject({ debitMinor: '2500' });
+
+    const throughAugust = await ledger.trialBalance(context.id, { asOf: '2026-08-31' });
+    expect(rowFor(throughAugust, bankId)).toMatchObject({ debitMinor: '4000' });
+  });
+
+  it('opens the account ledger at the balance carried in before the from date', async () => {
+    await postDatedJournal('2026-07-15', '2500', 'opening-july');
+    await postDatedJournal('2026-08-20', '1500', 'opening-august');
+
+    const ranged = await ledger.accountLedger(context.id, bankId, { from: '2026-08-01' });
+    expect(ranged.openingBalanceMinor).toBe('2500');
+    expect(ranged.closingBalanceMinor).toBe('4000');
+    expect(ranged.rows).toHaveLength(1);
+
+    // With no `from`, everything is in range and the opening balance is zero by definition.
+    const full = await ledger.accountLedger(context.id, bankId, {});
+    expect(full.openingBalanceMinor).toBe('0');
+    expect(full.closingBalanceMinor).toBe('4000');
+  });
+
+  async function postDatedJournal(
+    journalDate: string,
+    amountMinor: string,
+    idempotencyKey: string,
+  ) {
+    const draft = await ledger.createJournalDraft(context, owner, {
+      journalDate,
+      currency: 'KES',
+      description: `Aggregate probe ${journalDate}`,
+      lines: [
+        { accountId: bankId, debitMinor: amountMinor, creditMinor: '0' },
+        { accountId: revenueId, debitMinor: '0', creditMinor: amountMinor },
+      ],
+    });
+    return ledger.postJournal(context, owner, draft.id, metadata, idempotencyKey);
+  }
+
+  function rowFor(
+    trialBalance: Awaited<ReturnType<LedgerService['trialBalance']>>,
+    accountId: string,
+  ) {
+    return required(
+      trialBalance.rows.find((row) => row.accountId === accountId),
+      `Trial balance has no row for account ${accountId}.`,
+    );
+  }
+
+  function balanceFor(
+    accounts: Awaited<ReturnType<LedgerService['listAccounts']>>,
+    accountId: string,
+  ) {
+    return required(
+      accounts.find((account) => account.id === accountId),
+      `Account list has no entry for account ${accountId}.`,
+    ).balanceMinor;
+  }
+
   async function createDraft(description: string) {
     return ledger.createJournalDraft(context, owner, journalInput(description));
   }
