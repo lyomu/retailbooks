@@ -455,7 +455,7 @@ describe('banking and reconciliation against a real database', () => {
 
     expect(transfer.status).toBe('POSTED');
     const record = await harness.prisma.transfer.findUniqueOrThrow({ where: { id: transfer.id } });
-    const lines = await expectBalancedJournal(record.journalId!);
+    const lines = await expectBalancedJournal(record.journalId);
     const accountIds = lines.map((line) => line.accountId);
     expect(accountIds).toContain(from.glAccountId);
     expect(accountIds).toContain(to.glAccountId);
@@ -523,7 +523,7 @@ describe('banking and reconciliation against a real database', () => {
     );
 
     const record = await harness.prisma.transfer.findUniqueOrThrow({ where: { id: transfer.id } });
-    const lines = await expectBalancedJournal(record.journalId!);
+    const lines = await expectBalancedJournal(record.journalId);
     const fxGain = await ledger.accountBySystemKey(context.id, 'fx_gain');
     const fxLoss = await ledger.accountBySystemKey(context.id, 'fx_loss');
     const fxLines = lines.filter(
@@ -551,7 +551,7 @@ describe('banking and reconciliation against a real database', () => {
       where: { id: transfer.id },
     });
     const originalLines = await harness.prisma.journalLine.findMany({
-      where: { journalId: original.journalId! },
+      where: { journalId: original.journalId },
       orderBy: { lineNumber: 'asc' },
     });
 
@@ -560,7 +560,7 @@ describe('banking and reconciliation against a real database', () => {
 
     // The original posting is immutable; the reversal is a separate journal.
     const linesAfter = await harness.prisma.journalLine.findMany({
-      where: { journalId: original.journalId! },
+      where: { journalId: original.journalId },
       orderBy: { lineNumber: 'asc' },
     });
     expect(linesAfter).toEqual(originalLines);
