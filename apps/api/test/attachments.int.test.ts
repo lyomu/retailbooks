@@ -198,6 +198,9 @@ describe('attachments (Bills and Expenses nested routes) against a real database
     const bill = await createBill();
     const oversized = Buffer.alloc(15 * 1024 * 1024 + 1);
 
+    // The limit is enforced at the interceptor, so the body is refused mid-stream rather than
+    // buffered in full and measured afterwards. That makes 413 the honest status: the request was
+    // never processed, which a 400 would imply it had been.
     const response = await harness
       .http()
       .post(`${API}/organizations/${context.id}/bills/${bill.id}/attachments`)
@@ -206,9 +209,9 @@ describe('attachments (Bills and Expenses nested routes) against a real database
         filename: 'too-big.bin',
         contentType: 'application/octet-stream',
       })
-      .expect(400);
+      .expect(413);
 
-    expect((response.body as { error: { message: string } }).error.message).toMatch(/15MB/);
+    expect((response.body as { error: { code: string } }).error.code).toBe('PAYLOAD_TOO_LARGE');
 
     expect(
       await harness.prisma.attachment.count({

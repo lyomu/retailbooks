@@ -85,6 +85,7 @@ function errorCode(status: number, validation: boolean): string {
     403: 'FORBIDDEN',
     404: 'NOT_FOUND',
     409: 'CONFLICT',
+    413: 'PAYLOAD_TOO_LARGE',
     429: 'RATE_LIMITED',
   };
   return codes[status] ?? 'INTERNAL_ERROR';

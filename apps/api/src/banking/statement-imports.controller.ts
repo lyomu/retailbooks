@@ -22,7 +22,7 @@ import {
   type OrganizationRequest,
 } from '../organizations/organization-context.js';
 import { OrganizationGuard } from '../organizations/organization.guard.js';
-import { StatementImportsService } from './statement-imports.service.js';
+import { MAX_STATEMENT_BYTES, StatementImportsService } from './statement-imports.service.js';
 
 @Controller('organizations/:organizationId/statement-imports')
 @UseGuards(SessionGuard, OrganizationGuard)
@@ -61,7 +61,7 @@ export class StatementImportsController {
 
   @Post()
   @RequirePermission('banking.transactions.manage')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_STATEMENT_BYTES } }))
   async import(
     @Body('financialAccountId') financialAccountId: string,
     @UploadedFile() file: UploadedFileLike,

@@ -16,7 +16,11 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 
-import { AttachmentsService, type UploadedFileLike } from '../attachments/attachments.service.js';
+import {
+  AttachmentsService,
+  MAX_ATTACHMENT_BYTES,
+  type UploadedFileLike,
+} from '../attachments/attachments.service.js';
 import { AuthService } from '../auth/auth.service.js';
 import { requestMetadata } from '../auth/request-context.js';
 import { SessionGuard } from '../auth/session.guard.js';
@@ -190,7 +194,7 @@ export class ExpensesController {
   @Post(':expenseId/attachments')
   @HttpCode(201)
   @RequirePermission('purchases.expenses.manage')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_ATTACHMENT_BYTES } }))
   async uploadAttachment(
     @Param('expenseId', new ParseUUIDPipe()) expenseId: string,
     @UploadedFile() file: UploadedFileLike,

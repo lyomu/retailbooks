@@ -17,7 +17,13 @@ export interface UploadedFileLike {
   readonly buffer: Buffer;
 }
 
-const MAX_ATTACHMENT_BYTES = 15 * 1024 * 1024;
+/**
+ * Exported so the upload interceptors can refuse an oversized body *before* multer buffers it.
+ * The service check below is the authoritative one — an interceptor limit is transport
+ * configuration and a caller could reach the service another way — but on its own it fires only
+ * after the whole file is already resident in memory.
+ */
+export const MAX_ATTACHMENT_BYTES = 15 * 1024 * 1024;
 
 /**
  * Generic attachment storage shared by Bills and Expenses (and any future entity), wrapping the
@@ -45,7 +51,7 @@ export class AttachmentsService {
     if (file.size > MAX_ATTACHMENT_BYTES) {
       throw new BadRequestException('Attachment exceeds the 15MB size limit.');
     }
-    const storageKey = `${context.id}/${entityType.toLowerCase()}/${entityId}/${randomUUID()}-${file.originalname}`;
+    const storageKey = `${context.id}/${entityType.toLowerCase()}/${entityId}/${randomUUID()}-${safeKeySegment(file.originalname)}`;
 
     await this.storage.ensureBucket();
     await this.storage.upload(storageKey, file.buffer, file.mimetype);
@@ -91,6 +97,21 @@ export class AttachmentsService {
       })),
     );
   }
+}
+
+/**
+ * Reduces a client-supplied filename to one safe object-key segment.
+ *
+ * S3 and MinIO treat a key as an opaque string rather than a path, so `../` in a filename does not
+ * escape the tenant prefix today. That is a property of the current storage backend, not of this
+ * code, and it stops being true the moment a key is used to build a filesystem path — a local
+ * export, a backup restore, a future filesystem driver. The stored `filename` column keeps the
+ * original for display; only the key is constrained.
+ */
+function safeKeySegment(filename: string): string {
+  const base = filename.replace(/^.*[\\/]/, '');
+  const cleaned = base.replace(/[^A-Za-z0-9._-]/g, '_').replace(/^\.+/, '');
+  return cleaned.slice(0, 120) || 'attachment';
 }
 
 function summarize(attachment: {

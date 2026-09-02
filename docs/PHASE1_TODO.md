@@ -368,8 +368,19 @@ working, not the plan slipping.
       row named it — now fixed.
 - [ ] Complete backup/restore, migration, seed, and operational runbooks — service-driven demo seed
       delivered by foundation step 7; backup/restore and runbooks are **Stage 4.8, folded into Phase 14**
-- [ ] Complete threat model, dependency review, secret handling, and production-readiness checklist —
-      **Stage 4.4, in progress**; the production-readiness checklist itself stays with Phase 14
+- [x] Complete threat model and secret-handling review — **Stage 4.4**, recorded in
+      `docs/adr/0011-threat-model-and-secret-handling.md`, scoped to the untrusted-file-input
+      surfaces Phase 5 introduced and Phases 8–9 will build on. Fixed three unbounded upload paths,
+      unsanitised object keys, and a missing 413 mapping. Dependency review and the
+      production-readiness checklist stay with Phase 14.
+- [ ] **Follow-up from ADR 0011:** attachment content-type allowlist and forced download
+      disposition — `file.mimetype` is client-supplied, stored, and echoed back with no allowlist.
+      Under an hour, but it changes what existing users can upload, so it belongs with the next
+      attachment work rather than a review commit.
+- [ ] **Follow-up from ADR 0011:** validate the environment once at startup. `packages/config` is a
+      stub and only `SECURITY_PEPPER` asserts itself; `DATABASE_URL`, `REDIS_URL` and the `S3_*`
+      credentials fall back to empty strings or localhost, so a production boot with a missing
+      secret starts and fails later inside a request. Best done at the start of Phase 8.
 - [x] Update `DESIGN.md` from the implemented system — **Stage 4.3**. Tokens reconciled against
       `packages/ui/src/tokens.css` (they had not drifted); the gap was vocabulary, not values.
       Added the module-workbench page composition that twenty-one modules converged on, the

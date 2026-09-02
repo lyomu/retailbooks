@@ -13,6 +13,14 @@ import { parseCsv } from './csv.js';
 
 const MAX_ROWS = 5_000;
 
+/**
+ * A byte ceiling to sit in front of {@link MAX_ROWS}, which can only be checked once the file has
+ * been read into memory and fully parsed. 5,000 statement rows do not approach 8MB — a real bank
+ * export is tens of kilobytes — so this rejects nothing legitimate while bounding what an
+ * untrusted upload can make the parser hold.
+ */
+export const MAX_STATEMENT_BYTES = 8 * 1024 * 1024;
+
 export interface RowOutcome {
   rowNumber: number;
   date: string | null;
@@ -66,6 +74,10 @@ export class StatementImportsService {
     if (!account) throw new NotFoundException('Financial account not found.');
     if (!account.active)
       throw new BadRequestException('Cannot import a statement into an inactive account.');
+
+    if (file.size > MAX_STATEMENT_BYTES) {
+      throw new BadRequestException('A statement file is limited to 8MB.');
+    }
 
     const text = file.buffer.toString('utf8');
     const table = parseCsv(text);
