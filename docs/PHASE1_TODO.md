@@ -360,8 +360,12 @@ working, not the plan slipping.
       aggregate in PostgreSQL, and relation filters scope the tenant on both sides so the planner
       uses the existing indexes instead of seq-scanning every tenant's journals. Verified against a
       600k-line scratch database; no new index was needed.
-- [ ] Complete audit-log coverage and immutable-posting review — audit events delivered across every
-      service by foundation step 3 and Phases 2–6; invariant verification is **Stage 4.2, in progress**
+- [x] Complete audit-log coverage and immutable-posting review — **Stage 4.2**, proven by
+      `apps/api/test/audit-coverage.int.test.ts`. Coverage is asserted structurally rather than from
+      a list of actions: every posted journal must carry an audit row naming it, and every posted
+      journal that names a source document must carry an audit row for that document too. This
+      found one real gap — a reversal journal builds itself outside `finalizePosting`, so no audit
+      row named it — now fixed.
 - [ ] Complete backup/restore, migration, seed, and operational runbooks — service-driven demo seed
       delivered by foundation step 7; backup/restore and runbooks are **Stage 4.8, folded into Phase 14**
 - [ ] Complete threat model, dependency review, secret handling, and production-readiness checklist —

@@ -655,6 +655,27 @@ export class LedgerService {
         },
         ipHash: metadata.ipHash,
       });
+      // Two things happened, and the audit log has to say both. The row above records the original
+      // moving to REVERSED; this one records the reversal journal being posted. Reversal builds its
+      // journal directly rather than through `finalizePosting`, so without this the reversal journal
+      // — a posted journal carrying real money — would be the one posted journal no audit row names,
+      // and looking it up by its own id would return nothing.
+      await writeAuditEvent(tx, {
+        organizationId: context.id,
+        actorUserId: user.id,
+        eventKey: 'ledger.journal_posted',
+        entityType: 'journal',
+        entityId: created.id,
+        action: AuditAction.CREATE,
+        after: {
+          status: JournalStatus.POSTED,
+          reference: created.reference,
+          currency: created.currency,
+          exchangeRate: created.exchangeRate?.toString() ?? null,
+          reversalOfJournalId: original.id,
+        },
+        ipHash: metadata.ipHash,
+      });
       return created;
     };
 
