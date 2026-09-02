@@ -197,6 +197,10 @@ gap someone rediscovers.
 These three change the shape of the work. Decide them explicitly and write them at the top of the
 relevant `PHASE<N>_TODO.md`, the way Phase 4's three scoping decisions were recorded.
 
+**All three were decided on 2026-09-02.** Each option list below is kept so the reasoning that was
+rejected stays visible; the **Resolved** line under each is what binds. Carry the resolution into
+`PHASE7_TODO.md` / `PHASE8_TODO.md` / `PHASE9_TODO.md` when each file is created at its stage.
+
 ### D1 — Ledger dimensions (blocks Phase 7 and Phase 9)
 
 `JournalLine` has **no** dimension columns. `InvoiceLine.projectTag` is a free-text `VarChar(80)`,
@@ -214,12 +218,26 @@ not a relation. Phase 7 needs project profitability (revenue and cost by project
 
 Whichever is chosen, posted lines must freeze their dimension the way tax snapshots already do.
 
+**Resolved (2026-09-02): (a).** `JournalLine` gains nullable `projectId` and `tagId` in Phase 7's
+migration. Existing rows are not backfilled — historical journals predate projects, and a
+nullable column states that honestly. `LedgerService.postJournal` freezes the dimension inside the
+posting transaction at the same point it freezes the tax snapshot, so a later re-tag of a document
+can never drift an already-posted line. Profitability and Phase 9's dimension filters then read
+from the ledger, and reconcile to the P&L by construction rather than by a parallel aggregation
+that can disagree. Rejected (b) for exactly that disagreement risk, and (c) because a generic
+dimension join table buys flexibility V1 has no second use for.
+
 ### D2 — Report engine query strategy (blocks Phase 9)
 
 Follow the `trialBalance` in-memory pattern, or move to SQL aggregation (`groupBy` / raw CTEs) with
 the in-memory version refactored to match? **Recommend SQL aggregation**, decided at 4.1 and applied
 uniformly. Nine report families over an append-only ledger is exactly the workload that punishes
 in-memory reduction, and retrofitting after ~30 reports exist is a rewrite.
+
+**Resolved (2026-09-02): SQL aggregation.** The rule and its budgets are written down in
+`docs/PERFORMANCE.md`, and Stage 4.1 converts the four ledger read paths that reduced in JS
+(`trialBalance`, `listAccounts`, `accountLedger`'s opening balance, `accountBalance`) onto it.
+`trialBalance` is the reference implementation Phase 9's engine copies.
 
 ### D3 — Country packs: static catalog → DB model (shapes Phase 8)
 
@@ -228,6 +246,12 @@ demonstration, generic fallback). Phase 8 wants a versionable, publishable `Coun
 Phase 12's admin console is built on it. Recommend: introduce the DB model in Phase 8, seed it from
 the static catalog, keep the static file as the seed source and fallback, and cut readers over to
 the DB. Do **not** delete the static catalog — it is the bootstrap path for a fresh database.
+
+**Resolved (2026-09-02): as recommended.** `CountryPack` becomes a versioned DB entity in Phase 8,
+seeded from `jurisdiction-catalog.ts`; readers move to the DB; the static file stays as both the
+seed source and the fresh-database fallback. The Kenya pack keeps its explicit _demonstration_
+labelling through the migration — the model must not launder an unreviewed pack into an implied
+compliance claim.
 
 ---
 

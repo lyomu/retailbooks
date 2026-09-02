@@ -28,19 +28,29 @@ Read it before picking up work.
 
 ### What is genuinely open, in priority order
 
-1. **`JournalLine` has no dimension columns.** Phase 7 profitability and Phase 9
-   dimension-filtered reports both need them; `InvoiceLine.projectTag` is free text, not a
-   relation. Decide this (D1 in the execution plan) before Phase 7's migration is written.
-2. **`LedgerService.trialBalance` reduces every posted journal line in memory**
-   (`ledger.service.ts:684`). Fine for one report, fatal as the base of Phase 9's ~30. See D2
-   and Stage 4.1.
-3. **No domain event bus.** A Phase 10 blocker, not a Phase 9 one, but decide during Phase 9.
-4. **Phase 1 hardening debt.** Stage 4 of the execution plan splits it: performance/index
-   review, audit-log coverage, `DESIGN.md` refresh and a threat model close now because they
-   protect Phases 7–9; visual regression, WCAG, and the backup drill fold into Phase 14.
-5. **Cross-module scenario 1 (§18.1)** is the one Phase 5 acceptance item still open. Banking
+1. **Phase 1 hardening debt, Stage 4.1–4.4 — in progress.** The execution plan splits Milestone
+   1J: performance/index review, audit-log and immutable-posting verification, the `DESIGN.md`
+   refresh, and a scoped threat model close now because Phases 7–9 build on them; visual
+   regression, WCAG, and the backup drill fold into Phase 14. The split is recorded in
+   `PHASE1_TODO.md` Milestone 1J.
+2. **No domain event bus.** A Phase 10 blocker, not a Phase 9 one, but decide during Phase 9.
+3. **Cross-module scenario 1 (§18.1)** is the one Phase 5 acceptance item still open. Banking
    import/match/reconcile are covered in isolation, but not the full chain from quote through
    acceptance, invoice, partial and final payment, to P&L/AR/GL agreement.
+
+### Decided (2026-09-02) — the execution plan's three pre-Phase-7 decisions
+
+- **D1 ledger dimensions → option (a).** `JournalLine` gains nullable `projectId` + `tagId` in
+  Phase 7's migration, frozen at post time like the tax snapshot. Profitability then reads from
+  the ledger and reconciles to the P&L by construction. No backfill: historical journals predate
+  projects.
+- **D2 report query strategy → SQL aggregation.** Rule and budgets in `docs/PERFORMANCE.md`;
+  `trialBalance` is the reference implementation Phase 9's engine copies.
+- **D3 country packs → DB `CountryPack` model in Phase 8**, seeded from `jurisdiction-catalog.ts`,
+  which stays as the fresh-database fallback. Kenya keeps its explicit _demonstration_ labelling.
+
+Full reasoning, including what was rejected, is in `EXECUTION_PLAN.md` §"Decisions to make before
+Stage 5".
 
 ### Recently closed (2026-09-02)
 

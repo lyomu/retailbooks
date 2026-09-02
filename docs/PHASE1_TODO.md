@@ -36,7 +36,8 @@ pull request, commit, or milestone note.
 - [x] Add Storybook or an equivalent component-development surface
 - [x] Build design-system reference pages for density and responsive behavior
 - [x] Add component accessibility tests
-- [ ] Capture initial visual-regression baselines against supplied RetailFlow references
+- [ ] Capture initial visual-regression baselines against supplied RetailFlow references — Stage 4.5,
+      folded into Phase 14 with the regression run itself (see Milestone 1J's scoping decision)
 
 ## Milestone 1C — Identity and sessions
 
@@ -326,23 +327,43 @@ false 429s.
 
 ## Milestone 1J — Hardening and Phase 1 acceptance
 
+**Scoping decision (2026-09-02) — this milestone is split in two.** `docs/EXECUTION_PLAN.md` Stage 4
+divides the eight open items by whether they protect the phases still to be built or will simply be
+redone at Phase 14.
+
+_Closed now (Stage 4.1–4.4), because Phases 7–9 build on top of them:_ performance budgets and
+query/index review (the report engine inherits whatever pattern the ledger sets), audit-log coverage
+and immutable-posting verification (cheap beside Phase 5's new tests, expensive to retrofit across
+fourteen phases), the `DESIGN.md` refresh (Phases 7–9 add ~20 screens against it as reference), and
+the threat model / secret-handling review (banking's CSV import is untrusted-input parsing, and
+Phases 8 and 9 add more import paths on top of it).
+
+_Deferred into Phase 14 (Stage 4.5–4.8), deliberately and on the record:_ visual-regression
+baselines and the desktop/tablet/mobile regression run — the screen inventory is still growing, so
+baselines captured now are re-captured three times; the WCAG 2.2 AA review — done once across the
+full surface rather than three times against a moving target; and the backup/restore drill and
+operational runbooks — they gate release, not any new-feature work.
+
+This is a decision, not a gap. If a later session finds 4.5–4.8 still open, that is the plan
+working, not the plan slipping.
+
 - [x] Complete end-to-end journeys for identity, onboarding, teams, periods, journals, and tax —
       verification stage 5, proven by `apps/web/e2e/phase1-journeys.spec.ts`
 - [x] Complete cross-tenant and permission-boundary security tests — verification stages 2–3,
       proven by `identity-tenancy.int.test.ts` and `authorization-boundary.int.test.ts`
-- [ ] Complete visual regression at desktop, tablet, and mobile breakpoints — verification stage 6,
-      deferred and blocked on D1
-- [ ] Complete WCAG 2.2 AA keyboard, screen-reader, contrast, and focus review — verification stage 6,
-      deferred
-- [ ] Complete performance budgets and query/index review — verification stage 7, deferred
-- [ ] Complete audit-log coverage and immutable-posting review — audit events partly delivered by
-      foundation step 3; invariant verification remains deferred to stage 4
+- [ ] Complete visual regression at desktop, tablet, and mobile breakpoints — **Stage 4.6, folded
+      into Phase 14** per the scoping decision above
+- [ ] Complete WCAG 2.2 AA keyboard, screen-reader, contrast, and focus review — **Stage 4.7, folded
+      into Phase 14**
+- [ ] Complete performance budgets and query/index review — **Stage 4.1, in progress**
+- [ ] Complete audit-log coverage and immutable-posting review — audit events delivered across every
+      service by foundation step 3 and Phases 2–6; invariant verification is **Stage 4.2, in progress**
 - [ ] Complete backup/restore, migration, seed, and operational runbooks — service-driven demo seed
-      delivered by foundation step 7; backup/restore and runbooks remain deferred
+      delivered by foundation step 7; backup/restore and runbooks are **Stage 4.8, folded into Phase 14**
 - [ ] Complete threat model, dependency review, secret handling, and production-readiness checklist —
-      verification stages 7–8, deferred
+      **Stage 4.4, in progress**; the production-readiness checklist itself stays with Phase 14
 - [ ] Update `DESIGN.md` from the implemented system and close all Phase 1 acceptance gaps —
-      verification stage 8, deferred
+      **Stage 4.3, in progress**
 - [x] Add structured observability, request correlation, redaction, and an error-reporting seam —
       foundation step 1
 - [x] Add Redis/BullMQ job infrastructure with a separate worker, retries, retained failed jobs, and
