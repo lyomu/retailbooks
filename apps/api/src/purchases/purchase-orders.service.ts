@@ -261,14 +261,7 @@ export class PurchaseOrdersService {
       throw new BadRequestException('Receipt status is derived from stock receipt movements.');
     }
     const updated = await this.prisma.$transaction(async (tx) => {
-      return this.inventory.recordPurchaseOrderReceipt(
-        context,
-        user,
-        orderId,
-        input,
-        metadata,
-        tx,
-      );
+      return this.inventory.recordPurchaseOrderReceipt(context, user, orderId, input, metadata, tx);
     });
     return summarizeOrder(updated);
   }
@@ -419,7 +412,8 @@ export class PurchaseOrdersService {
         unitPriceMinor,
         discountMinor,
         lineTotalMinor,
-        taxCodeId: line.taxCodeId ?? item?.defaultPurchaseTaxCodeId ?? item?.defaultTaxCodeId ?? null,
+        taxCodeId:
+          line.taxCodeId ?? item?.defaultPurchaseTaxCodeId ?? item?.defaultTaxCodeId ?? null,
         warehouseId: line.warehouseId ?? null,
       };
     });

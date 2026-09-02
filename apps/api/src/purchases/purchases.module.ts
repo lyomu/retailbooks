@@ -26,7 +26,14 @@ import { VendorsController } from './vendors.controller.js';
 import { VendorsService } from './vendors.service.js';
 
 @Module({
-  imports: [AuthModule, OrganizationsModule, JobsModule, StorageModule, AttachmentsModule, InventoryModule],
+  imports: [
+    AuthModule,
+    OrganizationsModule,
+    JobsModule,
+    StorageModule,
+    AttachmentsModule,
+    InventoryModule,
+  ],
   controllers: [
     VendorsController,
     PurchaseOrdersController,

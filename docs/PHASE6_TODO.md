@@ -8,7 +8,7 @@ the rolled-up summary and should be synced at close-out.
 ## Scoping decisions made up front
 
 1. **Phase 5 gate passed.** Phase 5 was committed as `ae8ae3e Add Phase 5 banking and
-   reconciliation`; its allowed verification was `apps/web` `tsc --noEmit` clean, with full tests
+reconciliation`; its allowed verification was `apps/web` `tsc --noEmit` clean, with full tests
    deferred under that phase's own code-first rule.
 2. **Receipt status is derived from inventory movements.** `PurchaseOrder.recordReceipt()` no longer
    accepts an independent receipt-status flip. It records `PURCHASE_RECEIPT` stock movements for

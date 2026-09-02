@@ -107,7 +107,9 @@ describe('inventory management against a real database', () => {
       metadata,
     );
     expect(draft.status).toBe('DRAFT');
-    expect(await harness.prisma.stockMovement.count({ where: { organizationId: context.id } })).toBe(0);
+    expect(
+      await harness.prisma.stockMovement.count({ where: { organizationId: context.id } }),
+    ).toBe(0);
 
     const submitted = await inventory.submitAdjustment(context, owner, draft.id, metadata);
     expect(submitted.status).toBe('PENDING_APPROVAL');
@@ -155,7 +157,8 @@ describe('inventory management against a real database', () => {
     expect(
       transferMovements.reduce(
         (sum, movement) =>
-          sum + (movement.direction === 'IN' ? Number(movement.quantity) : -Number(movement.quantity)),
+          sum +
+          (movement.direction === 'IN' ? Number(movement.quantity) : -Number(movement.quantity)),
         0,
       ),
     ).toBe(0);
@@ -198,8 +201,18 @@ describe('inventory management against a real database', () => {
   it('passes the retail scenario from purchase through inventory valuation agreeing to GL', async () => {
     const item = await trackedItem('RTL-001', 'Retail widget');
     const warehouse = await createWarehouse('MAIN', 'Main Warehouse');
-    const vendor = await vendors.create(context, owner, { displayName: 'Inventory Supplier' }, metadata);
-    const customer = await customers.create(context, owner, { displayName: 'Retail Customer' }, metadata);
+    const vendor = await vendors.create(
+      context,
+      owner,
+      { displayName: 'Inventory Supplier' },
+      metadata,
+    );
+    const customer = await customers.create(
+      context,
+      owner,
+      { displayName: 'Retail Customer' },
+      metadata,
+    );
 
     const poDraft = await purchaseOrders.createDraft(
       context,

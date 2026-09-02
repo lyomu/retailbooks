@@ -235,7 +235,9 @@ export class BankTransactionsService {
       return summarize(updated);
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-        throw new ConflictException('This document is already matched to another bank transaction.');
+        throw new ConflictException(
+          'This document is already matched to another bank transaction.',
+        );
       }
       throw error;
     }
@@ -310,7 +312,9 @@ export class BankTransactionsService {
       if (transaction.direction !== 'OUTFLOW') {
         throw new BadRequestException('An expense must match an outflow transaction.');
       }
-      const expense = await this.prisma.expense.findFirst({ where: { id: targetId, organizationId } });
+      const expense = await this.prisma.expense.findFirst({
+        where: { id: targetId, organizationId },
+      });
       if (!expense) throw new NotFoundException('Expense not found.');
       if (expense.status !== 'POSTED') {
         throw new BadRequestException('Only a posted expense can be matched.');
@@ -320,7 +324,9 @@ export class BankTransactionsService {
       }
       return;
     }
-    const transfer = await this.prisma.transfer.findFirst({ where: { id: targetId, organizationId } });
+    const transfer = await this.prisma.transfer.findFirst({
+      where: { id: targetId, organizationId },
+    });
     if (!transfer) throw new NotFoundException('Transfer not found.');
     if (transfer.status !== 'POSTED') {
       throw new BadRequestException('Only a posted transfer can be matched.');
@@ -329,7 +335,9 @@ export class BankTransactionsService {
       transfer.fromAmountMinor === transaction.amountMinor ||
       transfer.toAmountMinor === transaction.amountMinor;
     if (!matchesLeg) {
-      throw new BadRequestException("Neither of the transfer's leg amounts match this transaction.");
+      throw new BadRequestException(
+        "Neither of the transfer's leg amounts match this transaction.",
+      );
     }
   }
 

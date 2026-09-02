@@ -81,7 +81,12 @@ const dispositions: readonly BankTransactionDisposition[] = [
   'POSTED',
   'EXCLUDED',
 ];
-const ruleFields: readonly BankRuleField[] = ['description', 'reference', 'amountMinor', 'direction'];
+const ruleFields: readonly BankRuleField[] = [
+  'description',
+  'reference',
+  'amountMinor',
+  'direction',
+];
 const ruleOperators: readonly BankRuleOperator[] = ['contains', 'equals', 'gt', 'gte', 'lt', 'lte'];
 const matchTargetTypes: readonly MatchTargetType[] = [
   'PAYMENT_RECEIVED',
@@ -135,7 +140,9 @@ export function FinancialAccountsPage() {
       setLedgerAccounts(ledgerResponse.data.filter((account) => account.status === 'ACTIVE'));
       setError(null);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Financial accounts could not be loaded.');
+      setError(
+        caught instanceof Error ? caught.message : 'Financial accounts could not be loaded.',
+      );
     }
   }, [activeFilter, organizationId]);
 
@@ -176,7 +183,9 @@ export function FinancialAccountsPage() {
       cell: (account) => (
         <div>
           <strong>{account.name}</strong>
-          <span className="rb-table-secondary">{ledgerName.get(account.glAccountId) ?? 'Ledger account'}</span>
+          <span className="rb-table-secondary">
+            {ledgerName.get(account.glAccountId) ?? 'Ledger account'}
+          </span>
         </div>
       ),
     },
@@ -365,7 +374,12 @@ function FinancialAccountForm({
         <div className="rb-field-grid">
           <div className="rb-field">
             <Label htmlFor="financial-account-name">Name</Label>
-            <Input id="financial-account-name" name="name" defaultValue={account?.name ?? ''} required />
+            <Input
+              id="financial-account-name"
+              name="name"
+              defaultValue={account?.name ?? ''}
+              required
+            />
           </div>
           <div className="rb-field">
             <Label htmlFor="financial-account-type">Type</Label>
@@ -389,7 +403,12 @@ function FinancialAccountForm({
           </div>
           <div className="rb-field">
             <Label htmlFor="financial-account-gl">Ledger account</Label>
-            <Select id="financial-account-gl" name="glAccountId" defaultValue={account?.glAccountId ?? ''} required>
+            <Select
+              id="financial-account-gl"
+              name="glAccountId"
+              defaultValue={account?.glAccountId ?? ''}
+              required
+            >
               <option value="">Choose account</option>
               {ledgerAccounts.map((ledgerAccount) => (
                 <option key={ledgerAccount.id} value={ledgerAccount.id}>
@@ -477,7 +496,8 @@ export function BankRulesPage() {
         <div>
           <strong>{rule.name}</strong>
           <span className="rb-table-secondary">
-            {rule.conditions.length} condition{rule.conditions.length === 1 ? '' : 's'} · priority {rule.priority}
+            {rule.conditions.length} condition{rule.conditions.length === 1 ? '' : 's'} · priority{' '}
+            {rule.priority}
           </span>
         </div>
       ),
@@ -487,8 +507,16 @@ export function BankRulesPage() {
       header: 'Suggestion',
       cell: (rule) => accountNames.get(rule.suggestAccountId ?? '') ?? 'No account suggestion',
     },
-    { key: 'mode', header: 'Mode', cell: (rule) => (rule.matchAny ? 'Any condition' : 'All conditions') },
-    { key: 'status', header: 'Status', cell: (rule) => <StatusBadge status={rule.active ? 'ACTIVE' : 'INACTIVE'} /> },
+    {
+      key: 'mode',
+      header: 'Mode',
+      cell: (rule) => (rule.matchAny ? 'Any condition' : 'All conditions'),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      cell: (rule) => <StatusBadge status={rule.active ? 'ACTIVE' : 'INACTIVE'} />,
+    },
     {
       key: 'actions',
       header: '',
@@ -503,7 +531,9 @@ export function BankRulesPage() {
   ];
 
   if (!workspace.loading && organization && !canView) {
-    return <ForbiddenState description="Ask for banking rule access to review categorization automation." />;
+    return (
+      <ForbiddenState description="Ask for banking rule access to review categorization automation." />
+    );
   }
 
   return (
@@ -573,7 +603,9 @@ function BankRuleForm({
   onCancel: () => void;
   onSaved: (rule: BankRule) => void;
 }) {
-  const [conditions, setConditions] = useState<BankRuleCondition[]>(rule?.conditions ?? [blankCondition()]);
+  const [conditions, setConditions] = useState<BankRuleCondition[]>(
+    rule?.conditions ?? [blankCondition()],
+  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -642,21 +674,33 @@ function BankRuleForm({
           </div>
           <div className="rb-field">
             <Label htmlFor="bank-rule-match-mode">Match mode</Label>
-            <Select id="bank-rule-match-mode" name="matchAny" defaultValue={rule?.matchAny ? 'true' : 'false'}>
+            <Select
+              id="bank-rule-match-mode"
+              name="matchAny"
+              defaultValue={rule?.matchAny ? 'true' : 'false'}
+            >
               <option value="false">All conditions</option>
               <option value="true">Any condition</option>
             </Select>
           </div>
           <div className="rb-field">
             <Label htmlFor="bank-rule-stop">Rule chaining</Label>
-            <Select id="bank-rule-stop" name="stopOnMatch" defaultValue={rule?.stopOnMatch ? 'true' : 'false'}>
+            <Select
+              id="bank-rule-stop"
+              name="stopOnMatch"
+              defaultValue={rule?.stopOnMatch ? 'true' : 'false'}
+            >
               <option value="false">Keep evaluating</option>
               <option value="true">Stop on match</option>
             </Select>
           </div>
           <div className="rb-field">
             <Label htmlFor="bank-rule-account">Suggested account</Label>
-            <Select id="bank-rule-account" name="suggestAccountId" defaultValue={rule?.suggestAccountId ?? ''}>
+            <Select
+              id="bank-rule-account"
+              name="suggestAccountId"
+              defaultValue={rule?.suggestAccountId ?? ''}
+            >
               <option value="">No account</option>
               {accounts.map((account) => (
                 <option key={account.id} value={account.id}>
@@ -667,20 +711,36 @@ function BankRuleForm({
           </div>
           <div className="rb-field">
             <Label htmlFor="bank-rule-tags">Suggested tags</Label>
-            <Input id="bank-rule-tags" name="suggestTags" defaultValue={rule?.suggestTags.join(', ') ?? ''} />
+            <Input
+              id="bank-rule-tags"
+              name="suggestTags"
+              defaultValue={rule?.suggestTags.join(', ') ?? ''}
+            />
           </div>
           <div className="rb-field">
             <Label htmlFor="bank-rule-contact">Suggested customer/contact id</Label>
-            <Input id="bank-rule-contact" name="suggestContactId" defaultValue={rule?.suggestContactId ?? ''} />
+            <Input
+              id="bank-rule-contact"
+              name="suggestContactId"
+              defaultValue={rule?.suggestContactId ?? ''}
+            />
           </div>
           <div className="rb-field">
             <Label htmlFor="bank-rule-vendor">Suggested vendor id</Label>
-            <Input id="bank-rule-vendor" name="suggestVendorId" defaultValue={rule?.suggestVendorId ?? ''} />
+            <Input
+              id="bank-rule-vendor"
+              name="suggestVendorId"
+              defaultValue={rule?.suggestVendorId ?? ''}
+            />
           </div>
           {rule ? (
             <div className="rb-field">
               <Label htmlFor="bank-rule-active">Status</Label>
-              <Select id="bank-rule-active" name="active" defaultValue={rule.active ? 'true' : 'false'}>
+              <Select
+                id="bank-rule-active"
+                name="active"
+                defaultValue={rule.active ? 'true' : 'false'}
+              >
                 <option value="true">Active</option>
                 <option value="false">Inactive</option>
               </Select>
@@ -699,7 +759,9 @@ function BankRuleForm({
               <Select
                 aria-label={`Condition ${index + 1} field`}
                 value={condition.field}
-                onChange={(event) => updateCondition(index, { field: event.target.value as BankRuleField })}
+                onChange={(event) =>
+                  updateCondition(index, { field: event.target.value as BankRuleField })
+                }
               >
                 {ruleFields.map((field) => (
                   <option key={field} value={field}>
@@ -733,7 +795,9 @@ function BankRuleForm({
                 aria-label={`Remove condition ${index + 1}`}
                 onClick={() =>
                   setConditions((current) =>
-                    current.length > 1 ? current.filter((_, itemIndex) => itemIndex !== index) : current,
+                    current.length > 1
+                      ? current.filter((_, itemIndex) => itemIndex !== index)
+                      : current,
                   )
                 }
               >
@@ -743,13 +807,21 @@ function BankRuleForm({
           ))}
         </div>
         <div className="rb-dialog-footer">
-          <Button type="button" variant="outline" onClick={() => setConditions((current) => [...current, blankCondition()])}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setConditions((current) => [...current, blankCondition()])}
+          >
             <Plus aria-hidden="true" /> Add condition
           </Button>
           <Button type="button" variant="outline" onClick={onCancel}>
             Cancel
           </Button>
-          <Button type="submit" loading={saving} disabled={conditions.every((condition) => !condition.value.trim())}>
+          <Button
+            type="submit"
+            loading={saving}
+            disabled={conditions.every((condition) => !condition.value.trim())}
+          >
             <Save aria-hidden="true" /> Save rule
           </Button>
         </div>
@@ -785,7 +857,9 @@ export function TransfersPage() {
     try {
       const params = accountFilter ? `?financialAccountId=${accountFilter}` : '';
       const [accountResponse, transferResponse] = await Promise.all([
-        apiRequest<FinancialAccountListResponse>(`/organizations/${organizationId}/financial-accounts?active=true`),
+        apiRequest<FinancialAccountListResponse>(
+          `/organizations/${organizationId}/financial-accounts?active=true`,
+        ),
         apiRequest<TransferListResponse>(`/organizations/${organizationId}/transfers${params}`),
       ]);
       setAccounts(accountResponse.data);
@@ -806,9 +880,12 @@ export function TransfersPage() {
     if (!organizationId) return;
     setError(null);
     try {
-      await apiRequest<TransferResponse>(`/organizations/${organizationId}/transfers/${transfer.id}/void`, {
-        method: 'POST',
-      });
+      await apiRequest<TransferResponse>(
+        `/organizations/${organizationId}/transfers/${transfer.id}/void`,
+        {
+          method: 'POST',
+        },
+      );
       setNotice(`${transfer.transferNumber ?? 'Transfer'} was voided.`);
       await load();
     } catch (caught) {
@@ -823,14 +900,17 @@ export function TransfersPage() {
       cell: (transfer) => (
         <div>
           <strong>{transfer.transferNumber ?? 'Transfer'}</strong>
-          <span className="rb-table-secondary">{transfer.description ?? transfer.transferDate}</span>
+          <span className="rb-table-secondary">
+            {transfer.description ?? transfer.transferDate}
+          </span>
         </div>
       ),
     },
     {
       key: 'from',
       header: 'From',
-      cell: (transfer) => accountNames.get(transfer.fromFinancialAccountId) ?? transfer.fromCurrency,
+      cell: (transfer) =>
+        accountNames.get(transfer.fromFinancialAccountId) ?? transfer.fromCurrency,
     },
     {
       key: 'to',
@@ -844,14 +924,23 @@ export function TransfersPage() {
       align: 'right',
       cell: (transfer) => formatMinor(transfer.fromAmountMinor, transfer.fromCurrency),
     },
-    { key: 'status', header: 'Status', cell: (transfer) => <StatusBadge status={transfer.status} /> },
+    {
+      key: 'status',
+      header: 'Status',
+      cell: (transfer) => <StatusBadge status={transfer.status} />,
+    },
     {
       key: 'actions',
       header: '',
       align: 'right',
       cell: (transfer) =>
         canManage && transfer.status === 'POSTED' ? (
-          <Button variant="ghost" size="sm" type="button" onClick={() => void voidTransfer(transfer)}>
+          <Button
+            variant="ghost"
+            size="sm"
+            type="button"
+            onClick={() => void voidTransfer(transfer)}
+          >
             Void
           </Button>
         ) : null,
@@ -859,7 +948,9 @@ export function TransfersPage() {
   ];
 
   if (!workspace.loading && organization && !canView) {
-    return <ForbiddenState description="Ask for banking transfer access to review account movements." />;
+    return (
+      <ForbiddenState description="Ask for banking transfer access to review account movements." />
+    );
   }
 
   return (
@@ -891,7 +982,11 @@ export function TransfersPage() {
         <Card className="rb-ledger-toolbar">
           <div className="rb-field">
             <Label htmlFor="transfer-account-filter">Account</Label>
-            <Select id="transfer-account-filter" value={accountFilter} onChange={(event) => setAccountFilter(event.target.value)}>
+            <Select
+              id="transfer-account-filter"
+              value={accountFilter}
+              onChange={(event) => setAccountFilter(event.target.value)}
+            >
               <option value="">All accounts</option>
               {accounts.map((account) => (
                 <option key={account.id} value={account.id}>
@@ -946,11 +1041,14 @@ function TransferForm({
     setSaving(true);
     setError(null);
     try {
-      const response = await apiRequest<TransferResponse>(`/organizations/${organizationId}/transfers`, {
-        method: 'POST',
-        body: JSON.stringify(body),
-        headers: { 'Idempotency-Key': crypto.randomUUID() },
-      });
+      const response = await apiRequest<TransferResponse>(
+        `/organizations/${organizationId}/transfers`,
+        {
+          method: 'POST',
+          body: JSON.stringify(body),
+          headers: { 'Idempotency-Key': crypto.randomUUID() },
+        },
+      );
       onSaved(response.data);
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : 'The transfer could not be posted.');
@@ -967,19 +1065,47 @@ function TransferForm({
         </div>
         <Messages error={error} />
         <div className="rb-field-grid">
-          <FinancialAccountSelect labelText="From account" id="transfer-from" name="fromFinancialAccountId" accounts={accounts} />
-          <FinancialAccountSelect labelText="To account" id="transfer-to" name="toFinancialAccountId" accounts={accounts} />
+          <FinancialAccountSelect
+            labelText="From account"
+            id="transfer-from"
+            name="fromFinancialAccountId"
+            accounts={accounts}
+          />
+          <FinancialAccountSelect
+            labelText="To account"
+            id="transfer-to"
+            name="toFinancialAccountId"
+            accounts={accounts}
+          />
           <div className="rb-field">
             <Label htmlFor="transfer-date">Date</Label>
-            <Input id="transfer-date" name="transferDate" type="date" defaultValue={today} required />
+            <Input
+              id="transfer-date"
+              name="transferDate"
+              type="date"
+              defaultValue={today}
+              required
+            />
           </div>
           <div className="rb-field">
             <Label htmlFor="transfer-from-amount">From amount</Label>
-            <Input id="transfer-from-amount" name="fromAmount" inputMode="decimal" placeholder="0.00" required />
+            <Input
+              id="transfer-from-amount"
+              name="fromAmount"
+              inputMode="decimal"
+              placeholder="0.00"
+              required
+            />
           </div>
           <div className="rb-field">
             <Label htmlFor="transfer-to-amount">To amount</Label>
-            <Input id="transfer-to-amount" name="toAmount" inputMode="decimal" placeholder="0.00" required />
+            <Input
+              id="transfer-to-amount"
+              name="toAmount"
+              inputMode="decimal"
+              placeholder="0.00"
+              required
+            />
           </div>
           <div className="rb-field">
             <Label htmlFor="transfer-description">Description</Label>
@@ -1017,8 +1143,12 @@ export function StatementImportsPage() {
     try {
       const params = accountFilter ? `?financialAccountId=${accountFilter}` : '';
       const [accountResponse, importResponse] = await Promise.all([
-        apiRequest<FinancialAccountListResponse>(`/organizations/${organizationId}/financial-accounts?active=true`),
-        apiRequest<StatementImportListResponse>(`/organizations/${organizationId}/statement-imports${params}`),
+        apiRequest<FinancialAccountListResponse>(
+          `/organizations/${organizationId}/financial-accounts?active=true`,
+        ),
+        apiRequest<StatementImportListResponse>(
+          `/organizations/${organizationId}/statement-imports${params}`,
+        ),
       ]);
       setAccounts(accountResponse.data);
       setImports(importResponse.data);
@@ -1063,7 +1193,9 @@ export function StatementImportsPage() {
       setSelectedImportId(response.data.id);
       await load();
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : 'The statement file could not be imported.');
+      setError(
+        caught instanceof ApiError ? caught.message : 'The statement file could not be imported.',
+      );
     } finally {
       setBusy(false);
     }
@@ -1077,11 +1209,17 @@ export function StatementImportsPage() {
       cell: (statementImport) => (
         <div>
           <strong>{statementImport.fileName}</strong>
-          <span className="rb-table-secondary">{accountNames.get(statementImport.financialAccountId) ?? 'Account'}</span>
+          <span className="rb-table-secondary">
+            {accountNames.get(statementImport.financialAccountId) ?? 'Account'}
+          </span>
         </div>
       ),
     },
-    { key: 'status', header: 'Status', cell: (statementImport) => <StatusBadge status={statementImport.status} /> },
+    {
+      key: 'status',
+      header: 'Status',
+      cell: (statementImport) => <StatusBadge status={statementImport.status} />,
+    },
     {
       key: 'rows',
       header: 'Rows',
@@ -1094,7 +1232,12 @@ export function StatementImportsPage() {
       header: '',
       align: 'right',
       cell: (statementImport) => (
-        <Button variant="ghost" size="sm" type="button" onClick={() => setSelectedImportId(statementImport.id)}>
+        <Button
+          variant="ghost"
+          size="sm"
+          type="button"
+          onClick={() => setSelectedImportId(statementImport.id)}
+        >
           Failed rows
         </Button>
       ),
@@ -1102,7 +1245,9 @@ export function StatementImportsPage() {
   ];
 
   if (!workspace.loading && organization && !canView) {
-    return <ForbiddenState description="Ask for banking transaction access to import statement files." />;
+    return (
+      <ForbiddenState description="Ask for banking transaction access to import statement files." />
+    );
   }
 
   return (
@@ -1119,15 +1264,28 @@ export function StatementImportsPage() {
               <div className="rb-ledger-form__heading">
                 <div>
                   <h2>Import CSV statement</h2>
-                  <p>CSV rows become unresolved bank transactions ready for matching or categorizing.</p>
+                  <p>
+                    CSV rows become unresolved bank transactions ready for matching or categorizing.
+                  </p>
                 </div>
                 <Badge tone="info">CSV</Badge>
               </div>
               <div className="rb-field-grid">
-                <FinancialAccountSelect labelText="Financial account" id="statement-account" name="financialAccountId" accounts={accounts} />
+                <FinancialAccountSelect
+                  labelText="Financial account"
+                  id="statement-account"
+                  name="financialAccountId"
+                  accounts={accounts}
+                />
                 <div className="rb-field">
                   <Label htmlFor="statement-file">Statement file</Label>
-                  <Input id="statement-file" name="file" type="file" accept=".csv,text/csv" required />
+                  <Input
+                    id="statement-file"
+                    name="file"
+                    type="file"
+                    accept=".csv,text/csv"
+                    required
+                  />
                 </div>
               </div>
               <div className="rb-dialog-footer">
@@ -1175,18 +1333,38 @@ export function StatementImportsPage() {
             {!failedRows ? (
               <Skeleton />
             ) : failedRows.length === 0 ? (
-              <EmptyState title="No failed rows" description="This import produced no failed-row details." />
+              <EmptyState
+                title="No failed rows"
+                description="This import produced no failed-row details."
+              />
             ) : (
               <DataTable
                 caption="Import row outcomes"
-                columns={[
-                  { key: 'row', header: 'Row', cell: (row) => row.rowNumber },
-                  { key: 'description', header: 'Description', cell: (row) => row.description ?? 'No description' },
-                  { key: 'amount', header: 'Amount', cell: (row) => row.amount ?? 'No amount' },
-                  { key: 'outcome', header: 'Outcome', cell: (row) => <StatusBadge status={row.outcome} /> },
-                  { key: 'error', header: 'Error', cell: (row) => row.error ?? 'Duplicate fingerprint' },
-                ] satisfies readonly DataTableColumn<ImportRowView>[]}
-                rows={failedRows.map((row) => ({ ...row, id: `${selectedImportId}:${row.rowNumber}` }))}
+                columns={
+                  [
+                    { key: 'row', header: 'Row', cell: (row) => row.rowNumber },
+                    {
+                      key: 'description',
+                      header: 'Description',
+                      cell: (row) => row.description ?? 'No description',
+                    },
+                    { key: 'amount', header: 'Amount', cell: (row) => row.amount ?? 'No amount' },
+                    {
+                      key: 'outcome',
+                      header: 'Outcome',
+                      cell: (row) => <StatusBadge status={row.outcome} />,
+                    },
+                    {
+                      key: 'error',
+                      header: 'Error',
+                      cell: (row) => row.error ?? 'Duplicate fingerprint',
+                    },
+                  ] satisfies readonly DataTableColumn<ImportRowView>[]
+                }
+                rows={failedRows.map((row) => ({
+                  ...row,
+                  id: `${selectedImportId}:${row.rowNumber}`,
+                }))}
               />
             )}
           </Card>
@@ -1207,7 +1385,9 @@ export function BankTransactionsPage() {
   const [ledgerAccounts, setLedgerAccounts] = useState<LedgerAccount[]>([]);
   const [transactions, setTransactions] = useState<BankTransaction[] | null>(null);
   const [accountFilter, setAccountFilter] = useState('');
-  const [dispositionFilter, setDispositionFilter] = useState<'' | BankTransactionDisposition>('UNRESOLVED');
+  const [dispositionFilter, setDispositionFilter] = useState<'' | BankTransactionDisposition>(
+    'UNRESOLVED',
+  );
   const [selected, setSelected] = useState<BankTransaction | null>(null);
   const [mode, setMode] = useState<'categorize' | 'match' | 'exclude' | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -1221,9 +1401,13 @@ export function BankTransactionsPage() {
     const suffix = params.toString() ? `?${params.toString()}` : '';
     try {
       const [financialResponse, ledgerResponse, transactionResponse] = await Promise.all([
-        apiRequest<FinancialAccountListResponse>(`/organizations/${organizationId}/financial-accounts?active=true`),
+        apiRequest<FinancialAccountListResponse>(
+          `/organizations/${organizationId}/financial-accounts?active=true`,
+        ),
         apiRequest<AccountListResponse>(`/organizations/${organizationId}/accounts`),
-        apiRequest<BankTransactionListResponse>(`/organizations/${organizationId}/bank-transactions${suffix}`),
+        apiRequest<BankTransactionListResponse>(
+          `/organizations/${organizationId}/bank-transactions${suffix}`,
+        ),
       ]);
       setFinancialAccounts(financialResponse.data);
       setLedgerAccounts(ledgerResponse.data.filter((account) => account.status === 'ACTIVE'));
@@ -1238,7 +1422,10 @@ export function BankTransactionsPage() {
     void load();
   }, [load]);
 
-  const financialNames = useMemo(() => financialAccountLabelMap(financialAccounts), [financialAccounts]);
+  const financialNames = useMemo(
+    () => financialAccountLabelMap(financialAccounts),
+    [financialAccounts],
+  );
   const ledgerNames = useMemo(() => accountLabelMap(ledgerAccounts), [ledgerAccounts]);
 
   async function unmatch(transaction: BankTransaction) {
@@ -1252,7 +1439,9 @@ export function BankTransactionsPage() {
       setNotice('Transaction was unmatched.');
       await load();
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : 'The transaction could not be unmatched.');
+      setError(
+        caught instanceof ApiError ? caught.message : 'The transaction could not be unmatched.',
+      );
     }
   }
 
@@ -1264,12 +1453,18 @@ export function BankTransactionsPage() {
         <div>
           <strong>{transaction.description}</strong>
           <span className="rb-table-secondary">
-            {transaction.transactionDate} · {financialNames.get(transaction.financialAccountId) ?? transaction.currency}
+            {transaction.transactionDate} ·{' '}
+            {financialNames.get(transaction.financialAccountId) ?? transaction.currency}
           </span>
         </div>
       ),
     },
-    { key: 'direction', header: 'Direction', cell: (transaction) => label(transaction.direction), hideBelow: 'tablet' },
+    {
+      key: 'direction',
+      header: 'Direction',
+      cell: (transaction) => label(transaction.direction),
+      hideBelow: 'tablet',
+    },
     {
       key: 'amount',
       header: 'Amount',
@@ -1280,10 +1475,16 @@ export function BankTransactionsPage() {
       key: 'suggested',
       header: 'Suggested',
       cell: (transaction) =>
-        transaction.suggestedAccountId ? ledgerNames.get(transaction.suggestedAccountId) ?? 'Suggested account' : 'No suggestion',
+        transaction.suggestedAccountId
+          ? (ledgerNames.get(transaction.suggestedAccountId) ?? 'Suggested account')
+          : 'No suggestion',
       hideBelow: 'tablet',
     },
-    { key: 'status', header: 'Status', cell: (transaction) => <StatusBadge status={transaction.disposition} /> },
+    {
+      key: 'status',
+      header: 'Status',
+      cell: (transaction) => <StatusBadge status={transaction.disposition} />,
+    },
     {
       key: 'actions',
       header: '',
@@ -1293,19 +1494,39 @@ export function BankTransactionsPage() {
           <div className="rb-inline-actions">
             {transaction.disposition === 'UNRESOLVED' ? (
               <>
-                <Button variant="ghost" size="sm" type="button" onClick={() => chooseTransaction(transaction, 'categorize')}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  type="button"
+                  onClick={() => chooseTransaction(transaction, 'categorize')}
+                >
                   Categorize
                 </Button>
-                <Button variant="ghost" size="sm" type="button" onClick={() => chooseTransaction(transaction, 'match')}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  type="button"
+                  onClick={() => chooseTransaction(transaction, 'match')}
+                >
                   Match
                 </Button>
-                <Button variant="ghost" size="sm" type="button" onClick={() => chooseTransaction(transaction, 'exclude')}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  type="button"
+                  onClick={() => chooseTransaction(transaction, 'exclude')}
+                >
                   Exclude
                 </Button>
               </>
             ) : null}
             {transaction.disposition === 'MATCHED' ? (
-              <Button variant="ghost" size="sm" type="button" onClick={() => void unmatch(transaction)}>
+              <Button
+                variant="ghost"
+                size="sm"
+                type="button"
+                onClick={() => void unmatch(transaction)}
+              >
                 Unmatch
               </Button>
             ) : null}
@@ -1315,7 +1536,9 @@ export function BankTransactionsPage() {
   ];
 
   if (!workspace.loading && organization && !canView) {
-    return <ForbiddenState description="Ask for banking transaction access to work imported statement rows." />;
+    return (
+      <ForbiddenState description="Ask for banking transaction access to work imported statement rows." />
+    );
   }
 
   return (
@@ -1329,7 +1552,11 @@ export function BankTransactionsPage() {
         <Card className="rb-ledger-toolbar">
           <div className="rb-field">
             <Label htmlFor="bank-transaction-account-filter">Account</Label>
-            <Select id="bank-transaction-account-filter" value={accountFilter} onChange={(event) => setAccountFilter(event.target.value)}>
+            <Select
+              id="bank-transaction-account-filter"
+              value={accountFilter}
+              onChange={(event) => setAccountFilter(event.target.value)}
+            >
               <option value="">All accounts</option>
               {financialAccounts.map((account) => (
                 <option key={account.id} value={account.id}>
@@ -1343,7 +1570,9 @@ export function BankTransactionsPage() {
             <Select
               id="bank-transaction-disposition-filter"
               value={dispositionFilter}
-              onChange={(event) => setDispositionFilter(event.target.value as typeof dispositionFilter)}
+              onChange={(event) =>
+                setDispositionFilter(event.target.value as typeof dispositionFilter)
+              }
             >
               <option value="">All transactions</option>
               {dispositions.map((disposition) => (
@@ -1388,7 +1617,10 @@ export function BankTransactionsPage() {
     </>
   );
 
-  function chooseTransaction(transaction: BankTransaction, nextMode: 'categorize' | 'match' | 'exclude') {
+  function chooseTransaction(
+    transaction: BankTransaction,
+    nextMode: 'categorize' | 'match' | 'exclude',
+  ) {
     setSelected(transaction);
     setMode(nextMode);
   }
@@ -1410,7 +1642,11 @@ function BankTransactionActionPanel({
   onSaved: (message: string) => void;
 }) {
   const [lines, setLines] = useState<CategorizeLine[]>([
-    blankCategorizeLine(minorToDecimal(transaction.amountMinor), transaction.suggestedAccountId ?? '', transaction.description),
+    blankCategorizeLine(
+      minorToDecimal(transaction.amountMinor),
+      transaction.suggestedAccountId ?? '',
+      transaction.description,
+    ),
   ]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -1419,7 +1655,8 @@ function BankTransactionActionPanel({
     [lines],
   );
   const difference = BigInt(transaction.amountMinor) - totalMinor;
-  const canCategorize = mode === 'categorize' && difference === 0n && lines.every((line) => line.accountId);
+  const canCategorize =
+    mode === 'categorize' && difference === 0n && lines.every((line) => line.accountId);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -1443,7 +1680,9 @@ function BankTransactionActionPanel({
             headers: { 'Idempotency-Key': crypto.randomUUID() },
           },
         );
-        onSaved(lines.length > 1 ? 'Transaction was split and posted.' : 'Transaction was categorized.');
+        onSaved(
+          lines.length > 1 ? 'Transaction was split and posted.' : 'Transaction was categorized.',
+        );
       }
       if (mode === 'match') {
         await apiRequest<BankTransactionResponse>(
@@ -1467,7 +1706,9 @@ function BankTransactionActionPanel({
         onSaved('Transaction was excluded.');
       }
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : 'The transaction action could not be saved.');
+      setError(
+        caught instanceof ApiError ? caught.message : 'The transaction action could not be saved.',
+      );
     } finally {
       setBusy(false);
     }
@@ -1478,9 +1719,16 @@ function BankTransactionActionPanel({
       <form className="rb-ledger-form" onSubmit={(event) => void submit(event)}>
         <div className="rb-ledger-form__heading">
           <div>
-            <h2>{mode === 'categorize' ? 'Categorize or split' : mode === 'match' ? 'Match transaction' : 'Exclude transaction'}</h2>
+            <h2>
+              {mode === 'categorize'
+                ? 'Categorize or split'
+                : mode === 'match'
+                  ? 'Match transaction'
+                  : 'Exclude transaction'}
+            </h2>
             <p>
-              {transaction.transactionDate} · {transaction.description} · {formatMinor(transaction.amountMinor, transaction.currency)}
+              {transaction.transactionDate} · {transaction.description} ·{' '}
+              {formatMinor(transaction.amountMinor, transaction.currency)}
             </p>
           </div>
           <StatusBadge status={transaction.direction} />
@@ -1525,7 +1773,13 @@ function BankTransactionActionPanel({
                     size="icon"
                     type="button"
                     aria-label={`Remove category line ${index + 1}`}
-                    onClick={() => setLines((current) => (current.length > 1 ? current.filter((candidate) => candidate.key !== line.key) : current))}
+                    onClick={() =>
+                      setLines((current) =>
+                        current.length > 1
+                          ? current.filter((candidate) => candidate.key !== line.key)
+                          : current,
+                      )
+                    }
                   >
                     <Trash2 aria-hidden="true" />
                   </Button>
@@ -1535,13 +1789,21 @@ function BankTransactionActionPanel({
             <div className="rb-journal-editor__footer">
               <div>
                 <span>Lines {formatMinor(totalMinor.toString(), transaction.currency)}</span>
-                <span>Transaction {formatMinor(transaction.amountMinor, transaction.currency)}</span>
+                <span>
+                  Transaction {formatMinor(transaction.amountMinor, transaction.currency)}
+                </span>
                 <Badge tone={difference === 0n ? 'success' : 'warning'}>
-                  {difference === 0n ? 'Ready' : `Difference ${formatMinor(difference.toString(), transaction.currency)}`}
+                  {difference === 0n
+                    ? 'Ready'
+                    : `Difference ${formatMinor(difference.toString(), transaction.currency)}`}
                 </Badge>
               </div>
               <div className="rb-dialog-footer">
-                <Button type="button" variant="outline" onClick={() => setLines((current) => [...current, blankCategorizeLine()])}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setLines((current) => [...current, blankCategorizeLine()])}
+                >
                   <SplitSquareHorizontal aria-hidden="true" /> Add split
                 </Button>
               </div>
@@ -1581,12 +1843,20 @@ function BankTransactionActionPanel({
             Cancel
           </Button>
           <Button type="submit" loading={busy} disabled={mode === 'categorize' && !canCategorize}>
-            {mode === 'match' ? <Link2 aria-hidden="true" /> : mode === 'exclude' ? <Ban aria-hidden="true" /> : <Save aria-hidden="true" />}
+            {mode === 'match' ? (
+              <Link2 aria-hidden="true" />
+            ) : mode === 'exclude' ? (
+              <Ban aria-hidden="true" />
+            ) : (
+              <Save aria-hidden="true" />
+            )}
             {mode === 'match' ? 'Match' : mode === 'exclude' ? 'Exclude' : 'Post category'}
           </Button>
         </div>
         {mode === 'categorize' && !canCategorize ? (
-          <FieldMessage error>Category lines must choose accounts and equal the statement amount.</FieldMessage>
+          <FieldMessage error>
+            Category lines must choose accounts and equal the statement amount.
+          </FieldMessage>
         ) : null}
       </form>
     </Card>
@@ -1622,8 +1892,12 @@ export function ReconciliationsPage() {
     try {
       const params = accountFilter ? `?financialAccountId=${accountFilter}` : '';
       const [accountResponse, reconciliationResponse] = await Promise.all([
-        apiRequest<FinancialAccountListResponse>(`/organizations/${organizationId}/financial-accounts?active=true`),
-        apiRequest<ReconciliationListResponse>(`/organizations/${organizationId}/reconciliations${params}`),
+        apiRequest<FinancialAccountListResponse>(
+          `/organizations/${organizationId}/financial-accounts?active=true`,
+        ),
+        apiRequest<ReconciliationListResponse>(
+          `/organizations/${organizationId}/reconciliations${params}`,
+        ),
       ]);
       setAccounts(accountResponse.data);
       setReconciliations(reconciliationResponse.data);
@@ -1650,7 +1924,8 @@ export function ReconciliationsPage() {
   }, [organizationId, selected]);
 
   const accountNames = useMemo(() => financialAccountLabelMap(accounts), [accounts]);
-  const activeAccount = accounts.find((account) => account.id === selected?.financialAccountId) ?? null;
+  const activeAccount =
+    accounts.find((account) => account.id === selected?.financialAccountId) ?? null;
   const activeCurrency = activeAccount?.currency ?? organization?.baseCurrency ?? 'KES';
   const selectedDifference = selected ? BigInt(selected.difference) : 0n;
   const canComplete = canManage && selected?.status === 'IN_PROGRESS' && selectedDifference === 0n;
@@ -1665,7 +1940,9 @@ export function ReconciliationsPage() {
       setSelected(response.data);
       setSelectedIds(new Set());
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : 'The reconciliation could not be opened.');
+      setError(
+        caught instanceof ApiError ? caught.message : 'The reconciliation could not be opened.',
+      );
     }
   }
 
@@ -1701,7 +1978,9 @@ export function ReconciliationsPage() {
       setNotice('Reconciliation completed.');
       await load();
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : 'The reconciliation could not be completed.');
+      setError(
+        caught instanceof ApiError ? caught.message : 'The reconciliation could not be completed.',
+      );
     } finally {
       setBusy(null);
     }
@@ -1721,7 +2000,9 @@ export function ReconciliationsPage() {
       setReopenReason('');
       await load();
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : 'The reconciliation could not be reopened.');
+      setError(
+        caught instanceof ApiError ? caught.message : 'The reconciliation could not be reopened.',
+      );
     } finally {
       setBusy(null);
     }
@@ -1733,8 +2014,12 @@ export function ReconciliationsPage() {
       header: 'Statement period',
       cell: (reconciliation) => (
         <div>
-          <strong>{reconciliation.statementStartDate} to {reconciliation.statementEndDate}</strong>
-          <span className="rb-table-secondary">{accountNames.get(reconciliation.financialAccountId) ?? 'Financial account'}</span>
+          <strong>
+            {reconciliation.statementStartDate} to {reconciliation.statementEndDate}
+          </strong>
+          <span className="rb-table-secondary">
+            {accountNames.get(reconciliation.financialAccountId) ?? 'Financial account'}
+          </span>
         </div>
       ),
     },
@@ -1744,13 +2029,22 @@ export function ReconciliationsPage() {
       align: 'right',
       cell: (reconciliation) => formatMinor(reconciliation.closingBalanceMinor, activeCurrency),
     },
-    { key: 'status', header: 'Status', cell: (reconciliation) => <StatusBadge status={reconciliation.status} /> },
+    {
+      key: 'status',
+      header: 'Status',
+      cell: (reconciliation) => <StatusBadge status={reconciliation.status} />,
+    },
     {
       key: 'actions',
       header: '',
       align: 'right',
       cell: (reconciliation) => (
-        <Button variant="ghost" size="sm" type="button" onClick={() => void openReconciliation(reconciliation)}>
+        <Button
+          variant="ghost"
+          size="sm"
+          type="button"
+          onClick={() => void openReconciliation(reconciliation)}
+        >
           Open
         </Button>
       ),
@@ -1758,7 +2052,9 @@ export function ReconciliationsPage() {
   ];
 
   if (!workspace.loading && organization && !canView) {
-    return <ForbiddenState description="Ask for reconciliation access to review statement close-outs." />;
+    return (
+      <ForbiddenState description="Ask for reconciliation access to review statement close-outs." />
+    );
   }
 
   return (
@@ -1791,7 +2087,11 @@ export function ReconciliationsPage() {
         <Card className="rb-ledger-toolbar">
           <div className="rb-field">
             <Label htmlFor="reconciliation-account-filter">Account</Label>
-            <Select id="reconciliation-account-filter" value={accountFilter} onChange={(event) => setAccountFilter(event.target.value)}>
+            <Select
+              id="reconciliation-account-filter"
+              value={accountFilter}
+              onChange={(event) => setAccountFilter(event.target.value)}
+            >
               <option value="">All accounts</option>
               {accounts.map((account) => (
                 <option key={account.id} value={account.id}>
@@ -1818,7 +2118,9 @@ export function ReconciliationsPage() {
             <div className="rb-ledger-form__heading">
               <div>
                 <h2>{accountNames.get(selected.financialAccountId) ?? 'Reconciliation'}</h2>
-                <p>{selected.statementStartDate} to {selected.statementEndDate}</p>
+                <p>
+                  {selected.statementStartDate} to {selected.statementEndDate}
+                </p>
               </div>
               <StatusBadge status={selected.status} />
             </div>
@@ -1833,7 +2135,9 @@ export function ReconciliationsPage() {
               <>
                 <div className="rb-table-scroll">
                   <table className="rb-table rb-ledger-table">
-                    <caption className="rb-visually-hidden">Transactions available for reconciliation</caption>
+                    <caption className="rb-visually-hidden">
+                      Transactions available for reconciliation
+                    </caption>
                     <thead>
                       <tr>
                         <th>Select</th>
@@ -1854,12 +2158,16 @@ export function ReconciliationsPage() {
                                 aria-label={`Select ${transaction.description}`}
                                 type="checkbox"
                                 checked={selectedIds.has(transaction.id)}
-                                onChange={(event) => toggleSelected(transaction.id, event.target.checked)}
+                                onChange={(event) =>
+                                  toggleSelected(transaction.id, event.target.checked)
+                                }
                               />
                             </td>
                             <td>{transaction.transactionDate}</td>
                             <td>{transaction.description}</td>
-                            <td><StatusBadge status={transaction.disposition} /></td>
+                            <td>
+                              <StatusBadge status={transaction.disposition} />
+                            </td>
                             <td className="rb-table--right rb-num">
                               {transaction.direction === 'OUTFLOW' ? '-' : ''}
                               {formatMinor(transaction.amountMinor, transaction.currency)}
@@ -1877,19 +2185,38 @@ export function ReconciliationsPage() {
                     <span>{selected.clearedTransactionIds.length} cleared</span>
                   </div>
                   <div className="rb-dialog-footer">
-                    <Button type="button" variant="outline" onClick={() => void setCleared(false)} loading={busy === 'unclear'} disabled={!canManage || selectedIds.size === 0}>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => void setCleared(false)}
+                      loading={busy === 'unclear'}
+                      disabled={!canManage || selectedIds.size === 0}
+                    >
                       Clear off
                     </Button>
-                    <Button type="button" variant="outline" onClick={() => void setCleared(true)} loading={busy === 'clear'} disabled={!canManage || selectedIds.size === 0}>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => void setCleared(true)}
+                      loading={busy === 'clear'}
+                      disabled={!canManage || selectedIds.size === 0}
+                    >
                       Clear
                     </Button>
-                    <Button type="button" onClick={() => void complete()} loading={busy === 'complete'} disabled={!canComplete}>
+                    <Button
+                      type="button"
+                      onClick={() => void complete()}
+                      loading={busy === 'complete'}
+                      disabled={!canComplete}
+                    >
                       <CheckCircle2 aria-hidden="true" /> Complete
                     </Button>
                   </div>
                 </div>
                 {!canComplete ? (
-                  <FieldMessage error>Completion is blocked until the reconciliation difference is exactly zero.</FieldMessage>
+                  <FieldMessage error>
+                    Completion is blocked until the reconciliation difference is exactly zero.
+                  </FieldMessage>
                 ) : null}
               </>
             ) : (
@@ -1907,7 +2234,13 @@ export function ReconciliationsPage() {
                       />
                     </div>
                     <div className="rb-dialog-footer">
-                      <Button type="button" variant="outline" onClick={() => void reopen()} loading={busy === 'reopen'} disabled={!reopenReason.trim()}>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => void reopen()}
+                        loading={busy === 'reopen'}
+                        disabled={!reopenReason.trim()}
+                      >
                         <RotateCcw aria-hidden="true" /> Reopen
                       </Button>
                     </div>
@@ -1956,22 +2289,27 @@ function StartReconciliationForm({
     setSaving(true);
     setError(null);
     try {
-      const started = await apiRequest<{ data: Reconciliation }>(`/organizations/${organizationId}/reconciliations`, {
-        method: 'POST',
-        body: JSON.stringify({
-          financialAccountId: formValue(data, 'financialAccountId'),
-          statementStartDate: formValue(data, 'statementStartDate'),
-          statementEndDate: formValue(data, 'statementEndDate'),
-          openingBalanceMinor: decimalToMinor(formValue(data, 'openingBalance')),
-          closingBalanceMinor: decimalToMinor(formValue(data, 'closingBalance')),
-        }),
-      });
+      const started = await apiRequest<{ data: Reconciliation }>(
+        `/organizations/${organizationId}/reconciliations`,
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            financialAccountId: formValue(data, 'financialAccountId'),
+            statementStartDate: formValue(data, 'statementStartDate'),
+            statementEndDate: formValue(data, 'statementEndDate'),
+            openingBalanceMinor: decimalToMinor(formValue(data, 'openingBalance')),
+            closingBalanceMinor: decimalToMinor(formValue(data, 'closingBalance')),
+          }),
+        },
+      );
       const detail = await apiRequest<ReconciliationResponse>(
         `/organizations/${organizationId}/reconciliations/${started.data.id}`,
       );
       return detail.data;
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : 'The reconciliation could not be started.');
+      setError(
+        caught instanceof ApiError ? caught.message : 'The reconciliation could not be started.',
+      );
       return null;
     } finally {
       setSaving(false);
@@ -1986,22 +2324,45 @@ function StartReconciliationForm({
         </div>
         <Messages error={error} />
         <div className="rb-field-grid">
-          <FinancialAccountSelect labelText="Financial account" id="reconciliation-account" name="financialAccountId" accounts={accounts} />
+          <FinancialAccountSelect
+            labelText="Financial account"
+            id="reconciliation-account"
+            name="financialAccountId"
+            accounts={accounts}
+          />
           <div className="rb-field">
             <Label htmlFor="reconciliation-start-date">Start date</Label>
             <Input id="reconciliation-start-date" name="statementStartDate" type="date" required />
           </div>
           <div className="rb-field">
             <Label htmlFor="reconciliation-end-date">End date</Label>
-            <Input id="reconciliation-end-date" name="statementEndDate" type="date" defaultValue={today} required />
+            <Input
+              id="reconciliation-end-date"
+              name="statementEndDate"
+              type="date"
+              defaultValue={today}
+              required
+            />
           </div>
           <div className="rb-field">
             <Label htmlFor="reconciliation-opening-balance">Opening balance</Label>
-            <Input id="reconciliation-opening-balance" name="openingBalance" inputMode="decimal" defaultValue="0.00" required />
+            <Input
+              id="reconciliation-opening-balance"
+              name="openingBalance"
+              inputMode="decimal"
+              defaultValue="0.00"
+              required
+            />
           </div>
           <div className="rb-field">
             <Label htmlFor="reconciliation-closing-balance">Closing balance</Label>
-            <Input id="reconciliation-closing-balance" name="closingBalance" inputMode="decimal" defaultValue="0.00" required />
+            <Input
+              id="reconciliation-closing-balance"
+              name="closingBalance"
+              inputMode="decimal"
+              defaultValue="0.00"
+              required
+            />
           </div>
         </div>
         <div className="rb-dialog-footer">
@@ -2075,7 +2436,10 @@ function decimalToMinor(value: string, scale = 2): string {
   const negative = normalized.startsWith('-');
   const unsigned = negative ? normalized.slice(1) : normalized;
   const [whole = '0', fraction = ''] = unsigned.split('.');
-  const minor = `${whole || '0'}${fraction.padEnd(scale, '0').slice(0, scale)}`.replace(/^0+(?=\d)/, '');
+  const minor = `${whole || '0'}${fraction.padEnd(scale, '0').slice(0, scale)}`.replace(
+    /^0+(?=\d)/,
+    '',
+  );
   return `${negative ? '-' : ''}${minor || '0'}`;
 }
 

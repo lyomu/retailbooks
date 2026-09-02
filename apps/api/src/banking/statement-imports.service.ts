@@ -64,7 +64,8 @@ export class StatementImportsService {
       where: { id: financialAccountId, organizationId: context.id },
     });
     if (!account) throw new NotFoundException('Financial account not found.');
-    if (!account.active) throw new BadRequestException('Cannot import a statement into an inactive account.');
+    if (!account.active)
+      throw new BadRequestException('Cannot import a statement into an inactive account.');
 
     const text = file.buffer.toString('utf8');
     const table = parseCsv(text);
@@ -193,7 +194,8 @@ export class StatementImportsService {
           organizationId: context.id,
           financialAccountId,
           format: 'CSV',
-          status: failedCount === 0 ? 'IMPORTED' : importedCount > 0 ? 'PARTIALLY_IMPORTED' : 'FAILED',
+          status:
+            failedCount === 0 ? 'IMPORTED' : importedCount > 0 ? 'PARTIALLY_IMPORTED' : 'FAILED',
           fileName: file.originalname,
           totalRows: table.length - 1,
           importedCount,

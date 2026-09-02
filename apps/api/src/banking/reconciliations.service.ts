@@ -6,10 +6,7 @@ import type { RequestMetadata } from '../auth/request-context.js';
 import { PrismaService } from '../database/prisma.service.js';
 import { writeAuditEvent } from '../organizations/audit-event.js';
 import type { OrganizationContext } from '../organizations/organization-context.js';
-import type {
-  SetClearedTransactionsDto,
-  StartReconciliationDto,
-} from './reconciliations.dto.js';
+import type { SetClearedTransactionsDto, StartReconciliationDto } from './reconciliations.dto.js';
 
 @Injectable()
 export class ReconciliationsService {
@@ -94,7 +91,9 @@ export class ReconciliationsService {
   ) {
     const reconciliation = await this.findOrThrow(context.id, reconciliationId);
     if (reconciliation.status !== 'IN_PROGRESS') {
-      throw new ConflictException('Only an in-progress reconciliation can have transactions marked.');
+      throw new ConflictException(
+        'Only an in-progress reconciliation can have transactions marked.',
+      );
     }
     const transactions = await this.prisma.bankTransaction.findMany({
       where: {
@@ -234,7 +233,10 @@ export class ReconciliationsService {
     });
     const runningBalance = cleared.reduce(
       (sum, row) =>
-        sum + (row.transaction.direction === 'INFLOW' ? row.transaction.amountMinor : -row.transaction.amountMinor),
+        sum +
+        (row.transaction.direction === 'INFLOW'
+          ? row.transaction.amountMinor
+          : -row.transaction.amountMinor),
       reconciliation.openingBalanceMinor,
     );
     return reconciliation.closingBalanceMinor - runningBalance;

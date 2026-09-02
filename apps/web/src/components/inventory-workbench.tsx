@@ -83,7 +83,11 @@ export function WarehousesPage() {
       ),
     },
     { key: 'address', header: 'Address', cell: (warehouse) => warehouse.address ?? 'Not set' },
-    { key: 'status', header: 'Status', cell: (warehouse) => <StatusBadge status={warehouse.status} /> },
+    {
+      key: 'status',
+      header: 'Status',
+      cell: (warehouse) => <StatusBadge status={warehouse.status} />,
+    },
     {
       key: 'actions',
       header: '',
@@ -135,7 +139,10 @@ export function WarehousesPage() {
         {!warehouses && !error ? (
           <Skeleton />
         ) : (warehouses ?? []).length === 0 ? (
-          <EmptyState title="No warehouses" description="Create a warehouse before receiving tracked stock." />
+          <EmptyState
+            title="No warehouses"
+            description="Create a warehouse before receiving tracked stock."
+          />
         ) : (
           <DataTable caption="Warehouses" columns={columns} rows={warehouses ?? []} />
         )}
@@ -195,15 +202,32 @@ function WarehouseForm({
         <div className="rb-field-grid">
           <div className="rb-field">
             <Label htmlFor="warehouse-code">Code</Label>
-            <Input id="warehouse-code" name="code" defaultValue={warehouse?.code ?? ''} maxLength={32} required />
+            <Input
+              id="warehouse-code"
+              name="code"
+              defaultValue={warehouse?.code ?? ''}
+              maxLength={32}
+              required
+            />
           </div>
           <div className="rb-field">
             <Label htmlFor="warehouse-name">Name</Label>
-            <Input id="warehouse-name" name="name" defaultValue={warehouse?.name ?? ''} maxLength={120} required />
+            <Input
+              id="warehouse-name"
+              name="name"
+              defaultValue={warehouse?.name ?? ''}
+              maxLength={120}
+              required
+            />
           </div>
           <div className="rb-field">
             <Label htmlFor="warehouse-address">Address</Label>
-            <Input id="warehouse-address" name="address" defaultValue={warehouse?.address ?? ''} maxLength={240} />
+            <Input
+              id="warehouse-address"
+              name="address"
+              defaultValue={warehouse?.address ?? ''}
+              maxLength={240}
+            />
           </div>
           {warehouse ? (
             <div className="rb-field">
@@ -250,8 +274,12 @@ export function StockMovementsPage() {
       if (warehouseId) params.set('warehouseId', warehouseId);
       const suffix = params.toString() ? `?${params.toString()}` : '';
       const [movementResponse, itemResponse, warehouseResponse] = await Promise.all([
-        apiRequest<StockMovementListResponse>(`/organizations/${organizationId}/inventory/movements${suffix}`),
-        apiRequest<ItemListResponse>(`/organizations/${organizationId}/catalog/items?status=ACTIVE`),
+        apiRequest<StockMovementListResponse>(
+          `/organizations/${organizationId}/inventory/movements${suffix}`,
+        ),
+        apiRequest<ItemListResponse>(
+          `/organizations/${organizationId}/catalog/items?status=ACTIVE`,
+        ),
         apiRequest<WarehouseListResponse>(`/organizations/${organizationId}/inventory/warehouses`),
       ]);
       setMovements(movementResponse.data);
@@ -290,7 +318,11 @@ export function StockMovementsPage() {
     },
     { key: 'warehouse', header: 'Warehouse', cell: (movement) => movement.warehouseName },
     { key: 'date', header: 'Date', cell: (movement) => movement.movementDate },
-    { key: 'direction', header: 'Direction', cell: (movement) => <StatusBadge status={movement.direction} /> },
+    {
+      key: 'direction',
+      header: 'Direction',
+      cell: (movement) => <StatusBadge status={movement.direction} />,
+    },
     { key: 'quantity', header: 'Qty', align: 'right', cell: (movement) => movement.quantity },
     {
       key: 'value',
@@ -298,11 +330,18 @@ export function StockMovementsPage() {
       align: 'right',
       cell: (movement) => formatMinor(movement.totalCostMinor, currency),
     },
-    { key: 'source', header: 'Source', cell: (movement) => label(movement.sourceType), hideBelow: 'tablet' },
+    {
+      key: 'source',
+      header: 'Source',
+      cell: (movement) => label(movement.sourceType),
+      hideBelow: 'tablet',
+    },
   ];
 
   if (!workspace.loading && organization && !canView) {
-    return <ForbiddenState description="Ask for stock movement access to inspect inventory history." />;
+    return (
+      <ForbiddenState description="Ask for stock movement access to inspect inventory history." />
+    );
   }
 
   return (
@@ -318,10 +357,26 @@ export function StockMovementsPage() {
             <Label htmlFor="stock-search">
               <Search aria-hidden="true" /> Search movements
             </Label>
-            <Input id="stock-search" value={query} onChange={(event) => setQuery(event.target.value)} />
+            <Input
+              id="stock-search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+            />
           </div>
-          <ItemSelect items={items} id="stock-item-filter" value={itemId} onChange={setItemId} allowAll />
-          <WarehouseSelect warehouses={warehouses} id="stock-warehouse-filter" value={warehouseId} onChange={setWarehouseId} allowAll />
+          <ItemSelect
+            items={items}
+            id="stock-item-filter"
+            value={itemId}
+            onChange={setItemId}
+            allowAll
+          />
+          <WarehouseSelect
+            warehouses={warehouses}
+            id="stock-warehouse-filter"
+            value={warehouseId}
+            onChange={setWarehouseId}
+            allowAll
+          />
           <Badge>{filtered.length} movements</Badge>
         </Card>
         {!movements && !error ? (
@@ -363,19 +418,28 @@ export function InventoryAdjustmentsPage() {
     if (!organizationId) return;
     try {
       const suffix = status ? `?status=${status}` : '';
-      const [adjustmentResponse, itemResponse, warehouseResponse, accountResponse] = await Promise.all([
-        apiRequest<InventoryAdjustmentListResponse>(`/organizations/${organizationId}/inventory/adjustments${suffix}`),
-        apiRequest<ItemListResponse>(`/organizations/${organizationId}/catalog/items?status=ACTIVE`),
-        apiRequest<WarehouseListResponse>(`/organizations/${organizationId}/inventory/warehouses`),
-        apiRequest<AccountListResponse>(`/organizations/${organizationId}/accounts`),
-      ]);
+      const [adjustmentResponse, itemResponse, warehouseResponse, accountResponse] =
+        await Promise.all([
+          apiRequest<InventoryAdjustmentListResponse>(
+            `/organizations/${organizationId}/inventory/adjustments${suffix}`,
+          ),
+          apiRequest<ItemListResponse>(
+            `/organizations/${organizationId}/catalog/items?status=ACTIVE`,
+          ),
+          apiRequest<WarehouseListResponse>(
+            `/organizations/${organizationId}/inventory/warehouses`,
+          ),
+          apiRequest<AccountListResponse>(`/organizations/${organizationId}/accounts`),
+        ]);
       setAdjustments(adjustmentResponse.data);
       setItems(itemResponse.data.filter((item) => item.inventoryTracked));
       setWarehouses(warehouseResponse.data.filter((warehouse) => warehouse.status === 'ACTIVE'));
       setAccounts(accountResponse.data.filter((account) => account.status === 'ACTIVE'));
       setError(null);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Inventory adjustments could not be loaded.');
+      setError(
+        caught instanceof Error ? caught.message : 'Inventory adjustments could not be loaded.',
+      );
     }
   }, [organizationId, status]);
 
@@ -383,7 +447,10 @@ export function InventoryAdjustmentsPage() {
     void load();
   }, [load]);
 
-  async function transition(adjustment: InventoryAdjustment, action: 'submit' | 'approve' | 'post' | 'cancel') {
+  async function transition(
+    adjustment: InventoryAdjustment,
+    action: 'submit' | 'approve' | 'post' | 'cancel',
+  ) {
     if (!organizationId) return;
     setBusy(`${action}:${adjustment.id}`);
     setError(null);
@@ -395,7 +462,9 @@ export function InventoryAdjustmentsPage() {
       setNotice(`${adjustment.itemName} adjustment ${action}ed.`);
       await load();
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : `The adjustment could not be ${action}ed.`);
+      setError(
+        caught instanceof ApiError ? caught.message : `The adjustment could not be ${action}ed.`,
+      );
     } finally {
       setBusy(null);
     }
@@ -413,14 +482,23 @@ export function InventoryAdjustmentsPage() {
       ),
     },
     { key: 'date', header: 'Date', cell: (adjustment) => adjustment.adjustmentDate },
-    { key: 'quantity', header: 'Qty delta', align: 'right', cell: (adjustment) => adjustment.quantityDelta },
+    {
+      key: 'quantity',
+      header: 'Qty delta',
+      align: 'right',
+      cell: (adjustment) => adjustment.quantityDelta,
+    },
     {
       key: 'value',
       header: 'Value delta',
       align: 'right',
       cell: (adjustment) => formatMinor(adjustment.valueDeltaMinor, currency),
     },
-    { key: 'status', header: 'Status', cell: (adjustment) => <StatusBadge status={adjustment.status} /> },
+    {
+      key: 'status',
+      header: 'Status',
+      cell: (adjustment) => <StatusBadge status={adjustment.status} />,
+    },
     {
       key: 'actions',
       header: '',
@@ -428,22 +506,46 @@ export function InventoryAdjustmentsPage() {
       cell: (adjustment) => (
         <div className="rb-inline-actions">
           {canManage && adjustment.status === 'DRAFT' ? (
-            <Button variant="ghost" size="sm" type="button" loading={busy === `submit:${adjustment.id}`} onClick={() => void transition(adjustment, 'submit')}>
+            <Button
+              variant="ghost"
+              size="sm"
+              type="button"
+              loading={busy === `submit:${adjustment.id}`}
+              onClick={() => void transition(adjustment, 'submit')}
+            >
               Submit
             </Button>
           ) : null}
           {canApprove && adjustment.status === 'PENDING_APPROVAL' ? (
-            <Button variant="ghost" size="sm" type="button" loading={busy === `approve:${adjustment.id}`} onClick={() => void transition(adjustment, 'approve')}>
+            <Button
+              variant="ghost"
+              size="sm"
+              type="button"
+              loading={busy === `approve:${adjustment.id}`}
+              onClick={() => void transition(adjustment, 'approve')}
+            >
               Approve
             </Button>
           ) : null}
           {canPost && (adjustment.status === 'DRAFT' || adjustment.status === 'APPROVED') ? (
-            <Button variant="ghost" size="sm" type="button" loading={busy === `post:${adjustment.id}`} onClick={() => void transition(adjustment, 'post')}>
+            <Button
+              variant="ghost"
+              size="sm"
+              type="button"
+              loading={busy === `post:${adjustment.id}`}
+              onClick={() => void transition(adjustment, 'post')}
+            >
               Post
             </Button>
           ) : null}
           {canManage && ['DRAFT', 'PENDING_APPROVAL', 'APPROVED'].includes(adjustment.status) ? (
-            <Button variant="ghost" size="sm" type="button" loading={busy === `cancel:${adjustment.id}`} onClick={() => void transition(adjustment, 'cancel')}>
+            <Button
+              variant="ghost"
+              size="sm"
+              type="button"
+              loading={busy === `cancel:${adjustment.id}`}
+              onClick={() => void transition(adjustment, 'cancel')}
+            >
               Cancel
             </Button>
           ) : null}
@@ -453,7 +555,9 @@ export function InventoryAdjustmentsPage() {
   ];
 
   if (!workspace.loading && organization && !canView) {
-    return <ForbiddenState description="Ask for inventory adjustment access to review stock corrections." />;
+    return (
+      <ForbiddenState description="Ask for inventory adjustment access to review stock corrections." />
+    );
   }
 
   return (
@@ -487,7 +591,11 @@ export function InventoryAdjustmentsPage() {
         <Card className="rb-ledger-toolbar">
           <div className="rb-field">
             <Label htmlFor="adjustment-status-filter">Status</Label>
-            <Select id="adjustment-status-filter" value={status} onChange={(event) => setStatus(event.target.value)}>
+            <Select
+              id="adjustment-status-filter"
+              value={status}
+              onChange={(event) => setStatus(event.target.value)}
+            >
               <option value="">All statuses</option>
               {['DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'POSTED', 'CANCELLED'].map((value) => (
                 <option key={value} value={value}>
@@ -572,11 +680,23 @@ function InventoryAdjustmentForm({
           <WarehouseSelect warehouses={warehouses} id="adjustment-warehouse" name="warehouseId" />
           <div className="rb-field">
             <Label htmlFor="adjustment-date">Date</Label>
-            <Input id="adjustment-date" name="adjustmentDate" type="date" defaultValue={today} required />
+            <Input
+              id="adjustment-date"
+              name="adjustmentDate"
+              type="date"
+              defaultValue={today}
+              required
+            />
           </div>
           <div className="rb-field">
             <Label htmlFor="adjustment-quantity">Quantity delta</Label>
-            <Input id="adjustment-quantity" name="quantityDelta" inputMode="decimal" placeholder="-2 or 5" required />
+            <Input
+              id="adjustment-quantity"
+              name="quantityDelta"
+              inputMode="decimal"
+              placeholder="-2 or 5"
+              required
+            />
           </div>
           <div className="rb-field">
             <Label htmlFor="adjustment-value">Value delta</Label>
@@ -625,14 +745,18 @@ export function InventoryTransfersPage() {
     if (!organizationId) return;
     try {
       const [itemResponse, warehouseResponse] = await Promise.all([
-        apiRequest<ItemListResponse>(`/organizations/${organizationId}/catalog/items?status=ACTIVE`),
+        apiRequest<ItemListResponse>(
+          `/organizations/${organizationId}/catalog/items?status=ACTIVE`,
+        ),
         apiRequest<WarehouseListResponse>(`/organizations/${organizationId}/inventory/warehouses`),
       ]);
       setItems(itemResponse.data.filter((item) => item.inventoryTracked));
       setWarehouses(warehouseResponse.data.filter((warehouse) => warehouse.status === 'ACTIVE'));
       setError(null);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Transfer setup data could not be loaded.');
+      setError(
+        caught instanceof Error ? caught.message : 'Transfer setup data could not be loaded.',
+      );
     }
   }, [organizationId]);
 
@@ -667,7 +791,9 @@ export function InventoryTransfersPage() {
   }
 
   if (!workspace.loading && organization && !canView) {
-    return <ForbiddenState description="Ask for inventory transfer access to move stock between warehouses." />;
+    return (
+      <ForbiddenState description="Ask for inventory transfer access to move stock between warehouses." />
+    );
   }
 
   return (
@@ -686,11 +812,27 @@ export function InventoryTransfersPage() {
               </div>
               <div className="rb-field-grid">
                 <ItemSelect items={items} id="transfer-item" name="itemId" />
-                <WarehouseSelect warehouses={warehouses} id="transfer-from" name="fromWarehouseId" labelText="From warehouse" />
-                <WarehouseSelect warehouses={warehouses} id="transfer-to" name="toWarehouseId" labelText="To warehouse" />
+                <WarehouseSelect
+                  warehouses={warehouses}
+                  id="transfer-from"
+                  name="fromWarehouseId"
+                  labelText="From warehouse"
+                />
+                <WarehouseSelect
+                  warehouses={warehouses}
+                  id="transfer-to"
+                  name="toWarehouseId"
+                  labelText="To warehouse"
+                />
                 <div className="rb-field">
                   <Label htmlFor="transfer-date">Date</Label>
-                  <Input id="transfer-date" name="transferDate" type="date" defaultValue={today} required />
+                  <Input
+                    id="transfer-date"
+                    name="transferDate"
+                    type="date"
+                    defaultValue={today}
+                    required
+                  />
                 </div>
                 <div className="rb-field">
                   <Label htmlFor="transfer-quantity">Quantity</Label>
@@ -705,7 +847,10 @@ export function InventoryTransfersPage() {
             </form>
           </Card>
         ) : null}
-        <EmptyState title="Transfer history is in movements" description="Filter stock movements by source Transfer to audit posted transfers." />
+        <EmptyState
+          title="Transfer history is in movements"
+          description="Filter stock movements by source Transfer to audit posted transfers."
+        />
       </div>
     </>
   );
@@ -726,7 +871,9 @@ export function ReorderPage() {
         setRows(response.data);
         setError(null);
       })
-      .catch((caught) => setError(caught instanceof Error ? caught.message : 'Reorder advice could not be loaded.'));
+      .catch((caught) =>
+        setError(caught instanceof Error ? caught.message : 'Reorder advice could not be loaded.'),
+      );
   }, [organizationId]);
 
   const columns: readonly DataTableColumn<ReorderAdvice>[] = [
@@ -741,9 +888,23 @@ export function ReorderPage() {
       ),
     },
     { key: 'onHand', header: 'On hand', align: 'right', cell: (row) => row.onHand },
-    { key: 'threshold', header: 'Threshold', align: 'right', cell: (row) => row.reorderThreshold ?? 'Not set' },
-    { key: 'suggested', header: 'Suggested', align: 'right', cell: (row) => row.suggestedQuantity ?? 'Not set' },
-    { key: 'vendor', header: 'Preferred vendor', cell: (row) => row.preferredVendorName ?? 'Not set' },
+    {
+      key: 'threshold',
+      header: 'Threshold',
+      align: 'right',
+      cell: (row) => row.reorderThreshold ?? 'Not set',
+    },
+    {
+      key: 'suggested',
+      header: 'Suggested',
+      align: 'right',
+      cell: (row) => row.suggestedQuantity ?? 'Not set',
+    },
+    {
+      key: 'vendor',
+      header: 'Preferred vendor',
+      cell: (row) => row.preferredVendorName ?? 'Not set',
+    },
   ];
 
   if (!workspace.loading && organization && !canView) {
@@ -790,7 +951,11 @@ export function InventoryValuationPage() {
         setValuation(response.data);
         setError(null);
       })
-      .catch((caught) => setError(caught instanceof Error ? caught.message : 'Inventory valuation could not be loaded.'));
+      .catch((caught) =>
+        setError(
+          caught instanceof Error ? caught.message : 'Inventory valuation could not be loaded.',
+        ),
+      );
   }, [organizationId]);
 
   const columns: readonly DataTableColumn<InventoryValuation['rows'][number]>[] = [
@@ -806,7 +971,12 @@ export function InventoryValuationPage() {
     },
     { key: 'warehouse', header: 'Warehouse', cell: (row) => row.warehouseName },
     { key: 'quantity', header: 'On hand', align: 'right', cell: (row) => row.quantityOnHand },
-    { key: 'value', header: 'Value', align: 'right', cell: (row) => formatMinor(row.valueMinor, currency) },
+    {
+      key: 'value',
+      header: 'Value',
+      align: 'right',
+      cell: (row) => formatMinor(row.valueMinor, currency),
+    },
   ];
 
   if (!workspace.loading && organization && !canView) {
@@ -818,7 +988,9 @@ export function InventoryValuationPage() {
       <PageHeader
         title="Inventory valuation"
         description="Remaining valuation layers by item and warehouse, intended to reconcile to Inventory Asset."
-        actions={valuation ? <Badge>Total {formatMinor(valuation.totalValueMinor, currency)}</Badge> : null}
+        actions={
+          valuation ? <Badge>Total {formatMinor(valuation.totalValueMinor, currency)}</Badge> : null
+        }
       />
       <div className="rb-ledger-stack">
         <Messages error={error} />
@@ -856,11 +1028,18 @@ function ItemSelect({
   return (
     <div className="rb-field">
       <Label htmlFor={id}>Item</Label>
-      <Select id={id} name={name} value={value} onChange={(event) => onChange?.(event.target.value)} required={!allowAll}>
+      <Select
+        id={id}
+        name={name}
+        value={value}
+        onChange={(event) => onChange?.(event.target.value)}
+        required={!allowAll}
+      >
         {allowAll ? <option value="">All items</option> : <option value="">Choose item</option>}
         {items.map((item) => (
           <option key={item.id} value={item.id}>
-            {item.sku ? `${item.sku} ` : ''}{item.name}
+            {item.sku ? `${item.sku} ` : ''}
+            {item.name}
           </option>
         ))}
       </Select>
@@ -888,8 +1067,18 @@ function WarehouseSelect({
   return (
     <div className="rb-field">
       <Label htmlFor={id}>{labelText}</Label>
-      <Select id={id} name={name} value={value} onChange={(event) => onChange?.(event.target.value)} required={!allowAll}>
-        {allowAll ? <option value="">All warehouses</option> : <option value="">Choose warehouse</option>}
+      <Select
+        id={id}
+        name={name}
+        value={value}
+        onChange={(event) => onChange?.(event.target.value)}
+        required={!allowAll}
+      >
+        {allowAll ? (
+          <option value="">All warehouses</option>
+        ) : (
+          <option value="">Choose warehouse</option>
+        )}
         {warehouses.map((warehouse) => (
           <option key={warehouse.id} value={warehouse.id}>
             {warehouse.code} {warehouse.name}

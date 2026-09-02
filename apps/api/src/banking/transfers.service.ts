@@ -102,7 +102,11 @@ export class TransfersService {
 
     const posted = await this.prisma.$transaction(async (tx) => {
       await this.lockTransferIdempotency(tx, context.id, idempotencyKey);
-      const existingResult = await this.findTransferIdempotentResult(context.id, idempotencyKey, tx);
+      const existingResult = await this.findTransferIdempotentResult(
+        context.id,
+        idempotencyKey,
+        tx,
+      );
       if (existingResult) {
         return tx.transfer.findFirstOrThrow({
           where: { id: existingResult.resourceId, organizationId: context.id },
@@ -225,7 +229,9 @@ export class TransfersService {
       where: { targetType: 'TRANSFER', targetId: transferId },
     });
     if (matched) {
-      throw new ConflictException('This transfer is matched to a bank transaction; unmatch it first.');
+      throw new ConflictException(
+        'This transfer is matched to a bank transaction; unmatch it first.',
+      );
     }
 
     const updated = await this.prisma.$transaction(async (tx) => {
@@ -278,7 +284,12 @@ export class TransfersService {
       legCurrency,
       journalDate,
     );
-    return this.currency.convert({ foreignAmountMinor: legAmountMinor, exchangeRate: rate, base, quote });
+    return this.currency.convert({
+      foreignAmountMinor: legAmountMinor,
+      exchangeRate: rate,
+      base,
+      quote,
+    });
   }
 
   private async findOrThrow(organizationId: string, transferId: string) {
@@ -309,7 +320,11 @@ export class TransfersService {
     if (!key) return null;
     return tx.ledgerIdempotencyKey.findUnique({
       where: {
-        organizationId_operation_key: { organizationId, operation: 'TRANSFER_CREATE_TRANSFER', key },
+        organizationId_operation_key: {
+          organizationId,
+          operation: 'TRANSFER_CREATE_TRANSFER',
+          key,
+        },
       },
       select: { resourceId: true },
     });

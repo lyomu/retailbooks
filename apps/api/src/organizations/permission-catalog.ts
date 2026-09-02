@@ -981,7 +981,8 @@ export const PERMISSION_CATALOG: readonly PermissionDefinition[] = Object.freeze
   {
     key: 'banking.transactions.manage',
     label: 'Manage bank transactions',
-    description: 'Import statements, and categorize, split, match, unmatch, and exclude transactions.',
+    description:
+      'Import statements, and categorize, split, match, unmatch, and exclude transactions.',
     group: 'Banking',
     protected: false,
   },

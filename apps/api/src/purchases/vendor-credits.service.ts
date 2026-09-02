@@ -745,8 +745,12 @@ export class VendorCreditsService {
         unitPriceMinor,
         discountMinor,
         lineTotalMinor,
-        taxCodeId: line.taxCodeId ?? item?.defaultPurchaseTaxCodeId ?? item?.defaultTaxCodeId ?? null,
-        accountId: line.accountId ?? item?.purchaseAccountId ?? (item?.inventoryTracked ? inventoryAccountId : null),
+        taxCodeId:
+          line.taxCodeId ?? item?.defaultPurchaseTaxCodeId ?? item?.defaultTaxCodeId ?? null,
+        accountId:
+          line.accountId ??
+          item?.purchaseAccountId ??
+          (item?.inventoryTracked ? inventoryAccountId : null),
         projectTag: line.projectTag ?? null,
       };
     });

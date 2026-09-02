@@ -883,8 +883,14 @@ export const createItemDto = z.object({
   defaultTaxCodeId: z.uuid().optional(),
   defaultPurchaseTaxCodeId: z.uuid().optional(),
   inventoryTracked: z.boolean().optional(),
-  reorderThreshold: z.string().regex(/^\d+(\.\d{1,4})?$/).optional(),
-  reorderQuantity: z.string().regex(/^\d+(\.\d{1,4})?$/).optional(),
+  reorderThreshold: z
+    .string()
+    .regex(/^\d+(\.\d{1,4})?$/)
+    .optional(),
+  reorderQuantity: z
+    .string()
+    .regex(/^\d+(\.\d{1,4})?$/)
+    .optional(),
   preferredVendorId: z.uuid().optional(),
   freeDescriptionAllowed: z.boolean().optional(),
   prices: z.array(itemPriceDto).max(10).optional(),
@@ -1900,16 +1906,21 @@ export const createWarehouseDto = z.object({
   address: z.string().max(240).optional(),
 });
 
-export const updateWarehouseDto = createWarehouseDto.extend({
-  status: warehouseStatusSchema.optional(),
-}).partial();
+export const updateWarehouseDto = createWarehouseDto
+  .extend({
+    status: warehouseStatusSchema.optional(),
+  })
+  .partial();
 
 export const createInventoryAdjustmentDto = z.object({
   itemId: z.uuid(),
   warehouseId: z.uuid(),
   adjustmentDate: z.iso.date(),
   quantityDelta: z.string(),
-  valueDeltaMinor: z.string().regex(/^-?\d+$/).optional(),
+  valueDeltaMinor: z
+    .string()
+    .regex(/^-?\d+$/)
+    .optional(),
   reason: z.string().min(1).max(240),
   accountId: z.uuid().optional(),
 });
@@ -2432,7 +2443,9 @@ export const financialAccountSchema = z.object({
   updatedAt: z.iso.datetime(),
 });
 
-export const financialAccountListResponseSchema = z.object({ data: z.array(financialAccountSchema) });
+export const financialAccountListResponseSchema = z.object({
+  data: z.array(financialAccountSchema),
+});
 export const financialAccountResponseSchema = z.object({ data: financialAccountSchema });
 
 export const createFinancialAccountDto = z.object({
@@ -2440,7 +2453,10 @@ export const createFinancialAccountDto = z.object({
   type: financialAccountTypeSchema,
   currency: z.string().length(3),
   glAccountId: z.uuid(),
-  openingBalanceMinor: z.string().regex(/^-?\d+$/).optional(),
+  openingBalanceMinor: z
+    .string()
+    .regex(/^-?\d+$/)
+    .optional(),
 });
 
 export const updateFinancialAccountDto = z.object({
@@ -2531,8 +2547,18 @@ export const statementImportFailedRowsResponseSchema = z.object({
 });
 
 export const bankTransactionDirectionSchema = z.enum(['INFLOW', 'OUTFLOW']);
-export const bankTransactionDispositionSchema = z.enum(['UNRESOLVED', 'MATCHED', 'POSTED', 'EXCLUDED']);
-export const matchTargetTypeSchema = z.enum(['PAYMENT_RECEIVED', 'PAYMENT_MADE', 'EXPENSE', 'TRANSFER']);
+export const bankTransactionDispositionSchema = z.enum([
+  'UNRESOLVED',
+  'MATCHED',
+  'POSTED',
+  'EXCLUDED',
+]);
+export const matchTargetTypeSchema = z.enum([
+  'PAYMENT_RECEIVED',
+  'PAYMENT_MADE',
+  'EXPENSE',
+  'TRANSFER',
+]);
 
 export const matchSchema = z.object({
   id: z.uuid(),
@@ -2687,7 +2713,9 @@ export type StatementImport = z.infer<typeof statementImportSchema>;
 export type StatementImportListResponse = z.infer<typeof statementImportListResponseSchema>;
 export type StatementImportResponse = z.infer<typeof statementImportResponseSchema>;
 export type StatementImportRowOutcome = z.infer<typeof statementImportRowOutcomeSchema>;
-export type StatementImportFailedRowsResponse = z.infer<typeof statementImportFailedRowsResponseSchema>;
+export type StatementImportFailedRowsResponse = z.infer<
+  typeof statementImportFailedRowsResponseSchema
+>;
 
 export type BankTransactionDirection = z.infer<typeof bankTransactionDirectionSchema>;
 export type BankTransactionDisposition = z.infer<typeof bankTransactionDispositionSchema>;

@@ -126,8 +126,15 @@ export class InventoryService {
 
   async listMovements(organizationId: string, itemId?: string, warehouseId?: string) {
     const rows = await this.prisma.stockMovement.findMany({
-      where: { organizationId, ...(itemId ? { itemId } : {}), ...(warehouseId ? { warehouseId } : {}) },
-      include: { item: { select: { name: true, sku: true } }, warehouse: { select: { code: true, name: true } } },
+      where: {
+        organizationId,
+        ...(itemId ? { itemId } : {}),
+        ...(warehouseId ? { warehouseId } : {}),
+      },
+      include: {
+        item: { select: { name: true, sku: true } },
+        warehouse: { select: { code: true, name: true } },
+      },
       orderBy: [{ movementDate: 'desc' }, { createdAt: 'desc' }],
       take: 500,
     });
@@ -137,7 +144,10 @@ export class InventoryService {
   async listAdjustments(organizationId: string, status?: string) {
     const rows = await this.prisma.inventoryAdjustment.findMany({
       where: { organizationId, ...(status ? { status: status as InventoryAdjustmentStatus } : {}) },
-      include: { item: { select: { name: true, sku: true } }, warehouse: { select: { code: true, name: true } } },
+      include: {
+        item: { select: { name: true, sku: true } },
+        warehouse: { select: { code: true, name: true } },
+      },
       orderBy: [{ adjustmentDate: 'desc' }, { createdAt: 'desc' }],
       take: 200,
     });
@@ -204,10 +214,14 @@ export class InventoryService {
         data: {
           itemId,
           warehouseId,
-          adjustmentDate: input.adjustmentDate ? isoDate(input.adjustmentDate) : existing.adjustmentDate,
+          adjustmentDate: input.adjustmentDate
+            ? isoDate(input.adjustmentDate)
+            : existing.adjustmentDate,
           quantityDelta: input.quantityDelta ?? existing.quantityDelta,
           valueDeltaMinor:
-            input.valueDeltaMinor !== undefined ? BigInt(input.valueDeltaMinor) : existing.valueDeltaMinor,
+            input.valueDeltaMinor !== undefined
+              ? BigInt(input.valueDeltaMinor)
+              : existing.valueDeltaMinor,
           reason: input.reason ?? existing.reason,
           accountId: input.accountId !== undefined ? input.accountId : existing.accountId,
         },
@@ -290,13 +304,16 @@ export class InventoryService {
       }
 
       const quantityScaled = toScaled(adjustment.quantityDelta.toString());
-      const inventoryAccount = await this.ledger.accountBySystemKey(context.id, 'inventory_asset', tx);
-      const offsetAccount =
-        adjustment.accountId
-          ? await tx.ledgerAccount.findFirstOrThrow({
-              where: { id: adjustment.accountId, organizationId: context.id },
-            })
-          : await this.ledger.accountBySystemKey(context.id, 'general_expense', tx);
+      const inventoryAccount = await this.ledger.accountBySystemKey(
+        context.id,
+        'inventory_asset',
+        tx,
+      );
+      const offsetAccount = adjustment.accountId
+        ? await tx.ledgerAccount.findFirstOrThrow({
+            where: { id: adjustment.accountId, organizationId: context.id },
+          })
+        : await this.ledger.accountBySystemKey(context.id, 'general_expense', tx);
 
       let valueMinor = adjustment.valueDeltaMinor;
       if (quantityScaled > 0n) {
@@ -432,7 +449,12 @@ export class InventoryService {
 
   async reorderAdvice(organizationId: string) {
     const items = await this.prisma.item.findMany({
-      where: { organizationId, inventoryTracked: true, status: 'ACTIVE', reorderThreshold: { not: null } },
+      where: {
+        organizationId,
+        inventoryTracked: true,
+        status: 'ACTIVE',
+        reorderThreshold: { not: null },
+      },
       include: { preferredVendor: { select: { id: true, displayName: true } } },
       orderBy: [{ name: 'asc' }],
     });
@@ -460,33 +482,37 @@ export class InventoryService {
   async valuationReport(organizationId: string) {
     const layers = await this.prisma.valuationLayer.findMany({
       where: { organizationId },
-      include: { item: { select: { name: true, sku: true } }, warehouse: { select: { code: true, name: true } } },
+      include: {
+        item: { select: { name: true, sku: true } },
+        warehouse: { select: { code: true, name: true } },
+      },
       orderBy: [{ item: { name: 'asc' } }, { warehouse: { code: 'asc' } }],
     });
-    const grouped = new Map<string, {
-      id: string;
-      itemId: string;
-      itemName: string;
-      sku: string | null;
-      warehouseId: string;
-      warehouseName: string;
-      quantityOnHandScaled: bigint;
-      valueMinor: bigint;
-    }>();
+    const grouped = new Map<
+      string,
+      {
+        id: string;
+        itemId: string;
+        itemName: string;
+        sku: string | null;
+        warehouseId: string;
+        warehouseName: string;
+        quantityOnHandScaled: bigint;
+        valueMinor: bigint;
+      }
+    >();
     for (const layer of layers) {
       const key = `${layer.itemId}:${layer.warehouseId}`;
-      const current =
-        grouped.get(key) ??
-        {
-          id: key,
-          itemId: layer.itemId,
-          itemName: layer.item.name,
-          sku: layer.item.sku,
-          warehouseId: layer.warehouseId,
-          warehouseName: `${layer.warehouse.code} ${layer.warehouse.name}`,
-          quantityOnHandScaled: 0n,
-          valueMinor: 0n,
-        };
+      const current = grouped.get(key) ?? {
+        id: key,
+        itemId: layer.itemId,
+        itemName: layer.item.name,
+        sku: layer.item.sku,
+        warehouseId: layer.warehouseId,
+        warehouseName: `${layer.warehouse.code} ${layer.warehouse.name}`,
+        quantityOnHandScaled: 0n,
+        valueMinor: 0n,
+      };
       current.quantityOnHandScaled += toScaled(layer.quantityRemaining.toString());
       current.valueMinor += layer.costRemainingMinor;
       grouped.set(key, current);
@@ -551,7 +577,10 @@ export class InventoryService {
     const updated = await tx.purchaseOrder.update({
       where: { id: order.id },
       data: { receiptStatus },
-      include: { lines: { orderBy: { lineNumber: 'asc' } }, vendor: { select: { id: true, displayName: true, currency: true } } },
+      include: {
+        lines: { orderBy: { lineNumber: 'asc' } },
+        vendor: { select: { id: true, displayName: true, currency: true } },
+      },
     });
     await writeAuditEvent(tx, {
       organizationId: context.id,
@@ -584,7 +613,9 @@ export class InventoryService {
     for (const line of invoice.lines) {
       if (!line.item?.inventoryTracked) continue;
       if (!line.warehouseId) {
-        throw new BadRequestException(`Line ${line.lineNumber}: tracked inventory needs a warehouse.`);
+        throw new BadRequestException(
+          `Line ${line.lineNumber}: tracked inventory needs a warehouse.`,
+        );
       }
       cogsMinor += await this.consumeStock(tx, context, user, {
         itemId: line.item.id,
@@ -599,7 +630,11 @@ export class InventoryService {
     if (cogsMinor === 0n) return null;
 
     const cogsAccount = await this.ledger.accountBySystemKey(context.id, 'cogs', tx);
-    const inventoryAccount = await this.ledger.accountBySystemKey(context.id, 'inventory_asset', tx);
+    const inventoryAccount = await this.ledger.accountBySystemKey(
+      context.id,
+      'inventory_asset',
+      tx,
+    );
     return this.ledger.postJournalFromLines(
       context,
       user,
@@ -636,7 +671,10 @@ export class InventoryService {
       sourceLineId: string | null;
     },
   ) {
-    const unitCostMinor = roundHalfUpDivide(input.totalCostMinor * QUANTITY_SCALE, input.quantityScaled);
+    const unitCostMinor = roundHalfUpDivide(
+      input.totalCostMinor * QUANTITY_SCALE,
+      input.quantityScaled,
+    );
     const layer = await tx.valuationLayer.create({
       data: {
         organizationId: context.id,
@@ -696,7 +734,10 @@ export class InventoryService {
       },
       orderBy: [{ layerDate: 'asc' }, { createdAt: 'asc' }],
     });
-    const availableScaled = layers.reduce((sum, layer) => sum + toScaled(layer.quantityRemaining.toString()), 0n);
+    const availableScaled = layers.reduce(
+      (sum, layer) => sum + toScaled(layer.quantityRemaining.toString()),
+      0n,
+    );
     if (availableScaled < input.quantityScaled) {
       throw new ConflictException('Insufficient stock on hand for this movement.');
     }
@@ -715,7 +756,8 @@ export class InventoryService {
     for (const layer of layers) {
       if (remainingScaled === 0n) break;
       const layerRemainingScaled = toScaled(layer.quantityRemaining.toString());
-      const consumeScaled = layerRemainingScaled < remainingScaled ? layerRemainingScaled : remainingScaled;
+      const consumeScaled =
+        layerRemainingScaled < remainingScaled ? layerRemainingScaled : remainingScaled;
       const layerCost =
         consumeScaled === layerRemainingScaled
           ? layer.costRemainingMinor
@@ -883,7 +925,9 @@ export class InventoryService {
 
   private async ensureWarehouse(organizationId: string, warehouseId: string, tx?: Tx) {
     const client = tx ?? this.prisma;
-    const warehouse = await client.warehouse.findFirst({ where: { id: warehouseId, organizationId } });
+    const warehouse = await client.warehouse.findFirst({
+      where: { id: warehouseId, organizationId },
+    });
     if (!warehouse) throw new NotFoundException('Warehouse not found.');
     if (warehouse.status !== 'ACTIVE') throw new ConflictException('Warehouse is inactive.');
     return warehouse;
@@ -913,7 +957,10 @@ export class InventoryService {
     });
     return movements.reduce(
       (sum, movement) =>
-        sum + (movement.direction === 'IN' ? toScaled(movement.quantity.toString()) : -toScaled(movement.quantity.toString())),
+        sum +
+        (movement.direction === 'IN'
+          ? toScaled(movement.quantity.toString())
+          : -toScaled(movement.quantity.toString())),
       0n,
     );
   }
@@ -1044,7 +1091,8 @@ function toScaled(value: string): bigint {
   const negative = normalized.startsWith('-');
   const unsigned = negative ? normalized.slice(1) : normalized;
   const [whole = '0', fraction = ''] = unsigned.split('.');
-  const scaled = BigInt(whole || '0') * QUANTITY_SCALE + BigInt(fraction.padEnd(4, '0').slice(0, 4));
+  const scaled =
+    BigInt(whole || '0') * QUANTITY_SCALE + BigInt(fraction.padEnd(4, '0').slice(0, 4));
   return negative ? -scaled : scaled;
 }
 

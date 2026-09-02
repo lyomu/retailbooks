@@ -515,8 +515,12 @@ export class BillsService {
         unitPriceMinor,
         discountMinor,
         lineTotalMinor,
-        taxCodeId: line.taxCodeId ?? item?.defaultPurchaseTaxCodeId ?? item?.defaultTaxCodeId ?? null,
-        accountId: line.accountId ?? item?.purchaseAccountId ?? (item?.inventoryTracked ? inventoryAccountId : null),
+        taxCodeId:
+          line.taxCodeId ?? item?.defaultPurchaseTaxCodeId ?? item?.defaultTaxCodeId ?? null,
+        accountId:
+          line.accountId ??
+          item?.purchaseAccountId ??
+          (item?.inventoryTracked ? inventoryAccountId : null),
         warehouseId: line.warehouseId ?? null,
         projectTag: line.projectTag ?? null,
       };

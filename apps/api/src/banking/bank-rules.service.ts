@@ -83,9 +83,13 @@ export class BankRulesService {
             ? (input.conditions as unknown as Prisma.InputJsonValue)
             : (existing.conditions as Prisma.InputJsonValue),
           suggestAccountId:
-            input.suggestAccountId !== undefined ? input.suggestAccountId : existing.suggestAccountId,
+            input.suggestAccountId !== undefined
+              ? input.suggestAccountId
+              : existing.suggestAccountId,
           suggestContactId:
-            input.suggestContactId !== undefined ? input.suggestContactId : existing.suggestContactId,
+            input.suggestContactId !== undefined
+              ? input.suggestContactId
+              : existing.suggestContactId,
           suggestVendorId:
             input.suggestVendorId !== undefined ? input.suggestVendorId : existing.suggestVendorId,
           suggestTags: input.suggestTags ?? existing.suggestTags,

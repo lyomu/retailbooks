@@ -75,7 +75,12 @@ export class TransfersController {
   ) {
     const metadata = requestMetadata(request, this.auth.pepper);
     return {
-      data: await this.transfers.void(request.organization, request.auth.user, transferId, metadata),
+      data: await this.transfers.void(
+        request.organization,
+        request.auth.user,
+        transferId,
+        metadata,
+      ),
     };
   }
 }

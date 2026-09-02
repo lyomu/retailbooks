@@ -6,7 +6,10 @@ import type { RequestMetadata } from '../auth/request-context.js';
 import { PrismaService } from '../database/prisma.service.js';
 import { writeAuditEvent } from '../organizations/audit-event.js';
 import type { OrganizationContext } from '../organizations/organization-context.js';
-import type { CreateFinancialAccountDto, UpdateFinancialAccountDto } from './financial-accounts.dto.js';
+import type {
+  CreateFinancialAccountDto,
+  UpdateFinancialAccountDto,
+} from './financial-accounts.dto.js';
 
 @Injectable()
 export class FinancialAccountsService {
