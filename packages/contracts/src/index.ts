@@ -206,6 +206,14 @@ export const permissionKeySchema = z.enum([
   'inventory.transfers.manage',
   'inventory.reorder.view',
   'inventory.valuation.view',
+  'projects.view',
+  'projects.manage',
+  'projects.time.view',
+  'projects.time.manage',
+  'projects.time.approve',
+  'projects.expenses.manage',
+  'projects.billing.manage',
+  'projects.profitability.view',
 ]);
 
 export const organizationSummarySchema = z.object({
@@ -333,6 +341,7 @@ export const permissionDefinitionSchema = z.object({
     'Purchases',
     'Banking',
     'Inventory',
+    'Projects',
   ]),
   protected: z.boolean(),
 });

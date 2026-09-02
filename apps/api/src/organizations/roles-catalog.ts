@@ -70,6 +70,8 @@ const READ_ONLY_BASELINE: readonly PermissionKey[] = [
   'inventory.transfers.view',
   'inventory.reorder.view',
   'inventory.valuation.view',
+  'projects.view',
+  'projects.time.view',
 ];
 
 export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freeze([
@@ -206,6 +208,14 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
       'inventory.transfers.manage',
       'inventory.reorder.view',
       'inventory.valuation.view',
+      'projects.view',
+      'projects.manage',
+      'projects.time.view',
+      'projects.time.manage',
+      'projects.time.approve',
+      'projects.expenses.manage',
+      'projects.billing.manage',
+      'projects.profitability.view',
     ],
   },
   {
@@ -316,6 +326,13 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
       'inventory.transfers.manage',
       'inventory.reorder.view',
       'inventory.valuation.view',
+      // The accountant bills and reports on projects but does not run them: no scope, budget, or
+      // time-approval rights, which stay with the people accountable for the work.
+      'projects.view',
+      'projects.time.view',
+      'projects.expenses.manage',
+      'projects.billing.manage',
+      'projects.profitability.view',
     ],
   },
   {
@@ -406,9 +423,28 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
   {
     key: 'PROJECT_MANAGER',
     name: 'Project Manager',
-    description: 'Organization read access; project rights arrive with the Projects module.',
+    description:
+      'Runs projects end to end: scope and budget, time approval, billable expenses, and invoicing the work.',
     isOwnerRole: false,
-    permissions: ['organization.view'],
+    permissions: [
+      'organization.view',
+      'members.view',
+      'customers.view',
+      'projects.view',
+      'projects.manage',
+      'projects.time.view',
+      'projects.time.manage',
+      'projects.time.approve',
+      'projects.expenses.manage',
+      'projects.billing.manage',
+      'projects.profitability.view',
+      // Billing a project creates and issues a real invoice, so the role needs to see the document
+      // it produced. It stops there: it cannot record payment against that invoice, which keeps
+      // raising a charge and settling it in two different pairs of hands.
+      'sales.invoices.view',
+      'sales.invoices.manage',
+      'purchases.expenses.view',
+    ],
   },
   {
     key: 'VIEWER',

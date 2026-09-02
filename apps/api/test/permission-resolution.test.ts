@@ -71,9 +71,29 @@ describe('SYSTEM_ROLE_TEMPLATES', () => {
     expect(viewer?.permissions).toContain('reports.view');
   });
 
-  it('keeps the future Project Manager role minimal until its phase ships', () => {
+  it('gives PROJECT_MANAGER its real Phase 7 permissions, but no path to settle what it bills', () => {
     const template = SYSTEM_ROLE_TEMPLATES.find((t) => t.key === 'PROJECT_MANAGER');
-    expect(template?.permissions).toEqual(['organization.view']);
+    expect(template?.permissions).toEqual([
+      'organization.view',
+      'members.view',
+      'customers.view',
+      'projects.view',
+      'projects.manage',
+      'projects.time.view',
+      'projects.time.manage',
+      'projects.time.approve',
+      'projects.expenses.manage',
+      'projects.billing.manage',
+      'projects.profitability.view',
+      'sales.invoices.view',
+      'sales.invoices.manage',
+      'purchases.expenses.view',
+    ]);
+    // Billing a project raises a real invoice, so the role can see and manage that document.
+    // Separation of duties stops there: raising a charge and recording its settlement must not
+    // sit in the same pair of hands.
+    expect(template?.permissions).not.toContain('sales.payments.manage');
+    expect(template?.permissions).not.toContain('journals.post');
   });
 
   it('gives INVENTORY_MANAGER its real Phase 6 forward-workflow permissions', () => {

@@ -140,6 +140,14 @@ export const PERMISSION_KEYS = [
   'inventory.transfers.manage',
   'inventory.reorder.view',
   'inventory.valuation.view',
+  'projects.view',
+  'projects.manage',
+  'projects.time.view',
+  'projects.time.manage',
+  'projects.time.approve',
+  'projects.expenses.manage',
+  'projects.billing.manage',
+  'projects.profitability.view',
 ] as const;
 
 export type PermissionKey = (typeof PERMISSION_KEYS)[number];
@@ -165,7 +173,8 @@ export interface PermissionDefinition {
     | 'Sales'
     | 'Purchases'
     | 'Banking'
-    | 'Inventory';
+    | 'Inventory'
+    | 'Projects';
   /**
    * Permanently OWNER-only. No role -- system or custom -- can hold a protected key; there is no
    * grant path for it anywhere, which is the entire privilege-escalation defence.
@@ -1110,6 +1119,63 @@ export const PERMISSION_CATALOG: readonly PermissionDefinition[] = Object.freeze
     label: 'View inventory valuation',
     description: 'See valuation layers and inventory value by item and warehouse.',
     group: 'Inventory',
+    protected: false,
+  },
+  {
+    key: 'projects.view',
+    label: 'View projects',
+    description: 'See projects, tasks, and budgets. Tasks inherit their project’s access.',
+    group: 'Projects',
+    protected: false,
+  },
+  {
+    key: 'projects.manage',
+    label: 'Manage projects',
+    description:
+      'Create and edit projects, tasks, and budgets, and move a project through its lifecycle.',
+    group: 'Projects',
+    protected: false,
+  },
+  {
+    key: 'projects.time.view',
+    label: 'View time entries',
+    description: 'See recorded time across projects and people, not only your own.',
+    group: 'Projects',
+    protected: false,
+  },
+  {
+    key: 'projects.time.manage',
+    label: 'Record time',
+    description: 'Record, edit, and submit your own time entries.',
+    group: 'Projects',
+    protected: false,
+  },
+  {
+    key: 'projects.time.approve',
+    label: 'Approve time',
+    description: 'Approve or reject submitted time, and unlock approved time for correction.',
+    group: 'Projects',
+    protected: false,
+  },
+  {
+    key: 'projects.expenses.manage',
+    label: 'Manage project expenses',
+    description: 'Attach posted expenses to a project and set whether they are re-billable.',
+    group: 'Projects',
+    protected: false,
+  },
+  {
+    key: 'projects.billing.manage',
+    label: 'Bill projects',
+    description: 'Generate an invoice from approved unbilled time and billable expenses.',
+    group: 'Projects',
+    protected: false,
+  },
+  {
+    key: 'projects.profitability.view',
+    label: 'View project profitability',
+    description: 'See project revenue, cost, margin, and unbilled work.',
+    group: 'Projects',
     protected: false,
   },
 ]);
