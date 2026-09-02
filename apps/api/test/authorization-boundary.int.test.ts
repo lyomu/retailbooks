@@ -1,41 +1,16 @@
-import { RequestMethod, type Type } from '@nestjs/common';
+import { type INestApplication, RequestMethod, type Type } from '@nestjs/common';
+import { ModulesContainer } from '@nestjs/core';
 import { GUARDS_METADATA, METHOD_METADATA, PATH_METADATA } from '@nestjs/common/constants';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { createOpaqueToken, hashToken } from '../src/auth/auth.crypto.js';
 import type { PublicUser } from '../src/auth/auth.service.js';
-import { AuditLogController } from '../src/organizations/audit-log.controller.js';
-import { CurrencyController } from '../src/organizations/currency.controller.js';
-import { LedgerController } from '../src/organizations/ledger.controller.js';
-import { OpeningBalancesController } from '../src/organizations/opening-balances.controller.js';
-import { RecurringJournalsController } from '../src/organizations/recurring-journals.controller.js';
-import { FxRevaluationController } from '../src/organizations/fx-revaluation.controller.js';
 import { OrganizationAccessService } from '../src/organizations/organization-access.service.js';
 import { PERMISSION_KEY } from '../src/organizations/organization-context.js';
 import { OrganizationGuard } from '../src/organizations/organization.guard.js';
 import { OrganizationService } from '../src/organizations/organization.service.js';
-import { OrganizationsController } from '../src/organizations/organizations.controller.js';
 import type { PermissionKey } from '../src/organizations/permission-catalog.js';
 import { SYSTEM_ROLE_KEYS, type SystemRoleKey } from '../src/organizations/roles-catalog.js';
-import { TaxController } from '../src/organizations/tax.controller.js';
-import { BillsController } from '../src/purchases/bills.controller.js';
-import { ExpenseCategoriesController } from '../src/purchases/expense-categories.controller.js';
-import { ExpensesController } from '../src/purchases/expenses.controller.js';
-import { PaymentsMadeController } from '../src/purchases/payments-made.controller.js';
-import { PurchaseOrdersController } from '../src/purchases/purchase-orders.controller.js';
-import { RecurringBillsController } from '../src/purchases/recurring-bills.controller.js';
-import { RecurringExpensesController } from '../src/purchases/recurring-expenses.controller.js';
-import { VendorCreditsController } from '../src/purchases/vendor-credits.controller.js';
-import { VendorsController } from '../src/purchases/vendors.controller.js';
-import { CatalogController } from '../src/sales/catalog.controller.js';
-import { CreditNotesController } from '../src/sales/credit-notes.controller.js';
-import { CustomersController } from '../src/sales/customers.controller.js';
-import { InvoicesController } from '../src/sales/invoices.controller.js';
-import { PaymentsController } from '../src/sales/payments.controller.js';
-import { QuotesController } from '../src/sales/quotes.controller.js';
-import { RecurringInvoicesController } from '../src/sales/recurring-invoices.controller.js';
-import { SalesOrdersController } from '../src/sales/sales-orders.controller.js';
-import { StatementsController } from '../src/sales/statements.controller.js';
 import { API, createTestHarness, type TestHarness } from './support/app.js';
 
 type HttpMethod = 'get' | 'post' | 'patch' | 'delete';
@@ -1096,36 +1071,244 @@ const ENDPOINTS: readonly EndpointCase[] = [
     path: 'organizations/:organizationId/recurring-expenses/run-due',
     permission: 'purchases.recurring_expenses.manage',
   },
+
+  // --- Phase 5: Banking & Reconciliation ---
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/bank-rules/:bankRuleId',
+    permission: 'banking.rules.view',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/bank-rules',
+    permission: 'banking.rules.view',
+  },
+  {
+    method: 'patch',
+    path: 'organizations/:organizationId/bank-rules/:bankRuleId',
+    permission: 'banking.rules.manage',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/bank-rules',
+    permission: 'banking.rules.manage',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/bank-transactions/:bankTransactionId',
+    permission: 'banking.transactions.view',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/bank-transactions',
+    permission: 'banking.transactions.view',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/bank-transactions/:bankTransactionId/categorize',
+    permission: 'banking.transactions.manage',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/bank-transactions/:bankTransactionId/exclude',
+    permission: 'banking.transactions.manage',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/bank-transactions/:bankTransactionId/match',
+    permission: 'banking.transactions.manage',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/bank-transactions/:bankTransactionId/unmatch',
+    permission: 'banking.transactions.manage',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/financial-accounts/:financialAccountId',
+    permission: 'banking.accounts.view',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/financial-accounts',
+    permission: 'banking.accounts.view',
+  },
+  {
+    method: 'patch',
+    path: 'organizations/:organizationId/financial-accounts/:financialAccountId',
+    permission: 'banking.accounts.manage',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/financial-accounts',
+    permission: 'banking.accounts.manage',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/reconciliations/:reconciliationId',
+    permission: 'banking.reconciliations.view',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/reconciliations',
+    permission: 'banking.reconciliations.view',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/reconciliations/:reconciliationId/clear',
+    permission: 'banking.reconciliations.manage',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/reconciliations/:reconciliationId/complete',
+    permission: 'banking.reconciliations.manage',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/reconciliations/:reconciliationId/reopen',
+    permission: 'banking.reconciliations.reopen',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/reconciliations/:reconciliationId/unclear',
+    permission: 'banking.reconciliations.manage',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/reconciliations',
+    permission: 'banking.reconciliations.manage',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/statement-imports/:statementImportId/failed-rows',
+    permission: 'banking.transactions.view',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/statement-imports/:statementImportId',
+    permission: 'banking.transactions.view',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/statement-imports',
+    permission: 'banking.transactions.view',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/statement-imports',
+    permission: 'banking.transactions.manage',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/transfers/:transferId',
+    permission: 'banking.transfers.view',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/transfers',
+    permission: 'banking.transfers.view',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/transfers/:transferId/void',
+    permission: 'banking.transfers.manage',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/transfers',
+    permission: 'banking.transfers.manage',
+  },
+
+  // --- Phase 6: Inventory ---
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/inventory/adjustments',
+    permission: 'inventory.adjustments.view',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/inventory/movements',
+    permission: 'inventory.movements.view',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/inventory/reorder',
+    permission: 'inventory.reorder.view',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/inventory/valuation',
+    permission: 'inventory.valuation.view',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/inventory/warehouses',
+    permission: 'inventory.warehouses.view',
+  },
+  {
+    method: 'patch',
+    path: 'organizations/:organizationId/inventory/adjustments/:adjustmentId',
+    permission: 'inventory.adjustments.manage',
+  },
+  {
+    method: 'patch',
+    path: 'organizations/:organizationId/inventory/warehouses/:warehouseId',
+    permission: 'inventory.warehouses.manage',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/inventory/adjustments/:adjustmentId/approve',
+    permission: 'inventory.adjustments.approve',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/inventory/adjustments/:adjustmentId/cancel',
+    permission: 'inventory.adjustments.manage',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/inventory/adjustments/:adjustmentId/post',
+    permission: 'inventory.adjustments.post',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/inventory/adjustments/:adjustmentId/submit',
+    permission: 'inventory.adjustments.manage',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/inventory/adjustments',
+    permission: 'inventory.adjustments.manage',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/inventory/transfers',
+    permission: 'inventory.transfers.manage',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/inventory/warehouses',
+    permission: 'inventory.warehouses.manage',
+  },
 ];
 
-const CONTROLLERS: readonly Type[] = [
-  OrganizationsController,
-  CurrencyController,
-  LedgerController,
-  TaxController,
-  AuditLogController,
-  CustomersController,
-  CatalogController,
-  InvoicesController,
-  PaymentsController,
-  CreditNotesController,
-  QuotesController,
-  SalesOrdersController,
-  RecurringInvoicesController,
-  StatementsController,
-  VendorsController,
-  PurchaseOrdersController,
-  BillsController,
-  ExpenseCategoriesController,
-  ExpensesController,
-  VendorCreditsController,
-  PaymentsMadeController,
-  RecurringBillsController,
-  RecurringExpensesController,
-  OpeningBalancesController,
-  RecurringJournalsController,
-  FxRevaluationController,
-];
+/**
+ * Every organization-scoped controller, read off the booted Nest module graph rather than a
+ * hand-maintained list. Phases 5 and 6 shipped with their controllers missing from the old
+ * hardcoded array, and the sync check below could not see it: it compared that array against a
+ * declared list, so a controller absent from BOTH was invisible. Deriving from the container
+ * means a new controller shows up here the moment it is registered, and the sync check fails
+ * until its endpoints are declared in ENDPOINTS.
+ */
+function registeredControllers(app: INestApplication): Type[] {
+  const controllers: Type[] = [];
+  for (const module of app.get(ModulesContainer).values()) {
+    for (const wrapper of module.controllers.values()) {
+      if (typeof wrapper.metatype === 'function') controllers.push(wrapper.metatype as Type);
+    }
+  }
+  return controllers;
+}
 
 describe('organization authorization boundary over HTTP', () => {
   let harness: TestHarness;
@@ -1191,7 +1374,7 @@ describe('organization authorization boundary over HTTP', () => {
   });
 
   it('keeps the declared matrix synchronized with every organization-scoped controller route and guard', () => {
-    const discovered = discoverOrganizationEndpoints(CONTROLLERS);
+    const discovered = discoverOrganizationEndpoints(registeredControllers(harness.app));
     expect(normalizeEndpoints(ENDPOINTS)).toEqual(normalizeEndpoints(discovered));
   });
 
@@ -1211,7 +1394,7 @@ describe('organization authorization boundary over HTTP', () => {
     }
     // The endpoint list nearly doubled in Phase 3 (~180 endpoints x 8 roles of real HTTP calls),
     // which no longer fits the 30s default -- give the full matrix sweep explicit headroom.
-  }, 180_000);
+  }, 240_000);
 
   it('returns the same not-found envelope for another tenant and an unknown tenant on every endpoint', async () => {
     const ownerActor = required(actors.get('OWNER'), 'Owner actor is missing.');
