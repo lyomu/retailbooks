@@ -8,7 +8,8 @@ double-entry accounting & invoicing web platform (monorepo: `apps/api` NestJS, `
 
 ## 1. Where things stand
 
-Six of fourteen phases have code. **Three** meet the roadmap's own "done and verified" bar.
+Six of fourteen phases have code, and all six now meet the roadmap's "done and verified" bar
+apart from Phase 1's hardening debt.
 
 | Phase                      | State                                                          |
 | -------------------------- | -------------------------------------------------------------- |
@@ -16,8 +17,8 @@ Six of fourteen phases have code. **Three** meet the roadmap's own "done and ver
 | 2 Sales                    | Complete and verified (2A–2K)                                  |
 | 3 Purchases                | Complete and verified (3A–3H)                                  |
 | 4 Accounting Engine        | Complete and verified (4A–4G)                                  |
-| 5 Banking & Reconciliation | **Built, not verified — no tests exist at all**                |
-| 6 Inventory                | Built, with inventory integration coverage                     |
+| 5 Banking & Reconciliation | Complete and verified (5A–5E)                                  |
+| 6 Inventory                | Complete and verified (6A–6E)                                  |
 | 7–14                       | No code                                                        |
 
 **The active plan is `docs/EXECUTION_PLAN.md`.** It sequences the remaining verification debt
@@ -27,26 +28,19 @@ Read it before picking up work.
 
 ### What is genuinely open, in priority order
 
-1. **Phase 5 has zero test coverage** (Stage 2 of the execution plan). All of `apps/api/src/banking/`
-   — statement import with CSV parsing and sha256 fingerprint dedup, bank rules with a pure
-   condition-matching engine, transaction categorize/split/exclude/match/unmatch, cross-currency
-   transfers, and reconciliation with a zero-tolerance completion gate — shipped in `ae8ae3e` under
-   an explicit user-confirmed "code first, tests later" rule. That rule was never lifted. There is
-   no `banking.int.test.ts`. Phase 6's COGS posting was then built on top of it. This is the
-   highest-risk item in the repo.
-2. **The authorization-boundary matrix stops at Phase 4.** `CONTROLLERS` in
-   `apps/api/test/authorization-boundary.int.test.ts` ends at `FxRevaluationController`, so 29
-   banking + 14 inventory endpoints have no permission or cross-tenant proof. `PHASE6_TODO.md`
-   claimed this was done; that checkbox was corrected on 2026-09-02. **The structural fix matters
-   more than the backfill:** the suite's "keeps the matrix synchronized" test compares `ENDPOINTS`
-   against `discoverOrganizationEndpoints(CONTROLLERS)`, both hand-maintained, so a controller
-   omitted from both is invisible. Stage 2B.2 replaces the hardcoded array with a walk of the
-   booted Nest module graph so future phases fail loudly instead of shipping uncovered.
-3. **`JournalLine` has no dimension columns.** Phase 7 profitability and Phase 9 dimension-filtered
-   reports both need them; `InvoiceLine.projectTag` is free text, not a relation. See D1.
-4. **`LedgerService.trialBalance` reduces every posted journal line in memory.** Fine for one
-   report, fatal as the base of Phase 9's ~30. See D2 and Stage 4.1.
-5. **No domain event bus.** A Phase 10 blocker, not a Phase 9 one, but decide during Phase 9.
+1. **`JournalLine` has no dimension columns.** Phase 7 profitability and Phase 9
+   dimension-filtered reports both need them; `InvoiceLine.projectTag` is free text, not a
+   relation. Decide this (D1 in the execution plan) before Phase 7's migration is written.
+2. **`LedgerService.trialBalance` reduces every posted journal line in memory**
+   (`ledger.service.ts:684`). Fine for one report, fatal as the base of Phase 9's ~30. See D2
+   and Stage 4.1.
+3. **No domain event bus.** A Phase 10 blocker, not a Phase 9 one, but decide during Phase 9.
+4. **Phase 1 hardening debt.** Stage 4 of the execution plan splits it: performance/index
+   review, audit-log coverage, `DESIGN.md` refresh and a threat model close now because they
+   protect Phases 7–9; visual regression, WCAG, and the backup drill fold into Phase 14.
+5. **Cross-module scenario 1 (§18.1)** is the one Phase 5 acceptance item still open. Banking
+   import/match/reconcile are covered in isolation, but not the full chain from quote through
+   acceptance, invoice, partial and final payment, to P&L/AR/GL agreement.
 
 ### Recently closed (2026-09-02)
 
@@ -56,6 +50,19 @@ Read it before picking up work.
   all 112 unit tests are green.
 - `BUILD_ROADMAP.md`'s status snapshot and Phase 5 section were two phases stale and have been
   synced; this file was rewritten.
+- **Phase 5 verification closed.** `apps/api/test/banking.int.test.ts` (16 tests) covers
+  duplicate fingerprints, match double-allocation, categorize/split/exclude posting, same- and
+  cross-currency transfers with void-by-reversal, and the reconciliation zero-difference gate,
+  lock and reopen.
+- **The boundary matrix now derives controllers from the booted Nest module graph.** The old
+  hand-maintained `CONTROLLERS` array could not detect its own omissions, which is how 43
+  endpoints shipped uncovered. Verified by deleting an entry and confirming the suite names it.
+  A new controller now fails this suite the day it is registered.
+- **Migration drift fixed.** Three index names exceeded PostgreSQL's 63-byte identifier limit,
+  so the server truncated them and dropped the `_idx` suffix while Prisma expected its own
+  shorter name. Renamed in `20260902130000_fix_phase6_index_names`; drift is now zero both ways.
+- Whole-repo gate green: lint, prettier, typecheck, 112 unit tests, 34 integration files / 258
+  tests, zero drift, both production builds.
 
 ## 2. Environment quirks worth remembering
 

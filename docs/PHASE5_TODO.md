@@ -65,13 +65,17 @@ the rolled-up summary and should be synced at close-out.
 
 - [x] Run `tsc --noEmit` in `apps/web` and keep it clean
 
-## Deferred verification pass
+## Deferred verification pass -- closed 2026-09-02
 
-- [ ] Add integration coverage for duplicate-fingerprint detection on re-import
-- [ ] Add integration coverage proving matches cannot double-allocate a source document
-- [ ] Add integration coverage for bank transaction categorize/split posting
-- [ ] Add integration coverage for transfer posting, cross-currency legs, and void reversal
-- [ ] Add integration coverage for reconciliation completion lock and reopen flow
-- [ ] Extend the authorization-boundary matrix for all Phase 5 controllers
-- [ ] Run the full lint, prettier, test, drift, and build pass after the user lifts the code-first
+Closed by `apps/api/test/banking.int.test.ts` (16 tests) and the module-graph rewrite of the
+authorization-boundary matrix. Full gate green: lint, prettier, typecheck, 34 integration files /
+258 tests, migration drift zero in both directions, and both production builds.
+
+- [x] Add integration coverage for duplicate-fingerprint detection on re-import
+- [x] Add integration coverage proving matches cannot double-allocate a source document
+- [x] Add integration coverage for bank transaction categorize/split posting
+- [x] Add integration coverage for transfer posting, cross-currency legs, and void reversal
+- [x] Add integration coverage for reconciliation completion lock and reopen flow
+- [x] Extend the authorization-boundary matrix for all Phase 5 controllers
+- [x] Run the full lint, prettier, test, drift, and build pass after the user lifts the code-first
       restriction

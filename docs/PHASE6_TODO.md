@@ -79,13 +79,12 @@ reconciliation`; its allowed verification was `apps/web` `tsc --noEmit` clean, w
 - [x] Add integration coverage for FIFO and weighted-average issue costing
 - [x] Add integration coverage for adjustment posting and approval flow
 - [x] Add integration coverage for transfer source/destination movement pairs
-- [ ] Extend the authorization-boundary matrix for all Phase 6 controllers — **corrected
-      2026-09-02: this was checked off but never done.** The `CONTROLLERS` array in
-      `apps/api/test/authorization-boundary.int.test.ts` ends at `FxRevaluationController`, so
-      `InventoryController`'s 14 endpoints (and all 29 banking endpoints) have no permission or
-      cross-tenant coverage. The suite's own "keeps the matrix synchronized" guard cannot catch
-      this, because it compares two hand-maintained lists against each other. Tracked as Stage 2B
-      of `docs/EXECUTION_PLAN.md`.
+- [x] Extend the authorization-boundary matrix for all Phase 6 controllers -- **done
+      2026-09-02.** Controllers are now derived from the booted Nest module graph rather than a
+      hand-maintained array, so inventory's 14 endpoints (and banking's 29) are swept by the
+      eight-role matrix and the cross-tenant check.
 - [x] Run the unit and DB-backed integration test pass after the user lifts the code-first
       restriction
-- [ ] Run lint, prettier, migration drift, and build checks when requested
+- [x] Run lint, prettier, migration drift, and build checks -- done 2026-09-02. Drift surfaced
+      three indexes PostgreSQL had truncated past 63 bytes; fixed in
+      `20260902130000_fix_phase6_index_names`.

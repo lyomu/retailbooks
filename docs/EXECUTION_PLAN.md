@@ -93,49 +93,49 @@ running (other projects' containers are, which is easy to misread as "the DB is 
 Model it on `apps/api/test/inventory.int.test.ts`: boot `createTestHarness()`, pull services off
 `harness.app.get(...)`, drive real service calls against `retailbooks_test`. Six groups:
 
-- [ ] **2A.1 Duplicate-fingerprint detection.** Import a CSV, re-import the same file, assert the
+- [x] **2A.1 Duplicate-fingerprint detection.** Import a CSV, re-import the same file, assert the
       second import records duplicates rather than creating second `BankTransaction` rows. Cover
       the near-miss too: same date/amount, different description → _not_ a duplicate. Exercise
       `bank-transaction-fingerprint.ts` directly for the hash, and through the service for the
       dedupe decision.
-- [ ] **2A.2 Match cannot double-allocate.** Match a bank transaction to a payment, then attempt a
+- [x] **2A.2 Match cannot double-allocate.** Match a bank transaction to a payment, then attempt a
       second match against the same source from a different transaction; assert rejection. Then
       unmatch and re-match to prove the guard releases correctly. This is the invariant most likely
       to be silently wrong.
-- [ ] **2A.3 Categorize and split posting.** Assert a categorized transaction posts a balanced
+- [x] **2A.3 Categorize and split posting.** Assert a categorized transaction posts a balanced
       journal through `PostingRulesService`, that a split posts one journal whose lines sum to the
       transaction amount, and that exclude-with-reason posts nothing at all.
-- [ ] **2A.4 Transfers.** Same-currency transfer posts a balanced journal touching both financial
+- [x] **2A.4 Transfers.** Same-currency transfer posts a balanced journal touching both financial
       accounts' GL mappings. Cross-currency transfer posts the FX leg to `fx_gain`/`fx_loss` and
       still balances in base currency. Void reverses exactly — assert the reversal is a new journal,
       not an edit.
-- [ ] **2A.5 Reconciliation lock.** Completion at non-zero difference is rejected; at exactly zero
+- [x] **2A.5 Reconciliation lock.** Completion at non-zero difference is rejected; at exactly zero
       it succeeds and locks; a locked reconciliation rejects clear/unclear; reopen requires a reason
       and writes an audit event.
-- [ ] **2A.6 Money invariants.** Every posting assertion above also asserts
+- [x] **2A.6 Money invariants.** Every posting assertion above also asserts
       `sum(debitMinor) === sum(creditMinor)`, per the roadmap's non-negotiables.
 
 ### 2B — Close the authorization-boundary gap (and stop it recurring)
 
-- [ ] **2B.1** Add the 6 banking controllers (`FinancialAccounts`, `BankRules`, `StatementImports`,
+- [x] **2B.1** Add the 6 banking controllers (`FinancialAccounts`, `BankRules`, `StatementImports`,
       `BankTransactions`, `Transfers`, `Reconciliations`) and `InventoryController` to `CONTROLLERS`
       in `authorization-boundary.int.test.ts`, then add the ~43 corresponding `ENDPOINTS` entries
       (29 banking + 14 inventory) with their permission keys.
-- [ ] **2B.2 Fix the blind spot that let this happen.** The existing _"keeps the declared matrix
+- [x] **2B.2 Fix the blind spot that let this happen.** The existing _"keeps the declared matrix
       synchronized"_ test compares `ENDPOINTS` against `discoverOrganizationEndpoints(CONTROLLERS)`
       — both hand-maintained, so omitting a controller from _both_ is invisible. Replace the
       hardcoded array with a walk of the booted Nest module graph (`harness.app` already has the
       container), filtering to controllers guarded by `OrganizationGuard`. Then a new Phase 7/8/9
       controller fails this test on the day it is written instead of shipping uncovered.
-- [ ] **2B.3** Re-check the sweep timeout. It is 180s for ~195 endpoints × 8 roles; adding ~43
+- [x] **2B.3** Re-check the sweep timeout. It is 180s for ~195 endpoints × 8 roles; adding ~43
       endpoints is a ~22% increase. Raise to 240s rather than discovering the flake in CI.
 
 ### 2C — Full gate
 
-- [ ] **2C.1** `npm run test:integration` — expect 34 files green.
-- [ ] **2C.2** Migration drift check, both directions, per the CI command.
-- [ ] **2C.3** `npm run build` (API + web production builds).
-- [ ] **2C.4** Check off the 7 deferred items in `PHASE5_TODO.md` and the 5 roadmap
+- [x] **2C.1** `npm run test:integration` — expect 34 files green.
+- [x] **2C.2** Migration drift check, both directions, per the CI command.
+- [x] **2C.3** `npm run build` (API + web production builds).
+- [x] **2C.4** Check off the 7 deferred items in `PHASE5_TODO.md` and the 5 roadmap
       Tests/acceptance items. Phase 5 is now genuinely done.
 
 **Exit gate:** the full CI command sequence passes locally, end to end.
@@ -146,10 +146,10 @@ Model it on `apps/api/test/inventory.int.test.ts`: boot `createTestHarness()`, p
 
 **Size:** minutes, given Stages 0 and 2. **Depends on:** Stage 2.
 
-- [ ] **3.1** The single open item in `PHASE6_TODO.md` is _"Run lint, prettier, migration drift, and
+- [x] **3.1** The single open item in `PHASE6_TODO.md` is _"Run lint, prettier, migration drift, and
       build checks when requested"_ — satisfied by 0.4 and 2C. Check it off.
-- [ ] **3.2** Re-check 1.3's boundary-matrix item, now that 2B.1 makes it true.
-- [ ] **3.3** Confirm the roadmap's Phase 14 cross-module scenario 2 (retail) can be checked — it is
+- [x] **3.2** Re-check 1.3's boundary-matrix item, now that 2B.1 makes it true.
+- [x] **3.3** Confirm the roadmap's Phase 14 cross-module scenario 2 (retail) can be checked — it is
       covered by `inventory.int.test.ts` but left unchecked in the Phase 14 list. Check it there
       too; it is the only one of the 8 currently earned.
 

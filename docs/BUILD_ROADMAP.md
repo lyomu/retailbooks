@@ -16,23 +16,30 @@ when Phase 1 hardening items close. Phases 2–14 exist only here; consider crea
 `docs/PHASE<N>_TODO.md` in the same style once a phase starts, and rolling its detail back into this
 file the way Phase 1's is summarized.
 
-**Status snapshot (2026-09-02):** Six of fourteen phases have code; three meet this document's
-"done and verified" bar. Sequencing for everything below lives in `docs/EXECUTION_PLAN.md`.
+**Status snapshot (2026-09-02):** Six of fourteen phases have code, and all six now meet this
+document's "done and verified" bar apart from Phase 1's hardening debt. Sequencing for everything
+below lives in `docs/EXECUTION_PLAN.md`. Whole-repo gate at this snapshot: lint, prettier, and
+typecheck clean; 112 unit tests; **34 integration files / 258 tests**; migration drift zero in both
+directions; API and web production builds green.
 
 - **Phase 1 (Foundation)** — functionally complete, hardening/test debt open (Milestone 1J).
 - **Phase 2 (Sales)** — complete and verified (2A–2K); see `docs/PHASE2_TODO.md`.
 - **Phase 3 (Purchases)** — complete and verified (3A–3H); see `docs/PHASE3_TODO.md`.
 - **Phase 4 (Accounting Engine remainder)** — complete and verified (4A–4G); see
   `docs/PHASE4_TODO.md`.
-- **Phase 5 (Banking & Reconciliation)** — **built but not verified.** All of 5A–5E shipped in
-  `ae8ae3e` under an explicit code-first rule; **no banking tests exist at all** and the deferred
-  verification pass in `docs/PHASE5_TODO.md` is still open. The Data model / Backend / UI items
-  below are checked; the Tests/acceptance items are deliberately not.
-- **Phase 6 (Inventory)** — built, with inventory integration coverage added
-  (`apps/api/test/inventory.int.test.ts`); see `docs/PHASE6_TODO.md`.
+- **Phase 5 (Banking & Reconciliation)** — complete and verified (5A–5E). Shipped in `ae8ae3e`
+  under a code-first rule with no tests; the verification pass closed on 2026-09-02 with
+  `apps/api/test/banking.int.test.ts` (16 tests). One item stays open: the §18.1 end-to-end
+  scenario, tracked as Phase 14 scenario 1.
+- **Phase 6 (Inventory)** — complete and verified (6A–6E); see `docs/PHASE6_TODO.md`.
 - **Phases 7–14** — **no code yet**, confirmed by full-repo search: no models, modules, routes, or
   pages exist for projects/time, globalization beyond Phase 1's catalog, the reporting engine,
   automation, portals, platform admin, or AI.
+
+Two defects that the Phase 5/6 code-first rule had hidden were found and fixed during that pass:
+the authorization-boundary matrix could not detect an omitted controller (43 endpoints were
+uncovered), and three index names exceeded PostgreSQL's 63-byte limit, so migration drift was
+non-zero in both directions.
 
 ---
 
@@ -348,16 +355,17 @@ testing deferred to the end-of-phase pass).
 
 ---
 
-## Phase 5 — Banking & Reconciliation ⚠️ built, not verified
+## Phase 5 — Banking & Reconciliation ✅
 
 Entities: `FinancialAccount`, `StatementImport`, `BankTransaction`, `Match`, `Reconciliation`,
 `BankRule`, `Transfer` (build spec §7; blueprint §9).
 
-> **Verification status:** shipped in `ae8ae3e` under an explicit code-first rule. Data model,
-> Backend/API, and UI are built and checked below. **Tests/acceptance is genuinely open** — no
-> banking test file exists — and this is the highest-risk open item in the repo, since Phase 6's
-> COGS posting sits on top of it. Closing it is Stage 2 of `docs/EXECUTION_PLAN.md`; the detailed
-> deferred list is in `docs/PHASE5_TODO.md`.
+> **Verified 2026-09-02.** `apps/api/test/banking.int.test.ts` (16 tests) covers duplicate
+> fingerprints, match double-allocation, categorize/split/exclude posting, same- and
+> cross-currency transfers with void-by-reversal, and the reconciliation zero-difference gate,
+> lock and reopen. All 43 banking and inventory endpoints joined the authorization-boundary
+> matrix. Full gate green: 34 integration files / 258 tests, drift zero both directions, builds
+> pass. The one remaining item is the §18.1 end-to-end scenario, noted below.
 
 ### Data model
 
@@ -393,12 +401,14 @@ Entities: `FinancialAccount`, `StatementImport`, `BankTransaction`, `Match`, `Re
 
 ### Tests/acceptance
 
-- [ ] Duplicate-fingerprint detection test on re-import
-- [ ] Match cannot double-allocate the same source transaction
-- [ ] Reconciliation completion requires zero difference and locks on completion
-- [ ] Transfer posting is balanced and linked correctly on both accounts
+- [x] Duplicate-fingerprint detection test on re-import
+- [x] Match cannot double-allocate the same source transaction
+- [x] Reconciliation completion requires zero difference and locks on completion
+- [x] Transfer posting is balanced and linked correctly on both accounts
 - [ ] Cross-module scenario: bank import/match/reconcile closes the loop from Phase 2's invoice/payment
-      flow (build spec §18.1)
+      flow (build spec §18.1) — **still open.** `banking.int.test.ts` covers import, match and
+      reconcile in isolation, but not the full scenario-1 chain from quote through acceptance,
+      invoice, partial and final payment, to P&L/AR/GL agreement. Tracked as Phase 14 scenario 1.
 
 ---
 
@@ -750,8 +760,9 @@ incrementally as each phase lands, then fully before public V1.
 
 - [ ] 1. Service business: customer → quote → acceptance → invoice → partial payment → final payment →
       bank import/match → reconcile → P&L/AR/GL agree
-- [ ] 2. Retail business: purchase inventory → vendor bill → payment → stock receipt → sale/invoice →
-      stock issue/COGS → customer payment → inventory valuation agrees to GL
+- [x] 2. Retail business: purchase inventory → vendor bill → payment → stock receipt → sale/invoice →
+      stock issue/COGS → customer payment → inventory valuation agrees to GL — proven by
+      `apps/api/test/inventory.int.test.ts`
 - [ ] 3. Project business: project → approved time + expense → generate invoice → record payment →
       profitability and ledger reconcile
 - [ ] 4. Credit flow: invoice → partial payment → credit note → allocate credit → remaining balance
