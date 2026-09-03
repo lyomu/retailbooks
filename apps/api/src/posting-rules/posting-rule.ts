@@ -22,6 +22,15 @@ export interface PostingRuleLineSpec {
   description?: string;
   debitMinor?: bigint;
   creditMinor?: bigint;
+  /**
+   * Reporting dimensions (decision D1) frozen onto the posted line. A rule sets these where its
+   * source document carries an attribution -- invoice revenue to a project, say -- and leaves them
+   * undefined otherwise. This is the only path by which a dimension reaches the ledger, which is
+   * what lets project profitability and Phase 9's dimension filters read from posted journal lines
+   * and reconcile to the P&L by construction.
+   */
+  projectId?: string;
+  tagId?: string;
 }
 
 /** The identity + dating context every rule source carries on top of its own document shape. */

@@ -11,6 +11,7 @@ import { DemoSeedService } from './demo-seed.service.js';
 import { HealthController } from './health.controller.js';
 import { HealthService } from './health.service.js';
 import { InventoryModule } from './inventory/inventory.module.js';
+import { ProjectsModule } from './projects/projects.module.js';
 import { JobsModule } from './jobs/jobs.module.js';
 import { OrganizationsModule } from './organizations/organizations.module.js';
 import { PurchasesModule } from './purchases/purchases.module.js';
@@ -28,6 +29,7 @@ import { SalesModule } from './sales/sales.module.js';
     PurchasesModule,
     BankingModule,
     InventoryModule,
+    ProjectsModule,
   ],
   controllers: [HealthController],
   providers: [

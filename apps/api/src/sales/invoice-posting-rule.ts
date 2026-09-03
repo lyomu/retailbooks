@@ -4,8 +4,18 @@ import { accountIdRef } from '../posting-rules/posting-rule.js';
 export interface InvoiceIssueSource extends PostingRuleSourceContext {
   contactName: string;
   arAccountId: string;
-  /** One entry per distinct revenue account, amounts are credits. */
-  revenueByAccount: readonly { accountId: string; amountMinor: bigint }[];
+  /**
+   * One entry per distinct revenue account *and project*, amounts are credits.
+   *
+   * Grouping by account alone would collapse two projects sharing a revenue account into one
+   * journal line, and the dimension would have to be dropped or arbitrarily picked. Splitting the
+   * line is what lets project profitability read revenue straight from the ledger.
+   */
+  revenueByAccount: readonly {
+    accountId: string;
+    amountMinor: bigint;
+    projectId?: string | null;
+  }[];
   /** One entry per distinct tax code, amounts are credits. */
   taxByCode: readonly { accountId: string; amountMinor: bigint }[];
   /** Subtotal plus tax -- the full AR debit. */
@@ -35,6 +45,7 @@ export const INVOICE_ISSUE_RULE: PostingRule<InvoiceIssueSource> = {
       debitMinor: 0n,
       creditMinor: entry.amountMinor,
       description: `Invoice for ${source.contactName}`,
+      projectId: entry.projectId ?? undefined,
     })),
     ...source.taxByCode.map((entry) => ({
       account: accountIdRef(entry.accountId),

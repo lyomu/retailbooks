@@ -938,6 +938,7 @@ export const invoiceLineSchema = z.object({
   revenueAccountId: z.uuid().nullable(),
   warehouseId: z.uuid().nullable(),
   projectTag: z.string().nullable(),
+  projectId: z.uuid().nullable(),
 });
 
 export const invoiceSchema = z.object({
@@ -976,6 +977,7 @@ export const invoiceLineDto = z.object({
   revenueAccountId: z.uuid().optional(),
   warehouseId: z.uuid().optional(),
   projectTag: z.string().max(80).optional(),
+  projectId: z.uuid().optional(),
 });
 
 export const createInvoiceDto = z.object({
@@ -1198,6 +1200,8 @@ export const expenseSchema = z.object({
   paidThroughAccountId: z.uuid(),
   categoryId: z.uuid().nullable(),
   categoryName: z.string().nullable(),
+  /** Cost attribution, frozen onto the journal line when the expense posts (decision D1). */
+  projectId: z.uuid().nullable(),
   currency: z.string().length(3),
   amountMinor: z.string().regex(/^\d+$/),
   taxCodeId: z.uuid().nullable(),
@@ -1223,6 +1227,7 @@ export const createExpenseDto = z.object({
   expenseDate: z.iso.date(),
   paidThroughAccountId: z.uuid(),
   categoryId: z.uuid().optional(),
+  projectId: z.uuid().optional(),
   currency: z.string().length(3).optional(),
   amountMinor: z.string().regex(/^\d+$/),
   taxCodeId: z.uuid().optional(),
@@ -2752,3 +2757,301 @@ export type ReconciliationResponse = z.infer<typeof reconciliationResponseSchema
 export type StartReconciliationDto = z.infer<typeof startReconciliationDto>;
 export type SetClearedTransactionsDto = z.infer<typeof setClearedTransactionsDto>;
 export type ReopenReconciliationDto = z.infer<typeof reopenReconciliationDto>;
+
+// --- Projects & Time ---
+
+export const projectStatusSchema = z.enum(['OPEN', 'ON_HOLD', 'COMPLETED', 'CANCELLED']);
+export const projectBillingMethodSchema = z.enum([
+  'TIME_AND_MATERIALS',
+  'FIXED_PRICE',
+  'NON_BILLABLE',
+]);
+export const projectTaskStatusSchema = z.enum(['OPEN', 'IN_PROGRESS', 'DONE']);
+export const timeEntryStatusSchema = z.enum([
+  'DRAFT',
+  'SUBMITTED',
+  'APPROVED',
+  'REJECTED',
+  'INVOICED',
+]);
+export const tagStatusSchema = z.enum(['ACTIVE', 'ARCHIVED']);
+
+const minorAmount = z.string().regex(/^-?\d+$/);
+/** Decimal hours, e.g. "7.50". Two places, matching `TimeEntry.hours`. */
+const hoursString = z.string().regex(/^\d{1,10}(\.\d{1,2})?$/);
+
+export const tagSchema = z.object({
+  id: z.uuid(),
+  name: z.string().min(1),
+  status: tagStatusSchema,
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+});
+
+export const projectSchema = z.object({
+  id: z.uuid(),
+  code: z.string().nullable(),
+  name: z.string().min(1),
+  customerId: z.uuid().nullable(),
+  customerName: z.string().nullable(),
+  managerUserId: z.uuid().nullable(),
+  managerName: z.string().nullable(),
+  status: projectStatusSchema,
+  billingMethod: projectBillingMethodSchema,
+  currency: z.string().length(3),
+  startsOn: z.iso.date().nullable(),
+  endsOn: z.iso.date().nullable(),
+  budgetAmountMinor: minorAmount.nullable(),
+  budgetHours: z.string().nullable(),
+  defaultRateMinor: minorAmount.nullable(),
+  description: z.string().nullable(),
+  completedAt: z.iso.datetime().nullable(),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+});
+
+export const projectTaskSchema = z.object({
+  id: z.uuid(),
+  projectId: z.uuid(),
+  name: z.string().min(1),
+  assigneeUserId: z.uuid().nullable(),
+  assigneeName: z.string().nullable(),
+  status: projectTaskStatusSchema,
+  estimateHours: z.string().nullable(),
+  billableDefault: z.boolean(),
+  rateMinor: minorAmount.nullable(),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+});
+
+export const timeEntrySchema = z.object({
+  id: z.uuid(),
+  projectId: z.uuid(),
+  projectName: z.string().min(1),
+  taskId: z.uuid().nullable(),
+  taskName: z.string().nullable(),
+  userId: z.uuid(),
+  userName: z.string().min(1),
+  entryDate: z.iso.date(),
+  hours: z.string(),
+  billable: z.boolean(),
+  rateMinor: minorAmount.nullable(),
+  costRateMinor: minorAmount.nullable(),
+  amountMinor: minorAmount,
+  note: z.string().nullable(),
+  status: timeEntryStatusSchema,
+  submittedAt: z.iso.datetime().nullable(),
+  approvedByName: z.string().nullable(),
+  approvedAt: z.iso.datetime().nullable(),
+  decisionComment: z.string().nullable(),
+  invoiceLineId: z.uuid().nullable(),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+});
+
+export const projectExpenseSchema = z.object({
+  id: z.uuid(),
+  projectId: z.uuid(),
+  expenseId: z.uuid(),
+  expenseNumber: z.string().nullable(),
+  expenseDate: z.iso.date(),
+  payeeName: z.string().nullable(),
+  amountMinor: minorAmount,
+  billable: z.boolean(),
+  markupPercent: z.string().nullable(),
+  billableAmountMinor: minorAmount,
+  invoiceLineId: z.uuid().nullable(),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+});
+
+export const projectBudgetSchema = z.object({
+  id: z.uuid(),
+  projectId: z.uuid(),
+  taskId: z.uuid(),
+  taskName: z.string().min(1),
+  budgetHours: z.string().nullable(),
+  budgetAmountMinor: minorAmount.nullable(),
+  note: z.string().nullable(),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+});
+
+/**
+ * Everything the profitability view reports, with the ledger figures separated from the
+ * work-in-progress ones. `revenueMinor` and `costMinor` come from posted journal lines carrying
+ * this project's dimension, so they tie to the P&L; `unbilled*` are pipeline, not ledger.
+ */
+export const projectProfitabilitySchema = z.object({
+  projectId: z.uuid(),
+  projectName: z.string().min(1),
+  currency: z.string().length(3),
+  revenueMinor: minorAmount,
+  costMinor: minorAmount,
+  marginMinor: minorAmount,
+  marginPercent: z.string().nullable(),
+  billedHours: z.string(),
+  unbilledHours: z.string(),
+  unbilledTimeMinor: minorAmount,
+  unbilledExpenseMinor: minorAmount,
+  budgetAmountMinor: minorAmount.nullable(),
+  budgetHours: z.string().nullable(),
+});
+
+/** One invoiceable line the generate-invoice flow would create, previewed before it commits. */
+export const projectBillableSchema = z.object({
+  sourceType: z.enum(['TIME', 'EXPENSE']),
+  sourceId: z.uuid(),
+  description: z.string().min(1),
+  quantity: z.string(),
+  unitPriceMinor: minorAmount,
+  lineTotalMinor: minorAmount,
+});
+
+export const createProjectDto = z.object({
+  name: z.string().min(1).max(160),
+  code: z.string().min(1).max(40).optional(),
+  customerId: z.uuid().optional(),
+  managerUserId: z.uuid().optional(),
+  billingMethod: projectBillingMethodSchema.optional(),
+  currency: z.string().length(3).optional(),
+  startsOn: z.iso.date().optional(),
+  endsOn: z.iso.date().optional(),
+  budgetAmountMinor: minorAmount.optional(),
+  budgetHours: hoursString.optional(),
+  defaultRateMinor: minorAmount.optional(),
+  description: z.string().max(500).optional(),
+});
+
+export const updateProjectDto = createProjectDto.partial();
+
+export const changeProjectStatusDto = z.object({
+  status: projectStatusSchema,
+  reason: z.string().max(240).optional(),
+});
+
+export const createProjectTaskDto = z.object({
+  name: z.string().min(1).max(160),
+  assigneeUserId: z.uuid().optional(),
+  status: projectTaskStatusSchema.optional(),
+  estimateHours: hoursString.optional(),
+  billableDefault: z.boolean().optional(),
+  rateMinor: minorAmount.optional(),
+});
+
+export const updateProjectTaskDto = createProjectTaskDto.partial();
+
+export const createTimeEntryDto = z.object({
+  projectId: z.uuid(),
+  taskId: z.uuid().optional(),
+  userId: z.uuid().optional(),
+  entryDate: z.iso.date(),
+  hours: hoursString,
+  billable: z.boolean().optional(),
+  rateMinor: minorAmount.optional(),
+  costRateMinor: minorAmount.optional(),
+  note: z.string().max(500).optional(),
+});
+
+export const updateTimeEntryDto = createTimeEntryDto.partial().omit({ projectId: true });
+
+export const timeDecisionDto = z.object({
+  timeEntryIds: z.array(z.uuid()).min(1).max(500),
+  comment: z.string().max(500).optional(),
+});
+
+export const linkProjectExpenseDto = z.object({
+  expenseId: z.uuid(),
+  billable: z.boolean().optional(),
+  markupPercent: z
+    .string()
+    .regex(/^\d{1,3}(\.\d{1,4})?$/)
+    .optional(),
+});
+
+export const updateProjectExpenseDto = linkProjectExpenseDto.partial().omit({ expenseId: true });
+
+export const upsertProjectBudgetDto = z.object({
+  taskId: z.uuid(),
+  budgetHours: hoursString.optional(),
+  budgetAmountMinor: minorAmount.optional(),
+  note: z.string().max(240).optional(),
+});
+
+export const generateProjectInvoiceDto = z.object({
+  timeEntryIds: z.array(z.uuid()).max(500).optional(),
+  projectExpenseIds: z.array(z.uuid()).max(500).optional(),
+  issueDate: z.iso.date().optional(),
+  dueDate: z.iso.date().optional(),
+  issue: z.boolean().optional(),
+});
+
+export const createTagDto = z.object({
+  name: z.string().min(1).max(80),
+});
+
+export const updateTagDto = z.object({
+  name: z.string().min(1).max(80).optional(),
+  status: tagStatusSchema.optional(),
+});
+
+export const projectListResponseSchema = z.object({ data: z.array(projectSchema) });
+export const projectResponseSchema = z.object({ data: projectSchema });
+export const projectTaskListResponseSchema = z.object({ data: z.array(projectTaskSchema) });
+export const projectTaskResponseSchema = z.object({ data: projectTaskSchema });
+export const timeEntryListResponseSchema = z.object({ data: z.array(timeEntrySchema) });
+export const timeEntryResponseSchema = z.object({ data: timeEntrySchema });
+export const projectExpenseListResponseSchema = z.object({
+  data: z.array(projectExpenseSchema),
+});
+export const projectExpenseResponseSchema = z.object({ data: projectExpenseSchema });
+export const projectBudgetListResponseSchema = z.object({ data: z.array(projectBudgetSchema) });
+export const projectBudgetResponseSchema = z.object({ data: projectBudgetSchema });
+export const projectProfitabilityResponseSchema = z.object({ data: projectProfitabilitySchema });
+export const projectBillableListResponseSchema = z.object({
+  data: z.array(projectBillableSchema),
+});
+export const tagListResponseSchema = z.object({ data: z.array(tagSchema) });
+export const tagResponseSchema = z.object({ data: tagSchema });
+
+export type ProjectStatus = z.infer<typeof projectStatusSchema>;
+export type ProjectBillingMethod = z.infer<typeof projectBillingMethodSchema>;
+export type ProjectTaskStatus = z.infer<typeof projectTaskStatusSchema>;
+export type TimeEntryStatus = z.infer<typeof timeEntryStatusSchema>;
+export type TagStatus = z.infer<typeof tagStatusSchema>;
+export type Tag = z.infer<typeof tagSchema>;
+export type Project = z.infer<typeof projectSchema>;
+export type ProjectTask = z.infer<typeof projectTaskSchema>;
+export type TimeEntry = z.infer<typeof timeEntrySchema>;
+export type ProjectExpense = z.infer<typeof projectExpenseSchema>;
+export type ProjectBudget = z.infer<typeof projectBudgetSchema>;
+export type ProjectProfitability = z.infer<typeof projectProfitabilitySchema>;
+export type ProjectBillable = z.infer<typeof projectBillableSchema>;
+export type CreateProjectDto = z.infer<typeof createProjectDto>;
+export type UpdateProjectDto = z.infer<typeof updateProjectDto>;
+export type ChangeProjectStatusDto = z.infer<typeof changeProjectStatusDto>;
+export type CreateProjectTaskDto = z.infer<typeof createProjectTaskDto>;
+export type UpdateProjectTaskDto = z.infer<typeof updateProjectTaskDto>;
+export type CreateTimeEntryDto = z.infer<typeof createTimeEntryDto>;
+export type UpdateTimeEntryDto = z.infer<typeof updateTimeEntryDto>;
+export type TimeDecisionDto = z.infer<typeof timeDecisionDto>;
+export type LinkProjectExpenseDto = z.infer<typeof linkProjectExpenseDto>;
+export type UpdateProjectExpenseDto = z.infer<typeof updateProjectExpenseDto>;
+export type UpsertProjectBudgetDto = z.infer<typeof upsertProjectBudgetDto>;
+export type GenerateProjectInvoiceDto = z.infer<typeof generateProjectInvoiceDto>;
+export type CreateTagDto = z.infer<typeof createTagDto>;
+export type UpdateTagDto = z.infer<typeof updateTagDto>;
+export type ProjectListResponse = z.infer<typeof projectListResponseSchema>;
+export type ProjectResponse = z.infer<typeof projectResponseSchema>;
+export type ProjectTaskListResponse = z.infer<typeof projectTaskListResponseSchema>;
+export type ProjectTaskResponse = z.infer<typeof projectTaskResponseSchema>;
+export type TimeEntryListResponse = z.infer<typeof timeEntryListResponseSchema>;
+export type TimeEntryResponse = z.infer<typeof timeEntryResponseSchema>;
+export type ProjectExpenseListResponse = z.infer<typeof projectExpenseListResponseSchema>;
+export type ProjectExpenseResponse = z.infer<typeof projectExpenseResponseSchema>;
+export type ProjectBudgetListResponse = z.infer<typeof projectBudgetListResponseSchema>;
+export type ProjectBudgetResponse = z.infer<typeof projectBudgetResponseSchema>;
+export type ProjectProfitabilityResponse = z.infer<typeof projectProfitabilityResponseSchema>;
+export type ProjectBillableListResponse = z.infer<typeof projectBillableListResponseSchema>;
+export type TagListResponse = z.infer<typeof tagListResponseSchema>;
+export type TagResponse = z.infer<typeof tagResponseSchema>;

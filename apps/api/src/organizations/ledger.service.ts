@@ -419,6 +419,12 @@ export class LedgerService {
         description?: string | null;
         debitMinor: bigint;
         creditMinor: bigint;
+        /**
+         * Reporting dimensions (decision D1). Written once here and never updated, the same freeze
+         * the tax snapshot gets: re-tagging a source document must not restate a posted period.
+         */
+        projectId?: string | null;
+        tagId?: string | null;
       }[];
     },
     metadata: RequestMetadata,
@@ -457,6 +463,8 @@ export class LedgerService {
               accountId: line.accountId,
               lineNumber: index + 1,
               description: line.description ?? undefined,
+              projectId: line.projectId ?? undefined,
+              tagId: line.tagId ?? undefined,
               debitMinor: line.debitMinor,
               creditMinor: line.creditMinor,
             })),
@@ -622,6 +630,11 @@ export class LedgerService {
               taxRatePercentSnapshot: line.taxRatePercentSnapshot,
               taxableAmountMinor: line.taxableAmountMinor,
               taxAmountMinor: line.taxAmountMinor,
+              // Dimensions carry forward for the same reason the tax snapshot does: a reversal
+              // that dropped them would leave the project's revenue standing with nothing to
+              // offset it, so profitability would overstate exactly the amount just reversed.
+              projectId: line.projectId,
+              tagId: line.tagId,
             })),
           },
         },

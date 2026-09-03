@@ -1290,6 +1290,149 @@ const ENDPOINTS: readonly EndpointCase[] = [
     path: 'organizations/:organizationId/inventory/warehouses',
     permission: 'inventory.warehouses.manage',
   },
+
+  // --- Phase 7: Projects & Time ---
+  //
+  // The literal `time-entries`, `expenses`, and `tasks` segments are declared by the controller
+  // above its `:projectId` routes, so Nest matches them as literals rather than capturing them as
+  // project ids. The declaration order here does not matter -- the sync check sorts -- but the
+  // grouping mirrors the controller so the two stay readable side by side.
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/projects/time-entries',
+    permission: 'projects.time.view',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/projects/time-entries',
+    permission: 'projects.time.manage',
+    body: {},
+  },
+  {
+    method: 'patch',
+    path: 'organizations/:organizationId/projects/time-entries/:timeEntryId',
+    permission: 'projects.time.manage',
+    body: {},
+  },
+  {
+    method: 'delete',
+    path: 'organizations/:organizationId/projects/time-entries/:timeEntryId',
+    permission: 'projects.time.manage',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/projects/time-entries/submit',
+    permission: 'projects.time.manage',
+    body: {},
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/projects/time-entries/approve',
+    permission: 'projects.time.approve',
+    body: {},
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/projects/time-entries/reject',
+    permission: 'projects.time.approve',
+    body: {},
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/projects/time-entries/unlock',
+    permission: 'projects.time.approve',
+    body: {},
+  },
+  {
+    method: 'patch',
+    path: 'organizations/:organizationId/projects/expenses/:projectExpenseId',
+    permission: 'projects.expenses.manage',
+    body: {},
+  },
+  {
+    method: 'delete',
+    path: 'organizations/:organizationId/projects/expenses/:projectExpenseId',
+    permission: 'projects.expenses.manage',
+  },
+  {
+    method: 'patch',
+    path: 'organizations/:organizationId/projects/tasks/:taskId',
+    permission: 'projects.manage',
+    body: {},
+  },
+  { method: 'get', path: 'organizations/:organizationId/projects', permission: 'projects.view' },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/projects',
+    permission: 'projects.manage',
+    body: {},
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/projects/:projectId',
+    permission: 'projects.view',
+  },
+  {
+    method: 'patch',
+    path: 'organizations/:organizationId/projects/:projectId',
+    permission: 'projects.manage',
+    body: {},
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/projects/:projectId/status',
+    permission: 'projects.manage',
+    body: {},
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/projects/:projectId/tasks',
+    permission: 'projects.view',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/projects/:projectId/tasks',
+    permission: 'projects.manage',
+    body: {},
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/projects/:projectId/budgets',
+    permission: 'projects.view',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/projects/:projectId/budgets',
+    permission: 'projects.manage',
+    body: {},
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/projects/:projectId/expenses',
+    permission: 'projects.view',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/projects/:projectId/expenses',
+    permission: 'projects.expenses.manage',
+    body: {},
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/projects/:projectId/billables',
+    permission: 'projects.billing.manage',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/projects/:projectId/generate-invoice',
+    permission: 'projects.billing.manage',
+    body: {},
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/projects/:projectId/profitability',
+    permission: 'projects.profitability.view',
+  },
 ];
 
 /**
@@ -1517,7 +1660,11 @@ describe('organization authorization boundary over HTTP', () => {
       .replace(':billId', ID)
       .replace(':expenseId', ID)
       .replace(':vendorCreditId', ID)
-      .replace(':batchId', ID);
+      .replace(':batchId', ID)
+      .replace(':projectId', ID)
+      .replace(':timeEntryId', ID)
+      .replace(':projectExpenseId', ID)
+      .replace(':taskId', ID);
     const test = harness.http()[endpoint.method](path).set('Cookie', cookie);
     if (endpoint.body !== undefined) test.send(endpoint.body);
     return test;

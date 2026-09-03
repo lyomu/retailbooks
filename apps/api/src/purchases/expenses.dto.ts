@@ -44,6 +44,15 @@ export class CreateExpenseDto {
   @Length(36, 36)
   categoryId?: string;
 
+  /**
+   * Cost attribution for project profitability. It must be set before the expense posts -- posting
+   * freezes it onto the journal line, and a posted line is never restated.
+   */
+  @IsOptional()
+  @IsString()
+  @Length(36, 36)
+  projectId?: string;
+
   @IsOptional()
   @IsString()
   @Length(3, 3)
@@ -88,6 +97,15 @@ export class UpdateExpenseDto {
   @IsString()
   @Length(36, 36)
   categoryId?: string;
+
+  /**
+   * Cost attribution for project profitability. It must be set before the expense posts -- posting
+   * freezes it onto the journal line, and a posted line is never restated.
+   */
+  @IsOptional()
+  @IsString()
+  @Length(36, 36)
+  projectId?: string;
 
   @IsOptional()
   @IsString()

@@ -4,11 +4,11 @@
 double-entry accounting & invoicing web platform (monorepo: `apps/api` NestJS, `apps/web` Next.js,
 `packages/*` shared libs).
 
-**Last refreshed:** 2026-09-02.
+**Last refreshed:** 2026-09-03.
 
 ## 1. Where things stand
 
-Six of fourteen phases have code, and all six now meet the roadmap's "done and verified" bar
+Seven of fourteen phases have code, and all seven now meet the roadmap's "done and verified" bar
 apart from Phase 1's hardening debt.
 
 | Phase                      | State                                                          |
@@ -19,17 +19,20 @@ apart from Phase 1's hardening debt.
 | 4 Accounting Engine        | Complete and verified (4A–4G)                                  |
 | 5 Banking & Reconciliation | Complete and verified (5A–5E)                                  |
 | 6 Inventory                | Complete and verified (6A–6E)                                  |
-| 7–14                       | No code                                                        |
+| 7 Projects & Time          | Complete and verified (7A–7F)                                  |
+| 8–14                       | No code                                                        |
 
 **The active plan is `docs/EXECUTION_PLAN.md`.** It sequences the remaining verification debt
 (Stages 0–4) and Phases 7–9 (Stages 5–7), and records three decisions (D1 ledger dimensions,
-D2 report query strategy, D3 country-pack DB model) that must be made before Phase 7 starts.
-Read it before picking up work.
+D2 report query strategy, D3 country-pack DB model). All three are decided; D1 is implemented.
+Read it before picking up work. **Next up is Stage 6 (Phase 8, Globalization), which turns on D3.**
 
 ### What is genuinely open, in priority order
 
-1. **Phase 7 is ready to open.** Stages 0–4.4 are closed and D1 is decided, so the migration can be
-   written. Start at `EXECUTION_PLAN.md` Stage 5.
+1. **Phase 8 is ready to open.** Stages 0–5 are closed and D3 is decided. Start at
+   `EXECUTION_PLAN.md` Stage 6. Phase 8 carries the most legal risk of the three remaining phases:
+   the compliance-claim rules are not cosmetic, and the Kenya pack must keep its explicit
+   _demonstration_ labelling through the migration to a DB model.
 2. **Two ADR 0011 follow-ups**, each recorded in `PHASE1_TODO.md` with its owning phase: an
    attachment content-type allowlist, and validating the environment once at startup
    (`packages/config` is still a stub, and only `SECURITY_PEPPER` asserts itself).
@@ -42,10 +45,13 @@ Read it before picking up work.
 
 ### Decided (2026-09-02) — the execution plan's three pre-Phase-7 decisions
 
-- **D1 ledger dimensions → option (a).** `JournalLine` gains nullable `projectId` + `tagId` in
-  Phase 7's migration, frozen at post time like the tax snapshot. Profitability then reads from
-  the ledger and reconciles to the P&L by construction. No backfill: historical journals predate
-  projects.
+- **D1 ledger dimensions → option (a). Implemented in Phase 7.** `JournalLine` carries nullable
+  `projectId` + `tagId`, frozen at post time like the tax snapshot. Profitability reads from the
+  ledger and reconciles to the P&L by construction. No backfill: historical journals predate
+  projects. Phase 9's dimension filters read the same columns. One consequence worth knowing
+  before adding a dimensioned document type: **the dimension must be chosen before the document
+  posts.** `Expense` needed its own `projectId` for exactly this reason — attributing cost after
+  posting is impossible without restating a frozen line, which D1 forbids.
 - **D2 report query strategy → SQL aggregation.** Rule and budgets in `docs/PERFORMANCE.md`;
   `trialBalance` is the reference implementation Phase 9's engine copies.
 - **D3 country packs → DB `CountryPack` model in Phase 8**, seeded from `jurisdiction-catalog.ts`,
@@ -53,6 +59,21 @@ Read it before picking up work.
 
 Full reasoning, including what was rejected, is in `EXECUTION_PLAN.md` §"Decisions to make before
 Stage 5".
+
+### Recently closed (2026-09-03)
+
+- **Phase 7 (Projects & Time)** shipped: five entities, D1's ledger dimensions, 25 endpoints, seven
+  screens, and `projects.int.test.ts` (14 tests). `docs/PHASE7_TODO.md` has the detail.
+- The boundary matrix's module-graph walk (Stage 2B.2) fired for the first time on a phase written
+  after it, failing until `ProjectsController`'s 25 routes were declared. It works.
+- Phase 7's test pass found that project profitability reported cost as zero and margin as equal to
+  revenue on every project, because nothing dimensioned the expense side of the ledger. Fixed by
+  giving `Expense` a `projectId` chosen before posting.
+- **The integration suite's concurrency-replay tests flake occasionally under full-suite load.**
+  Six concurrent requests serialize behind one idempotency advisory lock and a waiter can exceed
+  its transaction timeout; the invariant they guard has held every time. They pass in isolation.
+  Before chasing one as a regression, re-run it alone — and check `docker ps -a`, because a killed
+  Postgres container produces the same signature across many files at once.
 
 ### Recently closed (2026-09-02)
 

@@ -16,10 +16,10 @@ when Phase 1 hardening items close. Phases 2–14 exist only here; consider crea
 `docs/PHASE<N>_TODO.md` in the same style once a phase starts, and rolling its detail back into this
 file the way Phase 1's is summarized.
 
-**Status snapshot (2026-09-02):** Six of fourteen phases have code, and all six now meet this
+**Status snapshot (2026-09-03):** Seven of fourteen phases have code, and all seven now meet this
 document's "done and verified" bar apart from Phase 1's hardening debt. Sequencing for everything
 below lives in `docs/EXECUTION_PLAN.md`. Whole-repo gate at this snapshot: lint, prettier, and
-typecheck clean; 112 unit tests; **34 integration files / 258 tests**; migration drift zero in both
+typecheck clean; 112 unit tests; **36 integration files / 281 tests**; migration drift zero in both
 directions; API and web production builds green.
 
 - **Phase 1 (Foundation)** — functionally complete, hardening/test debt open (Milestone 1J).
@@ -32,14 +32,21 @@ directions; API and web production builds green.
   `apps/api/test/banking.int.test.ts` (16 tests). One item stays open: the §18.1 end-to-end
   scenario, tracked as Phase 14 scenario 1.
 - **Phase 6 (Inventory)** — complete and verified (6A–6E); see `docs/PHASE6_TODO.md`.
-- **Phases 7–14** — **no code yet**, confirmed by full-repo search: no models, modules, routes, or
-  pages exist for projects/time, globalization beyond Phase 1's catalog, the reporting engine,
-  automation, portals, platform admin, or AI.
+- **Phase 7 (Projects & Time)** — complete and verified (7A–7F); see `docs/PHASE7_TODO.md`. Carries
+  decision D1's ledger dimensions, which Phase 9's dimension-filtered reports build on. Phase 14
+  cross-module scenario 3 is earned here.
+- **Phases 8–14** — **no code yet**: no models, modules, routes, or pages exist for globalization
+  beyond Phase 1's catalog, the reporting engine, automation, portals, platform admin, or AI.
 
 Two defects that the Phase 5/6 code-first rule had hidden were found and fixed during that pass:
 the authorization-boundary matrix could not detect an omitted controller (43 endpoints were
 uncovered), and three index names exceeded PostgreSQL's 63-byte limit, so migration drift was
 non-zero in both directions.
+
+Phase 7 ran under the same code-first rule and its test pass found one more: project profitability
+reported cost as zero and margin as equal to revenue on every project, because nothing dimensioned
+the expense side of the ledger. Three phases, three defects that only a test pass surfaced — the
+pattern is worth weighing before granting a fourth phase the same rule.
 
 ---
 
@@ -458,48 +465,61 @@ Entities: `Item` (extended), `Warehouse`, `StockMovement`, `InventoryAdjustment`
 
 ---
 
-## Phase 7 — Projects & Time
+## Phase 7 — Projects & Time ✅
 
 Entities: `Project`, `ProjectTask`, `TimeEntry`, `ProjectExpense`, `ProjectBudget` (build spec §9;
 blueprint §9).
 
+Full milestone-by-milestone detail (7A–7F) lives in `docs/PHASE7_TODO.md`. All milestones complete
+and verified: three migrations applied and drift-checked in both directions (no difference), unit
+suites green, integration suite 281 tests across 36 files green (including the eight-role boundary
+matrix, which picked up the 25 new project endpoints automatically), typecheck/lint/format clean,
+both production builds succeed.
+
+Decision D1 landed here: `JournalLine` carries nullable `projectId` and `tagId`, frozen at posting
+beside the tax snapshot. Project profitability reads revenue and cost from those posted lines rather
+than from a parallel aggregation, so it reconciles to the P&L by construction. Writing the
+reconciliation test found that nothing dimensioned the _cost_ side — `ProjectExpense` attaches only
+to an already-posted expense, and a posted line is never restated — so `Expense` gained its own
+`projectId`, chosen before posting. Without it, margin equalled revenue on every project.
+
 ### Data model
 
-- [ ] `Project` (customer, name, dates, billing method, budget, status, manager)
-- [ ] `ProjectTask` (project, name, assignee, estimate, billable default)
-- [ ] `TimeEntry` (date, project/task, user, hours, billable, rate, note)
-- [ ] `ProjectExpense` (linked expense, billable markup/rate)
-- [ ] `ProjectBudget`
-- [ ] Migration written, applied, and drift-checked in CI
+- [x] `Project` (customer, name, dates, billing method, budget, status, manager)
+- [x] `ProjectTask` (project, name, assignee, estimate, billable default)
+- [x] `TimeEntry` (date, project/task, user, hours, billable, rate, note)
+- [x] `ProjectExpense` (linked expense, billable markup/rate)
+- [x] `ProjectBudget`
+- [x] Migration written, applied, and drift-checked in CI
 
 ### Backend/API
 
-- [ ] Projects: status lifecycle Open/On Hold/Completed/Cancelled
-- [ ] Tasks: inherit project-level access
-- [ ] Timesheets: submitted time immutable until rejected/unlocked
-- [ ] Time Approval: period/user/project entries; approve/reject with comment
-- [ ] Project Expenses: cannot invoice the same expense twice
-- [ ] Generate Invoice: select approved unbilled time/expenses → creates invoice lines with source links
+- [x] Projects: status lifecycle Open/On Hold/Completed/Cancelled
+- [x] Tasks: inherit project-level access
+- [x] Timesheets: submitted time immutable until rejected/unlocked
+- [x] Time Approval: period/user/project entries; approve/reject with comment
+- [x] Project Expenses: cannot invoice the same expense twice
+- [x] Generate Invoice: select approved unbilled time/expenses → creates invoice lines with source links
       (integrates with Phase 2 invoice creation)
-- [ ] Profitability calculation: revenue, billed/unbilled time, costs, expenses, margin, drill-down to
+- [x] Profitability calculation: revenue, billed/unbilled time, costs, expenses, margin, drill-down to
       source records
-- [ ] Wire the `PROJECT_MANAGER` role's real permission set (currently a placeholder)
+- [x] Wire the `PROJECT_MANAGER` role's real permission set (currently a placeholder)
 
 ### UI
 
-- [ ] Projects list/create-edit/detail
-- [ ] Tasks screen within project detail
-- [ ] Timesheets entry screen (timer + manual entry)
-- [ ] Time Approval screen
-- [ ] Project Expenses screen
-- [ ] Generate Invoice from approved billables flow
-- [ ] Profitability report/dashboard
+- [x] Projects list/create-edit/detail
+- [x] Tasks screen within project detail
+- [x] Timesheets entry screen (timer + manual entry)
+- [x] Time Approval screen
+- [x] Project Expenses screen
+- [x] Generate Invoice from approved billables flow
+- [x] Profitability report/dashboard
 
 ### Tests/acceptance
 
-- [ ] Approved billable time becomes eligible for invoicing, and only once
-- [ ] Cannot invoice the same project expense twice
-- [ ] Cross-module scenario 3 (project business, build spec §18.3) passes end to end: project →
+- [x] Approved billable time becomes eligible for invoicing, and only once
+- [x] Cannot invoice the same project expense twice
+- [x] Cross-module scenario 3 (project business, build spec §18.3) passes end to end: project →
       approved time + expense → generate invoice → record payment → profitability and ledger reconcile
 
 ---
@@ -763,7 +783,7 @@ incrementally as each phase lands, then fully before public V1.
 - [x] 2. Retail business: purchase inventory → vendor bill → payment → stock receipt → sale/invoice →
       stock issue/COGS → customer payment → inventory valuation agrees to GL — proven by
       `apps/api/test/inventory.int.test.ts`
-- [ ] 3. Project business: project → approved time + expense → generate invoice → record payment →
+- [x] 3. Project business: project → approved time + expense → generate invoice → record payment →
       profitability and ledger reconcile
 - [ ] 4. Credit flow: invoice → partial payment → credit note → allocate credit → remaining balance
       correct in statement, AR aging, and GL

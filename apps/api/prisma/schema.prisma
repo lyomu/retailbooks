@@ -1992,6 +1992,9 @@ model Expense {
   expenseDate            DateTime         @map("expense_date") @db.Date
   paidThroughAccountId   String           @map("paid_through_account_id") @db.Uuid
   categoryId             String?          @map("category_id") @db.Uuid
+  /// Cost attribution, chosen before the expense posts. `ProjectExpense` decides whether the cost
+  /// is rebilled; this decides whose cost it is on the ledger, and posting freezes it there.
+  projectId              String?          @map("project_id") @db.Uuid
   currency               String           @db.Char(3)
   amountMinor            BigInt           @map("amount_minor") @db.BigInt
   taxCodeId              String?          @map("tax_code_id") @db.Uuid
@@ -2014,11 +2017,13 @@ model Expense {
   taxCode                TaxCode?         @relation(fields: [taxCodeId], references: [id], onDelete: Restrict)
   journal                Journal?         @relation(fields: [journalId], references: [id], onDelete: Restrict)
   createdBy              User             @relation("ExpenseCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  project                Project?         @relation(fields: [projectId], references: [id], onDelete: Restrict)
   projectExpense         ProjectExpense?
 
   @@unique([organizationId, expenseNumber])
   @@index([organizationId, status, expenseDate])
   @@index([organizationId, payeeVendorId])
+  @@index([organizationId, projectId])
   @@map("expenses")
 }
 
@@ -2742,6 +2747,7 @@ model Project {
   budgets           ProjectBudget[]
   invoiceLines      InvoiceLine[]
   journalLines      JournalLine[]
+  expenses          Expense[]
 
   @@unique([organizationId, code])
   @@index([organizationId, status])
@@ -2853,13 +2859,17 @@ model ProjectExpense {
   @@map("project_expenses")
 }
 
-/// Per-task budget breakdown beneath `Project`'s own totals. A row with a null `taskId` is the
-/// project-level allocation for work not attached to a task, so the rows always sum to a whole.
+/// Per-task budget breakdown beneath `Project`'s own `budgetAmountMinor`/`budgetHours` totals.
+///
+/// `taskId` is required, which is what makes `@@unique([projectId, taskId])` a real constraint:
+/// PostgreSQL treats NULLs as distinct, so a nullable column in a unique tuple would have let
+/// unlimited project-level rows accumulate while looking constrained. Work not attached to a task
+/// is budgeted by the project total, which already exists on `Project` and needs no second home.
 model ProjectBudget {
   id                String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   organizationId    String       @map("organization_id") @db.Uuid
   projectId         String       @map("project_id") @db.Uuid
-  taskId            String?      @map("task_id") @db.Uuid
+  taskId            String       @map("task_id") @db.Uuid
   budgetHours       Decimal?     @map("budget_hours") @db.Decimal(12, 2)
   budgetAmountMinor BigInt?      @map("budget_amount_minor") @db.BigInt
   note              String?      @db.VarChar(240)
@@ -2867,7 +2877,7 @@ model ProjectBudget {
   updatedAt         DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   project           Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  task              ProjectTask? @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  task              ProjectTask  @relation(fields: [taskId], references: [id], onDelete: Cascade)
 
   @@unique([projectId, taskId])
   @@index([organizationId, projectId])

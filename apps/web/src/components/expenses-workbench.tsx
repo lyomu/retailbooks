@@ -6,6 +6,7 @@ import type {
   ExpenseCategory,
   ExpenseStatus,
   LedgerAccount,
+  Project,
   TaxCode,
   Vendor,
 } from '@retailbooks/contracts';
@@ -35,6 +36,7 @@ import { hasPermission, useWorkspace } from '../lib/workspace';
 
 type ExpenseListResponse = { data: Expense[] };
 type ExpenseResponse = { data: Expense };
+type ProjectListResponse = { data: Project[] };
 type VendorListResponse = { data: Vendor[] };
 type AccountListResponse = { data: LedgerAccount[] };
 type TaxCodeListResponse = { data: TaxCode[] };
@@ -208,6 +210,7 @@ export function ExpenseEditorPage({ expenseId }: { expenseId?: string }) {
   const [accounts, setAccounts] = useState<LedgerAccount[]>([]);
   const [taxCodes, setTaxCodes] = useState<TaxCode[]>([]);
   const [categories, setCategories] = useState<ExpenseCategory[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [expense, setExpense] = useState<Expense | null>(null);
   const [attachments, setAttachments] = useState<AttachmentWithUrl[] | null>(null);
   const [payeeVendorId, setPayeeVendorId] = useState('');
@@ -215,6 +218,7 @@ export function ExpenseEditorPage({ expenseId }: { expenseId?: string }) {
   const [expenseDate, setExpenseDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [paidThroughAccountId, setPaidThroughAccountId] = useState('');
   const [categoryId, setCategoryId] = useState('');
+  const [projectId, setProjectId] = useState('');
   const [taxCodeId, setTaxCodeId] = useState('');
   const [amount, setAmount] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
@@ -237,22 +241,34 @@ export function ExpenseEditorPage({ expenseId }: { expenseId?: string }) {
   const load = useCallback(async () => {
     if (!organizationId) return;
     try {
-      const [vendorResponse, accountResponse, taxCodeResponse, categoryResponse, expenseResponse] =
-        await Promise.all([
-          apiRequest<VendorListResponse>(`/organizations/${organizationId}/vendors?status=ACTIVE`),
-          apiRequest<AccountListResponse>(`/organizations/${organizationId}/accounts`),
-          apiRequest<TaxCodeListResponse>(`/organizations/${organizationId}/tax/codes`),
-          apiRequest<ExpenseCategoryListResponse>(
-            `/organizations/${organizationId}/expense-categories`,
-          ),
-          expenseId
-            ? apiRequest<ExpenseResponse>(`/organizations/${organizationId}/expenses/${expenseId}`)
-            : Promise.resolve(null),
-        ]);
+      const [
+        vendorResponse,
+        accountResponse,
+        taxCodeResponse,
+        categoryResponse,
+        projectResponse,
+        expenseResponse,
+      ] = await Promise.all([
+        apiRequest<VendorListResponse>(`/organizations/${organizationId}/vendors?status=ACTIVE`),
+        apiRequest<AccountListResponse>(`/organizations/${organizationId}/accounts`),
+        apiRequest<TaxCodeListResponse>(`/organizations/${organizationId}/tax/codes`),
+        apiRequest<ExpenseCategoryListResponse>(
+          `/organizations/${organizationId}/expense-categories`,
+        ),
+        // Attributing cost to a project is optional, and the person recording an expense may not
+        // have project access, so a rejection here must not fail the expense screen.
+        apiRequest<ProjectListResponse>(
+          `/organizations/${organizationId}/projects?status=OPEN`,
+        ).catch(() => ({ data: [] as Project[] })),
+        expenseId
+          ? apiRequest<ExpenseResponse>(`/organizations/${organizationId}/expenses/${expenseId}`)
+          : Promise.resolve(null),
+      ]);
       setVendors(vendorResponse.data);
       setAccounts(accountResponse.data.filter((account) => account.status === 'ACTIVE'));
       setTaxCodes(taxCodeResponse.data.filter((code) => code.status === 'ACTIVE'));
       setCategories(categoryResponse.data.filter((category) => category.active));
+      setProjects(projectResponse.data);
       if (expenseResponse) {
         const data = expenseResponse.data;
         setExpense(data);
@@ -261,6 +277,7 @@ export function ExpenseEditorPage({ expenseId }: { expenseId?: string }) {
         setExpenseDate(data.expenseDate);
         setPaidThroughAccountId(data.paidThroughAccountId);
         setCategoryId(data.categoryId ?? '');
+        setProjectId(data.projectId ?? '');
         setTaxCodeId(data.taxCodeId ?? '');
         setAmount(minorToDecimal(data.amountMinor));
       }
@@ -303,6 +320,7 @@ export function ExpenseEditorPage({ expenseId }: { expenseId?: string }) {
         expenseDate,
         paidThroughAccountId,
         categoryId: categoryId || undefined,
+        projectId: projectId || undefined,
         taxCodeId: taxCodeId || undefined,
         amountMinor: decimalToMinor(amount || '0'),
       };
@@ -460,6 +478,29 @@ export function ExpenseEditorPage({ expenseId }: { expenseId?: string }) {
                   </option>
                 ))}
               </Select>
+            </div>
+            <div className="rb-field">
+              <Label htmlFor="expense-project">Project</Label>
+              <Select
+                id="expense-project"
+                value={projectId}
+                disabled={!editable}
+                onChange={(event) => setProjectId(event.target.value)}
+              >
+                <option value="">Not attributed to a project</option>
+                {projects.map((project) => (
+                  <option key={project.id} value={project.id}>
+                    {project.name}
+                  </option>
+                ))}
+                {expense?.projectId && !projects.some((row) => row.id === expense.projectId) ? (
+                  <option value={expense.projectId}>Current project</option>
+                ) : null}
+              </Select>
+              <FieldMessage>
+                Set before posting. Posting freezes it onto the journal, and it is what project
+                profitability reads as cost.
+              </FieldMessage>
             </div>
             <div className="rb-field">
               <Label htmlFor="expense-tax">Tax</Label>

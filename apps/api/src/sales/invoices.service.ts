@@ -64,11 +64,21 @@ export class InvoicesService {
     return summarizeInvoice(invoice);
   }
 
+  /**
+   * Creates a draft invoice.
+   *
+   * `externalTx` lets a caller that must not leave a half-finished invoice behind -- Projects
+   * billing, which claims the time and expenses this invoice bills in the same breath -- create the
+   * draft inside its own transaction. See `LedgerService#postJournalFromLines`'s `externalTx` for
+   * the same idiom. Line resolution (contact, item, tax lookups) happens before the transaction
+   * opens either way: it is read-only, and holding a write transaction across it buys nothing.
+   */
   async createDraft(
     context: OrganizationContext,
     user: PublicUser,
     input: CreateInvoiceDto,
     metadata: RequestMetadata,
+    externalTx?: Prisma.TransactionClient,
   ) {
     const contact = await this.prisma.contact.findFirst({
       where: { id: input.contactId, organizationId: context.id, type: 'CUSTOMER' },
@@ -81,7 +91,7 @@ export class InvoicesService {
     const resolvedLines = await this.resolveLines(context, currency, input.lines);
     const totals = lineTotals(resolvedLines);
 
-    const created = await this.prisma.$transaction(async (tx) => {
+    const run = async (tx: Prisma.TransactionClient) => {
       const invoice = await tx.invoice.create({
         data: {
           organizationId: context.id,
@@ -112,8 +122,9 @@ export class InvoicesService {
       });
 
       return invoice;
-    });
+    };
 
+    const created = externalTx ? await run(externalTx) : await this.prisma.$transaction(run);
     return summarizeInvoice(created);
   }
 
@@ -255,7 +266,12 @@ export class InvoicesService {
           })
         : await this.ledger.accountBySystemKey(context.id, 'accounts_receivable', tx);
 
-      const revenueByAccount = new Map<string, bigint>();
+      // Keyed by revenue account *and* project so two projects sharing an account stay separable
+      // on the ledger; the key is only a grouping device, the entry carries the real ids.
+      const revenueByAccount = new Map<
+        string,
+        { accountId: string; projectId: string | null; amountMinor: bigint }
+      >();
       const taxByCode = new Map<string, { accountId: string; amountMinor: bigint }>();
       let subtotalMinor = 0n;
       let taxTotalMinor = 0n;
@@ -265,10 +281,13 @@ export class InvoicesService {
         const revenueAccountId =
           line.revenueAccountId ??
           (await this.ledger.accountBySystemKey(context.id, 'sales_revenue', tx)).id;
-        revenueByAccount.set(
-          revenueAccountId,
-          (revenueByAccount.get(revenueAccountId) ?? 0n) + line.lineTotalMinor,
-        );
+        const revenueKey = `${revenueAccountId}:${line.projectId ?? ''}`;
+        const existingRevenue = revenueByAccount.get(revenueKey);
+        revenueByAccount.set(revenueKey, {
+          accountId: revenueAccountId,
+          projectId: line.projectId,
+          amountMinor: (existingRevenue?.amountMinor ?? 0n) + line.lineTotalMinor,
+        });
 
         if (line.taxCodeId) {
           const resolved = await this.tax.resolveForPosting(
@@ -319,10 +338,7 @@ export class InvoicesService {
           currency: invoice.currency,
           contactName: invoice.contact.displayName,
           arAccountId: arAccount.id,
-          revenueByAccount: [...revenueByAccount.entries()].map(([accountId, amountMinor]) => ({
-            accountId,
-            amountMinor,
-          })),
+          revenueByAccount: [...revenueByAccount.values()],
           taxByCode: [...taxByCode.values()].map((entry) => ({
             accountId: entry.accountId,
             amountMinor: entry.amountMinor,
@@ -603,6 +619,7 @@ export class InvoicesService {
         revenueAccountId: line.revenueAccountId ?? item?.revenueAccountId ?? null,
         warehouseId: line.warehouseId ?? null,
         projectTag: line.projectTag ?? null,
+        projectId: line.projectId ?? null,
       };
     });
   }
@@ -717,6 +734,7 @@ function lineCreateData(
     revenueAccountId: string | null;
     warehouseId: string | null;
     projectTag: string | null;
+    projectId: string | null;
   },
   index: number,
   organizationId: string,
@@ -734,6 +752,7 @@ function lineCreateData(
     revenueAccountId: line.revenueAccountId,
     warehouseId: line.warehouseId,
     projectTag: line.projectTag,
+    projectId: line.projectId,
   };
 }
 
@@ -775,6 +794,7 @@ function summarizeInvoice(invoice: InvoiceWithLines) {
       revenueAccountId: line.revenueAccountId,
       warehouseId: line.warehouseId,
       projectTag: line.projectTag,
+      projectId: line.projectId,
     })),
     createdAt: invoice.createdAt.toISOString(),
     updatedAt: invoice.updatedAt.toISOString(),

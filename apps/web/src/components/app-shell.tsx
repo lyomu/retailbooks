@@ -15,6 +15,7 @@ import {
   Banknote,
   Bell,
   BookOpenText,
+  Briefcase,
   Building2,
   Calculator,
   CalendarClock,
@@ -40,6 +41,8 @@ import {
   Settings,
   ShieldCheck,
   SlidersHorizontal,
+  Timer,
+  TrendingUp,
   Undo2,
   Users,
 } from 'lucide-react';
@@ -129,6 +132,15 @@ const navigationGroups: NavigationGroup[] = [
       { label: 'Transfers', icon: ArrowRightLeft, href: '/inventory-transfers' },
       { label: 'Reorder', icon: ListChecks, href: '/reorder' },
       { label: 'Valuation', icon: Calculator, href: '/inventory-valuation' },
+    ],
+  },
+  {
+    label: 'Projects',
+    items: [
+      { label: 'Projects', icon: Briefcase, href: '/projects' },
+      { label: 'Timesheet', icon: Timer, href: '/timesheets' },
+      { label: 'Time approvals', icon: ListChecks, href: '/time-approvals' },
+      { label: 'Profitability', icon: TrendingUp, href: '/project-profitability' },
     ],
   },
   {

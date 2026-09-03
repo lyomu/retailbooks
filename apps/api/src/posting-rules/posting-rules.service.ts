@@ -14,6 +14,8 @@ interface ResolvedLine {
   description?: string;
   debitMinor: bigint;
   creditMinor: bigint;
+  projectId?: string;
+  tagId?: string;
 }
 
 export type RulePostedJournal = Awaited<ReturnType<LedgerService['postJournalFromLines']>>;
@@ -120,6 +122,8 @@ export class PostingRulesService {
       description: spec.description,
       debitMinor: spec.debitMinor ?? 0n,
       creditMinor: spec.creditMinor ?? 0n,
+      projectId: spec.projectId,
+      tagId: spec.tagId,
     };
   }
 

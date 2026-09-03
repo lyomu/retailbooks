@@ -81,6 +81,12 @@ export class InvoiceLineDto {
   @MaxLength(80)
   @Transform(trimOrUndefined)
   projectTag?: string;
+
+  /** Phase 7 dimension. `projectTag` above is the superseded free-text form. */
+  @IsOptional()
+  @IsString()
+  @Length(36, 36)
+  projectId?: string;
 }
 
 export class CreateInvoiceDto {

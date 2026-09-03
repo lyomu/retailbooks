@@ -72,6 +72,7 @@ export class ExpensesService {
       });
       if (!category) throw new NotFoundException('Expense category not found.');
     }
+    if (input.projectId) await this.requireProject(context.id, input.projectId);
     const paidThroughAccount = await this.prisma.ledgerAccount.findFirst({
       where: { id: input.paidThroughAccountId, organizationId: context.id },
     });
@@ -95,6 +96,7 @@ export class ExpensesService {
           expenseDate: isoDate(input.expenseDate),
           paidThroughAccountId: paidThroughAccount.id,
           categoryId: input.categoryId ?? null,
+          projectId: input.projectId ?? null,
           currency,
           amountMinor,
           totalMinor: amountMinor,
@@ -151,6 +153,7 @@ export class ExpensesService {
       });
       if (!account) throw new NotFoundException('Paid-through account not found.');
     }
+    if (input.projectId) await this.requireProject(context.id, input.projectId);
 
     const amountMinor = input.amountMinor ? BigInt(input.amountMinor) : existing.amountMinor;
     if (amountMinor <= 0n)
@@ -166,6 +169,7 @@ export class ExpensesService {
           expenseDate: input.expenseDate ? isoDate(input.expenseDate) : existing.expenseDate,
           paidThroughAccountId: input.paidThroughAccountId ?? existing.paidThroughAccountId,
           categoryId: input.categoryId !== undefined ? input.categoryId : existing.categoryId,
+          projectId: input.projectId !== undefined ? input.projectId : existing.projectId,
           currency: input.currency ?? existing.currency,
           amountMinor,
           totalMinor: amountMinor,
@@ -311,6 +315,9 @@ export class ExpensesService {
           debitMinor: expense.amountMinor,
           creditMinor: 0n,
           description: `Expense: ${payeeLabel}`,
+          // Decision D1: the cost line carries the project, frozen here at posting. Only the
+          // expense leg is dimensioned -- the tax and payment legs are not this project's cost.
+          projectId: expense.projectId ?? undefined,
         },
         ...(taxAmountMinor > 0n && taxAccountId
           ? [
@@ -527,6 +534,24 @@ export class ExpensesService {
     });
   }
 
+  /**
+   * A closed project stops accepting new cost the same way it stops accepting new time -- otherwise
+   * a completed project's margin could move after it was reported.
+   */
+  private async requireProject(organizationId: string, projectId: string) {
+    const project = await this.prisma.project.findFirst({
+      where: { id: projectId, organizationId },
+      select: { id: true, status: true },
+    });
+    if (!project) throw new NotFoundException('Project not found.');
+    if (project.status === 'COMPLETED' || project.status === 'CANCELLED') {
+      throw new ConflictException(
+        `Cannot attribute an expense to a ${project.status.toLowerCase()} project.`,
+      );
+    }
+    return project;
+  }
+
   private async lockExpenseRow(
     tx: Prisma.TransactionClient,
     organizationId: string,
@@ -552,6 +577,7 @@ function summarizeExpense(expense: ExpenseWithDetail) {
     expenseDate: dateOnly(expense.expenseDate),
     paidThroughAccountId: expense.paidThroughAccountId,
     categoryId: expense.categoryId,
+    projectId: expense.projectId,
     categoryName: expense.category?.name ?? null,
     currency: expense.currency,
     amountMinor: expense.amountMinor.toString(),
