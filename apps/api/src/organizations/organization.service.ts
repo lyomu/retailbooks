@@ -22,6 +22,7 @@ import type { PublicUser } from '../auth/auth.service.js';
 import type { RequestMetadata } from '../auth/request-context.js';
 import { PrismaService } from '../database/prisma.service.js';
 import { writeAuditEvent } from './audit-event.js';
+import { CountryPackStore, type ComplianceResolution } from './country-pack.store.js';
 import { CurrencyService } from './currency.service.js';
 import {
   findCountry,
@@ -95,6 +96,7 @@ export class OrganizationService {
     private readonly roles: RolesService,
     private readonly ledger: LedgerService,
     private readonly currencies: CurrencyService,
+    private readonly countryPacks: CountryPackStore,
   ) {}
 
   async listForUser(userId: string, preferredOrganizationId: string | null) {
@@ -219,7 +221,7 @@ export class OrganizationService {
       },
     );
 
-    return toOrganizationDetail(organization, ownerRole);
+    return this.withCompliance(toOrganizationDetail(organization, ownerRole), organization);
   }
 
   async detail(context: OrganizationContext) {
@@ -228,7 +230,7 @@ export class OrganizationService {
       select: organizationDetailSelect,
     });
     if (!organization) throw new NotFoundException('Organization not found.');
-    return toOrganizationDetail(organization, context.role);
+    return this.withCompliance(toOrganizationDetail(organization, context.role), organization);
   }
 
   async updateSection(
@@ -317,6 +319,24 @@ export class OrganizationService {
         break;
       }
       case 'TAX': {
+        // Compliance-sensitive setup: registering for tax or recording a tax identifier. Blocked
+        // outright for packs with no compliance standing (Tier C or unknown) -- the badge says
+        // "Unsupported" and the API must agree, never imply compliance where unreviewed.
+        if (input.taxRegistered === true || (input.taxIdentifier ?? '') !== '') {
+          const preference = await this.prisma.organizationPreference.findUnique({
+            where: { organizationId: context.id },
+            select: { countryPackCode: true, countryPackVersion: true },
+          });
+          const compliance = await this.countryPacks.resolveCompliance(
+            preference?.countryPackCode,
+            preference?.countryPackVersion,
+          );
+          if (compliance.status === 'UNSUPPORTED') {
+            throw new BadRequestException(
+              'This jurisdiction pack does not support compliance-sensitive tax setup.',
+            );
+          }
+        }
         if (input.taxRegistered !== undefined) preferenceData.taxRegistered = input.taxRegistered;
         if (input.taxIdentifier !== undefined) {
           preferenceData.taxIdentifier = input.taxIdentifier || null;
@@ -403,7 +423,7 @@ export class OrganizationService {
       return updated;
     });
 
-    return toOrganizationDetail(organization, context.role);
+    return this.withCompliance(toOrganizationDetail(organization, context.role), organization);
   }
 
   /**
@@ -492,7 +512,10 @@ export class OrganizationService {
       await this.reissueAndSendInvitation(invitation.id, result.organization.legalName, user);
     }
 
-    return toOrganizationDetail(result.organization, context.role);
+    return this.withCompliance(
+      toOrganizationDetail(result.organization, context.role),
+      result.organization,
+    );
   }
 
   /**
@@ -632,6 +655,23 @@ export class OrganizationService {
       token: rawToken,
       expiresAt: invitation.expiresAt,
     });
+  }
+
+  /**
+   * Attaches the derived compliance resolution to an organization detail response. Derived at
+   * read time from the organization's pinned pack version -- never stored -- so a tier change or
+   * deprecation upstream is reflected the next time anyone looks, and an unreviewed pack can
+   * never inherit a compliance claim it did not earn.
+   */
+  private async withCompliance<D extends object>(
+    detail: D,
+    organization: Pick<OrganizationDetailRow, 'preferences'>,
+  ): Promise<D & { compliance: ComplianceResolution }> {
+    const compliance = await this.countryPacks.resolveCompliance(
+      organization.preferences?.countryPackCode,
+      organization.preferences?.countryPackVersion,
+    );
+    return { ...detail, compliance };
   }
 
   private requireVerifiedEmail(user: PublicUser): void {

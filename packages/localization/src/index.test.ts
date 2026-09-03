@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import { enStrings, resolveStrings, supportedStringLocales } from './index';
+
 import {
   formatCurrency,
   formatDateInTimeZone,
@@ -11,6 +13,42 @@ import {
   resolveCountryPack,
   roundCurrencyAmount,
 } from './index';
+
+describe('string catalog', () => {
+  it('serves the base bundle for the base locale', () => {
+    const resolution = resolveStrings('en');
+    expect(resolution.locale).toBe('en');
+    expect(resolution.fallbackUsed).toBe(false);
+    expect(resolution.strings['common.save']).toBe('Save');
+  });
+
+  it('resolves a regional locale to its language bundle without claiming a translation', () => {
+    const resolution = resolveStrings('en-KE');
+    expect(resolution.locale).toBe('en');
+    expect(resolution.fallbackUsed).toBe(false);
+  });
+
+  it('falls back -- and admits it -- for locales with no reviewed bundle', () => {
+    const resolution = resolveStrings('fr-FR');
+    expect(resolution.locale).toBe('en');
+    expect(resolution.fallbackUsed).toBe(true);
+    expect(resolution.strings).toEqual(enStrings);
+  });
+
+  it('treats a missing locale as the base bundle, not an error', () => {
+    expect(resolveStrings(null).locale).toBe('en');
+    expect(resolveStrings(undefined).fallbackUsed).toBe(false);
+    expect(resolveStrings('').locale).toBe('en');
+  });
+
+  it('declares a compliance message for every compliance status so unsupported claims cannot render bare', () => {
+    for (const status of ['fullyReviewed', 'genericConfiguration', 'unsupported'] as const) {
+      expect(enStrings[`compliance.${status}.title`]).toBeTruthy();
+      expect(enStrings[`compliance.${status}.description`]).toBeTruthy();
+    }
+    expect(supportedStringLocales).toContain('en');
+  });
+});
 
 describe('country-pack resolution', () => {
   it('declares Kenya as configurable demonstration defaults', () => {

@@ -234,6 +234,21 @@ export const organizationSummarySchema = z.object({
 export const taxTreatmentSchema = z.enum(['EXCLUSIVE', 'INCLUSIVE']);
 export const inventoryValuationMethodSchema = z.enum(['FIFO', 'WEIGHTED_AVERAGE']);
 
+/** Derived, never stored: an organization's compliance posture follows its pinned pack version. */
+export const complianceStatusSchema = z.enum([
+  'FULLY_REVIEWED',
+  'GENERIC_CONFIGURATION',
+  'UNSUPPORTED',
+]);
+
+export const organizationComplianceSchema = z.object({
+  status: complianceStatusSchema,
+  packCode: z.string().min(1).nullable(),
+  packVersion: z.string().min(1).nullable(),
+  tier: z.enum(['TIER_A_REVIEWED', 'TIER_B_GENERIC', 'TIER_C_BLOCKED']).nullable(),
+  packName: z.string().min(1).nullable(),
+});
+
 export const organizationPreferencesSchema = z.object({
   accountingBasis: z.enum(['ACCRUAL', 'CASH']),
   chartTemplate: z.string().min(1),
@@ -269,7 +284,11 @@ export const organizationDetailSchema = z.object({
   createdAt: z.iso.datetime(),
   role: z.string().min(1),
   preferences: organizationPreferencesSchema.nullable(),
+  compliance: organizationComplianceSchema,
 });
+
+export type ComplianceStatus = z.infer<typeof complianceStatusSchema>;
+export type OrganizationCompliance = z.infer<typeof organizationComplianceSchema>;
 
 export const organizationMemberSchema = z.object({
   id: z.uuid(),

@@ -4,6 +4,8 @@ import { AuthModule } from '../auth/auth.module.js';
 import { PostingRulesService } from '../posting-rules/posting-rules.service.js';
 import { AuditLogController } from './audit-log.controller.js';
 import { AuditLogService } from './audit-log.service.js';
+import { CountryPackAdminService } from './country-pack.admin.service.js';
+import { CountryPacksController } from './country-packs.controller.js';
 import { CurrencyCatalogController, CurrencyController } from './currency.controller.js';
 import { CurrencyService } from './currency.service.js';
 import { DocumentNumberingService } from './document-numbering.service.js';
@@ -45,9 +47,11 @@ import { TaxService } from './tax.service.js';
     OpeningBalancesController,
     RecurringJournalsController,
     FxRevaluationController,
+    CountryPacksController,
   ],
   providers: [
     OrganizationService,
+    CountryPackAdminService,
     OrganizationMembersService,
     RolesService,
     FiscalPeriodsService,
@@ -78,6 +82,7 @@ import { TaxService } from './tax.service.js';
     TaxService,
     CurrencyService,
     CountryPackStore,
+    CountryPackAdminService,
   ],
 })
 export class OrganizationsModule {}

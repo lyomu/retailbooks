@@ -1,3 +1,61 @@
+/**
+ * The i18n string catalog behind the organizations' `locale` field.
+ *
+ * Phase 8 ships the catalog and the fallback mechanism; the UI locale switcher (8C) only appears
+ * now that something exists behind it. English is the base bundle: every key must exist there, and
+ * every other locale resolves to it until a reviewed translation lands. A missing locale never
+ * errors -- it falls back and says so, so a caller can surface "translated" honestly.
+ */
+
+export const enStrings = {
+  'common.cancel': 'Cancel',
+  'common.save': 'Save',
+  'common.saving': 'Saving...',
+  'compliance.fullyReviewed.description':
+    'Tax and document rules for this jurisdiction have been reviewed for this pack version.',
+  'compliance.fullyReviewed.title': 'Fully reviewed',
+  'compliance.genericConfiguration.description':
+    'Configurable software defaults only. This is not a statutory certification or professional tax advice.',
+  'compliance.genericConfiguration.title': 'Generic configuration',
+  'compliance.unsupported.description':
+    'This jurisdiction pack does not support compliance-sensitive setup.',
+  'compliance.unsupported.title': 'Unsupported jurisdiction',
+  'settings.compliance.heading': 'Compliance status',
+  'settings.countryPack.heading': 'Country pack',
+  'settings.countryPack.version': 'Pack version',
+  'settings.jurisdiction.heading': 'Jurisdiction',
+  'settings.language.heading': 'Language',
+} as const;
+
+export type StringKey = keyof typeof enStrings;
+export type StringBundle = Record<StringKey, string>;
+
+/** Locales with a reviewed bundle today. Others resolve to the base bundle with `fallbackUsed`. */
+export const supportedStringLocales = ['en'] as const;
+export type StringLocale = (typeof supportedStringLocales)[number];
+
+const bundles: Record<StringLocale, StringBundle> = {
+  en: enStrings,
+};
+
+export interface StringsResolution {
+  readonly locale: StringLocale;
+  readonly strings: StringBundle;
+  /** True when the requested locale had no reviewed bundle and the base bundle was served. */
+  readonly fallbackUsed: boolean;
+}
+
+export function resolveStrings(locale: string | null | undefined): StringsResolution {
+  const requested = locale?.trim().toLowerCase() ?? '';
+  const exact = supportedStringLocales.find((candidate) => candidate === requested);
+  if (exact) return { locale: exact, strings: bundles[exact], fallbackUsed: false };
+  // Language-only match, so `en-KE` resolves the `en` bundle rather than pretending otherwise.
+  const base = requested.split('-')[0] ?? '';
+  const baseMatch = supportedStringLocales.find((candidate) => candidate === base);
+  if (baseMatch) return { locale: baseMatch, strings: bundles[baseMatch], fallbackUsed: false };
+  return { locale: 'en', strings: bundles.en, fallbackUsed: requested !== '' };
+}
+
 export type CountryPackStatus = 'DEMONSTRATION' | 'GENERIC_FALLBACK';
 
 export type NumberingReset = 'NEVER' | 'ANNUAL' | 'MONTHLY';
