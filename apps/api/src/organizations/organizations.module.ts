@@ -26,6 +26,7 @@ import { RecurringJournalsService } from './recurring-journals.service.js';
 import { FxRevaluationController } from './fx-revaluation.controller.js';
 import { FxRevaluationService } from './fx-revaluation.service.js';
 import { RoundingService } from './rounding.service.js';
+import { CountryPackStore } from './country-pack.store.js';
 import { RolesService } from './roles.service.js';
 import { TaxController } from './tax.controller.js';
 import { TaxService } from './tax.service.js';
@@ -60,6 +61,7 @@ import { TaxService } from './tax.service.js';
     TaxService,
     AuditLogService,
     CurrencyService,
+    CountryPackStore,
     OrganizationAccessService,
     OrganizationGuard,
   ],
@@ -75,6 +77,7 @@ import { TaxService } from './tax.service.js';
     PostingRulesService,
     TaxService,
     CurrencyService,
+    CountryPackStore,
   ],
 })
 export class OrganizationsModule {}

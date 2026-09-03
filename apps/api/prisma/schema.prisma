@@ -443,6 +443,7 @@ model Organization {
   timeEntries                   TimeEntry[]
   projectExpenses               ProjectExpense[]
   projectBudgets                ProjectBudget[]
+  structuredInvoices            StructuredInvoice[]
 
   @@index([createdByUserId])
   @@index([status])
@@ -1293,6 +1294,11 @@ model Invoice {
   journalId               String?                @unique @map("journal_id") @db.Uuid
   voidedAt                DateTime?              @map("voided_at") @db.Timestamptz(6)
   sentAt                  DateTime?              @map("sent_at") @db.Timestamptz(6)
+  /// Pack version active when the invoice was finalized. Written once at issue time and never
+  /// updated, the same freeze the per-line tax snapshot columns use -- a later pack edit must not
+  /// restate what an issued document declared.
+  countryPackCodeSnapshot    String?             @map("country_pack_code_snapshot") @db.VarChar(8)
+  countryPackVersionSnapshot String?             @map("country_pack_version_snapshot") @db.VarChar(24)
   createdByUserId         String                 @map("created_by_user_id") @db.Uuid
   createdAt               DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt               DateTime               @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -1859,6 +1865,10 @@ model Bill {
   balanceMinor            BigInt                   @default(0) @map("balance_minor") @db.BigInt
   journalId               String?                  @unique @map("journal_id") @db.Uuid
   voidedAt                DateTime?                @map("voided_at") @db.Timestamptz(6)
+  /// Pack version active when the bill was finalized -- the Invoice freeze mirrored on the
+  /// purchases side, so an issued bill keeps the pack it was issued under.
+  countryPackCodeSnapshot    String?               @map("country_pack_code_snapshot") @db.VarChar(8)
+  countryPackVersionSnapshot String?               @map("country_pack_version_snapshot") @db.VarChar(24)
   createdByUserId         String                   @map("created_by_user_id") @db.Uuid
   createdAt               DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt               DateTime                 @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -2882,4 +2892,125 @@ model ProjectBudget {
   @@unique([projectId, taskId])
   @@index([organizationId, projectId])
   @@map("project_budgets")
+}
+
+// --- Phase 8: Globalization ---
+
+enum CountryPackStatus {
+  DRAFT
+  PUBLISHED
+  DEPRECATED
+}
+
+/// Launch-tier per D3/8B: only a fully reviewed pack may back a compliance-sensitive setup.
+/// Tier A  -- reviewed; may carry compliance claims.
+/// Tier B  -- generic defaults, no compliance claim of any kind.
+/// Tier C  -- blocked from compliance-sensitive setup entirely.
+enum CountryPackTier {
+  TIER_A_REVIEWED
+  TIER_B_GENERIC
+  TIER_C_BLOCKED
+}
+
+/// The versioned country pack, promoted from `jurisdiction-catalog.ts` per D3. Global reference
+/// data, not organization-scoped: organizations pin a (code, version) pair through
+/// `OrganizationPreference.countryPackCode/Version`, and finalized documents snapshot both.
+///
+/// The static catalog remains the seed source and the fresh-database fallback; this table is what
+/// makes packs versionable and publishable (Phase 12's admin console builds on it). The Kenya pack
+/// keeps its explicit _demonstration_ labelling: it seeds as TIER_B_GENERIC, and no read path may
+/// upgrade an unreviewed pack into an implied compliance claim.
+model CountryPack {
+  id                   String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code                 String            @db.VarChar(8)
+  version              String            @db.VarChar(24)
+  countryCode          String            @map("country_code") @db.VarChar(2)
+  name                 String            @db.VarChar(120)
+  status               CountryPackStatus @default(DRAFT)
+  tier                 CountryPackTier   @default(TIER_B_GENERIC)
+  /// `CountryPackDefaults` shape from the catalog: currency, locale, timeZone, fiscal-year start,
+  /// chart template, journal numbering. Stored as JSON so a new pack version can add fields
+  /// without a migration; readers validate against the contract, not the column type.
+  defaults             Json              @db.JsonB
+  notes                Json              @db.JsonB
+  /// Entity types this pack is allowed to back (e.g. INVOICE, BILL, EXPENSE).
+  supportedEntityTypes Json              @db.JsonB
+  publishedAt          DateTime?         @map("published_at") @db.Timestamptz(6)
+  deprecatedAt         DateTime?         @map("deprecated_at") @db.Timestamptz(6)
+  createdAt            DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  taxPacks             TaxPack[]
+  documentRules        DocumentRule[]
+
+  @@unique([code, version])
+  @@index([code, status])
+  @@map("country_packs")
+}
+
+/// Tax metadata versioned underneath a country pack: labels, default rates, registration fields,
+/// inclusive/exclusive rules, exemptions, and reporting mappings. Versioned per pack (not per
+/// country) so publishing a pack revision carries its tax semantics atomically.
+model TaxPack {
+  id                 String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  countryPackId      String      @map("country_pack_id") @db.Uuid
+  version            String      @db.VarChar(24)
+  name               String      @db.VarChar(120)
+  /// `{ label, ratePercent, treatment, recoverable }[]` -- the seeded defaults the tax engine
+  /// offers when an organization adopts this pack.
+  rates              Json        @db.JsonB
+  registrationFields Json        @default("[]") @map("registration_fields") @db.JsonB
+  exemptions         Json        @default("[]") @db.JsonB
+  reportingMappings  Json        @default("{}") @map("reporting_mappings") @db.JsonB
+  notes              Json        @default("[]") @db.JsonB
+  createdAt          DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  countryPack        CountryPack @relation(fields: [countryPackId], references: [id], onDelete: Cascade)
+
+  @@unique([countryPackId, version])
+  @@index([countryPackId])
+  @@map("tax_packs")
+}
+
+/// Per-country document requirements behind a country pack: which legal fields a document type
+/// must carry, numbering constraints, display labels, and footer/legal text.
+model DocumentRule {
+  id                   String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  countryPackId        String      @map("country_pack_id") @db.Uuid
+  /// Mirrors `DocumentSnapshot`'s documentType vocabulary (INVOICE, CREDIT_NOTE, ...).
+  documentType         String      @map("document_type") @db.VarChar(40)
+  requiredLegalFields  Json        @default("[]") @map("required_legal_fields") @db.JsonB
+  numberingConstraints Json        @default("{}") @map("numbering_constraints") @db.JsonB
+  labels               Json        @default("{}") @db.JsonB
+  footerText           String?     @map("footer_text") @db.VarChar(500)
+  createdAt            DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  countryPack          CountryPack @relation(fields: [countryPackId], references: [id], onDelete: Cascade)
+
+  @@unique([countryPackId, documentType])
+  @@index([countryPackId])
+  @@map("document_rules")
+}
+
+/// The canonical, machine-readable data artifact of a finalized document -- JSON/XML-ready for
+/// e-invoicing and reporting integrations. Deliberately a separate table from `DocumentSnapshot`,
+/// which stays the rendered-PDF artifact: the render can be regenerated or discarded without ever
+/// touching the data record, and vice versa. Pack code/version are pinned here at write time for
+/// the same reason they are pinned on `Invoice`/`Bill`.
+model StructuredInvoice {
+  id                   String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId       String       @map("organization_id") @db.Uuid
+  documentType         String       @map("document_type") @db.VarChar(40)
+  documentId           String       @map("document_id") @db.Uuid
+  countryPackCode      String       @map("country_pack_code") @db.VarChar(8)
+  countryPackVersion   String       @map("country_pack_version") @db.VarChar(24)
+  /// Version of the canonical payload shape itself, so the JSON contract can evolve without
+  /// invalidating stored artifacts.
+  payloadSchemaVersion String       @default("1") @map("payload_schema_version") @db.VarChar(12)
+  payload              Json         @db.JsonB
+  createdAt            DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  organization         Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, documentType, documentId])
+  @@index([organizationId, documentType])
+  @@map("structured_invoices")
 }
