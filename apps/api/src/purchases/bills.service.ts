@@ -346,6 +346,13 @@ export class BillsService {
         new Date(`${issueDate}T00:00:00.000Z`),
       );
 
+      // Freeze the organization's active country pack onto the issued bill, mirroring
+      // `InvoicesService#issueInvoice` (Phase 8 pinning rule).
+      const preference = await tx.organizationPreference.findUnique({
+        where: { organizationId: context.id },
+        select: { countryPackCode: true, countryPackVersion: true },
+      });
+
       const updated = await tx.bill.update({
         where: { id: billId },
         data: {
@@ -357,6 +364,8 @@ export class BillsService {
           totalMinor,
           balanceMinor: totalMinor,
           journalId: postedJournal.id,
+          countryPackCodeSnapshot: preference?.countryPackCode ?? null,
+          countryPackVersionSnapshot: preference?.countryPackVersion ?? null,
         },
         include: billDetailInclude,
       });

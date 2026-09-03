@@ -167,6 +167,31 @@ describe('invoice posting against a real database', () => {
     expect(taxLines.map((line) => line.creditMinor).sort()).toEqual([250n, 2000n].sort());
   });
 
+  it('pins the country pack active at issue time and never restates it', async () => {
+    const draft = await invoices.createDraft(
+      context,
+      owner,
+      { contactId, lines: [{ description: 'Widget', quantity: '1', unitPriceMinor: '1000' }] },
+      metadata,
+    );
+    const issued = await invoices.issueInvoice(context, owner, draft.id, metadata);
+
+    const pinned = await harness.prisma.invoice.findUniqueOrThrow({ where: { id: issued.id } });
+    expect(pinned.countryPackCodeSnapshot).toBe('KE');
+    expect(pinned.countryPackVersionSnapshot).toBe('2026.1-draft');
+
+    // A later pack edit must not restate what an issued document declared: the snapshot columns
+    // are write-once at issue time, the same freeze the per-line tax snapshots use.
+    await harness.prisma.organizationPreference.update({
+      where: { organizationId: context.id },
+      data: { countryPackVersion: '2027.1-draft' },
+    });
+    const afterPackEdit = await harness.prisma.invoice.findUniqueOrThrow({
+      where: { id: issued.id },
+    });
+    expect(afterPackEdit.countryPackVersionSnapshot).toBe('2026.1-draft');
+  });
+
   it('rejects issuing an already-issued invoice', async () => {
     const draft = await invoices.createDraft(
       context,

@@ -357,6 +357,14 @@ export class InvoicesService {
         new Date(`${issueDate}T00:00:00.000Z`),
       );
 
+      // Freeze the organization's active country pack onto the issued document -- the same
+      // write-once freeze the per-line tax snapshots use, so a later pack edit cannot restate
+      // what an issued document declared (Phase 8 pinning rule).
+      const preference = await tx.organizationPreference.findUnique({
+        where: { organizationId: context.id },
+        select: { countryPackCode: true, countryPackVersion: true },
+      });
+
       const updated = await tx.invoice.update({
         where: { id: invoiceId },
         data: {
@@ -368,6 +376,8 @@ export class InvoicesService {
           totalMinor,
           balanceMinor: totalMinor,
           journalId: postedJournal.id,
+          countryPackCodeSnapshot: preference?.countryPackCode ?? null,
+          countryPackVersionSnapshot: preference?.countryPackVersion ?? null,
         },
         include: invoiceDetailInclude,
       });
