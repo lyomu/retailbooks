@@ -7,6 +7,7 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react';
 
 import { ApiError, apiRequest } from '../lib/api';
 import { formValue } from '../lib/forms';
+import { complianceStringKeys, complianceTone, uiStrings } from '../lib/i18n';
 import { hasPermission, useWorkspace } from '../lib/workspace';
 
 type DetailResponse = { data: OrganizationDetail };
@@ -94,6 +95,7 @@ export function OrganizationSettings() {
         canUpdate={canUpdate}
         onSave={saveSection}
       />
+      <ComplianceSection detail={detail} />
       <AccountingSection
         detail={detail}
         reference={reference}
@@ -199,6 +201,7 @@ function ProfileSection({ detail, reference, canUpdate, onSave }: SectionProps) 
 
 function JurisdictionSection({ detail, reference, canUpdate, onSave }: SectionProps) {
   const [saving, setSaving] = useState(false);
+  const language = uiStrings(detail.locale);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -319,6 +322,9 @@ function JurisdictionSection({ detail, reference, canUpdate, onSave }: SectionPr
             />
           </div>
         </div>
+        {language.fallbackUsed ? (
+          <FieldMessage>{language.strings['settings.language.fallback']}</FieldMessage>
+        ) : null}
         <FieldMessage>
           Changes apply to fiscal years generated after this change; existing fiscal years and
           periods are not regenerated.
@@ -331,6 +337,34 @@ function JurisdictionSection({ detail, reference, canUpdate, onSave }: SectionPr
           </div>
         ) : null}
       </form>
+    </section>
+  );
+}
+
+function ComplianceSection({ detail }: { detail: OrganizationDetail }) {
+  const { strings } = uiStrings(detail.locale);
+  const compliance = detail.compliance;
+  const keys = complianceStringKeys(compliance.status);
+  const tone = complianceTone(compliance.status);
+
+  return (
+    <section className="rb-security-section" aria-labelledby="org-compliance-title">
+      <div className="rb-security-section__header">
+        <div>
+          <h2 id="org-compliance-title">{strings['settings.compliance.heading']}</h2>
+          <p>Taken from the country pack version pinned to this organization.</p>
+        </div>
+        <Badge tone={tone}>
+          <span className="rb-badge__dot" aria-hidden="true" />
+          {strings[keys.title]}
+        </Badge>
+      </div>
+      <p className="rb-field-message">{strings[keys.description]}</p>
+      <p className="rb-field-message">
+        {strings['settings.countryPack.name']}: {compliance.packName ?? '—'} ·{' '}
+        {strings['settings.countryPack.code']}: {compliance.packCode ?? '—'} ·{' '}
+        {strings['settings.countryPack.version']}: {compliance.packVersion ?? '—'}
+      </p>
     </section>
   );
 }

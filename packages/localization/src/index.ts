@@ -22,9 +22,13 @@ export const enStrings = {
   'compliance.unsupported.title': 'Unsupported jurisdiction',
   'settings.compliance.heading': 'Compliance status',
   'settings.countryPack.heading': 'Country pack',
+  'settings.countryPack.name': 'Pack name',
+  'settings.countryPack.code': 'Pack code',
   'settings.countryPack.version': 'Pack version',
   'settings.jurisdiction.heading': 'Jurisdiction',
   'settings.language.heading': 'Language',
+  'settings.language.fallback':
+    'Reviewed translations are not available for this locale yet; showing the English catalog.',
 } as const;
 
 export type StringKey = keyof typeof enStrings;
