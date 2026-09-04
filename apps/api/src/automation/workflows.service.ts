@@ -356,7 +356,7 @@ function parseActions(value: Prisma.JsonValue): WorkflowAction[] {
   return value.map((action) => workflowActionSchema.parse(action));
 }
 
-function conditionMatches(condition: WorkflowCondition, payload: Prisma.JsonValue): boolean {
+export function conditionMatches(condition: WorkflowCondition, payload: Prisma.JsonValue): boolean {
   const value =
     payload && typeof payload === 'object' && !Array.isArray(payload)
       ? (payload as Record<string, unknown>)[condition.field]
