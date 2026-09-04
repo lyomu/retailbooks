@@ -4,7 +4,7 @@
 double-entry accounting & invoicing web platform (monorepo: `apps/api` NestJS, `apps/web` Next.js,
 `packages/*` shared libs).
 
-**Last refreshed:** 2026-09-03.
+**Last refreshed:** 2026-09-03 (Phase 8 close-out).
 
 ## 1. Where things stand
 
@@ -30,10 +30,9 @@ Read it before picking up work. **Next up is Stage 7 (Phase 9, Reporting), the l
 
 ### What is genuinely open, in priority order
 
-1. **Phase 8 is ready to open.** Stages 0–5 are closed and D3 is decided. Start at
-   `EXECUTION_PLAN.md` Stage 6. Phase 8 carries the most legal risk of the three remaining phases:
-   the compliance-claim rules are not cosmetic, and the Kenya pack must keep its explicit
-   _demonstration_ labelling through the migration to a DB model.
+1. **Phase 9 (Reporting) is ready to open.** Stages 0–6 are closed; Phase 8 turned on D3. Start at
+   `EXECUTION_PLAN.md` Stage 7 — the largest phase in this plan, engine-first, reports in batches.
+   `trialBalance` is the reference implementation Phase 9's report engine copies (D2: SQL aggregation).
 2. **Two ADR 0011 follow-ups**, each recorded in `PHASE1_TODO.md` with its owning phase: an
    attachment content-type allowlist, and validating the environment once at startup
    (`packages/config` is still a stub, and only `SECURITY_PEPPER` asserts itself).
@@ -63,6 +62,14 @@ Stage 5".
 
 ### Recently closed (2026-09-03)
 
+- **Phase 8 (Globalization)** shipped and verified (8A–8E): versioned `CountryPack`/`TaxPack`/`DocumentRule`
+  schema seeded from `jurisdiction-catalog.ts` per D3; `CountryPackStore` lazy-upserts with tier-locked seeding;
+  pack CRUD + publish/deprecate behind a `PlatformAdminGuard`; derived compliance status (FULLY_REVIEWED /
+  GENERIC_CONFIGURATION / UNSUPPORTED) surfaced per org; i18n string catalog in `packages/localization`;
+  finalized transactions freeze the active pack version at issue time; `StructuredInvoice` canonical data
+  artifact persisted in the issue transaction; compliance badge + language-fallback UI in org settings.
+  `structured-invoice.int.test.ts` and `compliance-claims.int.test.ts` cover the round-trip, the
+  unsupported-jurisdiction block, and the pin-freeze rule. `docs/PHASE8_TODO.md` has the detail.
 - **Phase 7 (Projects & Time)** shipped: five entities, D1's ledger dimensions, 25 endpoints, seven
   screens, and `projects.int.test.ts` (14 tests). `docs/PHASE7_TODO.md` has the detail.
 - The boundary matrix's module-graph walk (Stage 2B.2) fired for the first time on a phase written
