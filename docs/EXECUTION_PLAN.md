@@ -353,40 +353,67 @@ rules are not cosmetic.
 
 ### 8A — Schema and migration
 
-- [ ] `CountryPack` as a versioned entity (version, status, supported entity types, defaults)
-- [ ] `TaxPack` tied to country pack (labels, rates, registration fields, inclusive/exclusive
-      rules, exemptions, reporting mappings)
-- [ ] `DocumentRule` per country (required legal fields, numbering constraints, labels, footer text)
-- [ ] `StructuredInvoice` — canonical JSON/XML-ready model, **stored separately from the PDF
-      snapshot** (`DocumentSnapshot` stays the render artifact; this is the data artifact)
-- [ ] Seed from `jurisdiction-catalog.ts` per D3
+- [x] `CountryPack` as a versioned entity (version, status, supported entity types, defaults) —
+      unique `(code, version)`, `CountryPackStatus` (DRAFT/PUBLISHED/DEPRECATED), `CountryPackTier`
+      (TIER_A_REVIEWED/TIER_B_GENERIC/TIER_C_BLOCKED), JSONB defaults/notes/supportedEntityTypes
+- [x] `TaxPack` tied to country pack (labels, rates, registration fields, inclusive/exclusive
+      rules, exemptions, reporting mappings) — versioned per pack, unique `(countryPackId, version)`
+- [x] `DocumentRule` per country (required legal fields, numbering constraints, labels, footer text) —
+      unique `(countryPackId, documentType)`
+- [x] `StructuredInvoice` — canonical JSON/XML-ready model, **stored separately from the PDF
+      snapshot** (`DocumentSnapshot` stays the render artifact; this is the data artifact) — unique
+      `(organizationId, documentType, documentId)`, pinned pack code/version, `payloadSchemaVersion`
+- [x] Seed from `jurisdiction-catalog.ts` per D3 — `CountryPackStore.ensureSeeded()` lazy-upserts
+      the catalog packs; seeding is tier-locked to TIER_B_GENERIC and never touches status/tier, so
+      it can never launder an unreviewed pack into a compliance claim
 
 ### 8B — Backend
 
-- [ ] Country-pack CRUD + version/publish/deprecate (Phase 12's admin console consumes this)
-- [ ] Tier A/B/C launch-country packs: fully reviewed / generic without compliance claim / blocked
-      from compliance-sensitive setup
-- [ ] Per-organization compliance-status flag — **never imply compliance where unreviewed.** The
-      existing Kenya pack is explicitly a _demonstration_ pack; keep that honesty in the model.
-- [ ] Locale/i18n string catalog (organizations have a `locale` field today with no catalog behind
-      it)
-- [ ] **Finalized transactions retain the pack version active when issued** — extend the existing
-      tax-snapshot pattern rather than inventing a second freezing mechanism
+- [x] Country-pack CRUD + version/publish/deprecate (Phase 12's admin console consumes this) —
+      `CountryPackAdminService` + `CountryPacksController` at `localization/country-packs`; mutations
+      behind `PlatformAdminGuard` (interim `PLATFORM_ADMIN_EMAILS` allowlist until Phase 12's
+      superadmin auth); one-way DRAFT -> PUBLISHED -> DEPRECATED lifecycle
+- [x] Tier A/B/C launch-country packs: fully reviewed / generic without compliance claim / blocked
+      from compliance-sensitive setup — `CountryPackStore.resolveCompliance()` derives status at read
+      time: Tier A published -> FULLY_REVIEWED, Tier B -> GENERIC_CONFIGURATION, Tier C/unknown ->
+      UNSUPPORTED; surfaced as `compliance` on every org detail via `packages/contracts`
+- [x] Per-organization compliance-status flag — **never imply compliance where unreviewed.** The
+      existing Kenya pack is explicitly a _demonstration_ pack; keep that honesty in the model —
+      compliance-sensitive TAX setup (taxRegistered / taxIdentifier) rejected with 400 for
+      UNSUPPORTED packs
+- [x] Locale/i18n string catalog (organizations have a `locale` field today with no catalog behind
+      it) — `packages/localization` `enStrings` base bundle + `resolveStrings()` with honest
+      base-bundle fallback; org settings render compliance badges and a language-fallback note
+- [x] **Finalized transactions retain the pack version active when issued** — extend the existing
+      tax-snapshot pattern rather than inventing a second freezing mechanism — `issueInvoice`/
+      `issueBill` write `countryPackCodeSnapshot`/`countryPackVersionSnapshot` once inside the issue
+      transaction; the `StructuredInvoice` canonical data artifact is also persisted in the same
+      transaction
 
 ### 8C — UI
 
-- [ ] Compliance-status badge in organization settings
-- [ ] Locale/language switcher (only once a catalog exists behind it)
+- [x] Compliance-status badge in organization settings — `ComplianceSection` in
+      `organization-settings.tsx` renders the badge (tone by compliance status), the catalog
+      title/description, and the pinned pack name/code/version
+- [x] Locale/language switcher (only once a catalog exists behind it) — language-fallback note in
+      `JurisdictionSection` surfaces `settings.language.fallback` when `resolveStrings` reports
+      `fallbackUsed`
 
 ### 8D — Tests
 
-- [ ] Structured invoice round-trips and stays independent of PDF rendering
-- [ ] Unsupported-jurisdiction compliance claims never render
-- [ ] A pack version pinned to a transaction does not change when the pack is later edited
+- [x] Structured invoice round-trips and stays independent of PDF rendering —
+      `structured-invoice.int.test.ts`: artifact persisted at issue time with frozen pack/version/
+      totals/lines + pinned `payloadSchemaVersion`; no `DocumentSnapshot` (PDF) written by issue;
+      artifact frozen when the pack is later edited
+- [x] Unsupported-jurisdiction compliance claims never render — `compliance-claims.int.test.ts`: TAX
+      setup (taxRegistered / taxIdentifier) rejected with 400 for an unknown pack code; org detail
+      surfaces UNSUPPORTED with no fabricated pack name
+- [x] A pack version pinned to a transaction does not change when the pack is later edited —
+      `invoices.int.test.ts` pin test + `country-packs.int.test.ts` acceptance test
 
 ### 8E — Close-out
 
-- [ ] `docs/PHASE8_TODO.md`, roadmap roll-up, handover refresh — same commit
+- [x] `docs/PHASE8_TODO.md`, roadmap roll-up, handover refresh — same commit
 
 ---
 
