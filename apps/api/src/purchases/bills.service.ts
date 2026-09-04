@@ -8,6 +8,8 @@ import { AuditAction, type Prisma } from '@prisma/client';
 import { roundHalfUpDivide } from '@retailbooks/accounting-core';
 
 import type { PublicUser } from '../auth/auth.service.js';
+import { DomainEventsService } from '../automation/domain-events.service.js';
+import { ApprovalsService } from '../automation/approvals.service.js';
 import type { RequestMetadata } from '../auth/request-context.js';
 import { PrismaService } from '../database/prisma.service.js';
 import { writeAuditEvent } from '../organizations/audit-event.js';
@@ -36,6 +38,8 @@ export class BillsService {
     private readonly ledger: LedgerService,
     private readonly tax: TaxService,
     private readonly numbering: DocumentNumberingService,
+    private readonly events: DomainEventsService,
+    private readonly approvals: ApprovalsService,
   ) {}
 
   async list(organizationId: string, status?: string) {
@@ -234,6 +238,7 @@ export class BillsService {
         include: billDetailInclude,
       });
       if (!bill) throw new NotFoundException('Bill not found.');
+      await this.approvals.assertNoPendingApproval(tx, context.id, 'BILL', billId);
       if (bill.status !== 'DRAFT') {
         throw new ConflictException('Only draft bills can be issued.');
       }
@@ -388,6 +393,18 @@ export class BillsService {
         before: { status: 'DRAFT' },
         after: { status: 'ISSUED', billNumber: allocation.value },
         ipHash: metadata.ipHash,
+      });
+      await this.events.emit(tx, {
+        organizationId: context.id,
+        aggregateType: 'bill',
+        aggregateId: billId,
+        eventName: 'bill.posted',
+        payload: {
+          billId,
+          vendorId: bill.vendorId,
+          totalMinor: totalMinor.toString(),
+          currency: bill.currency,
+        },
       });
 
       return updated;

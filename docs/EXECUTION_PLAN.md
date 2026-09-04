@@ -419,6 +419,12 @@ rules are not cosmetic.
 
 ## Stage 7 — Phase 9: Reporting
 
+**Status: complete and verified (2026-09-04).** The detailed checkbox record is
+`docs/PHASE9_TODO.md`: the registry, SQL execution paths, 40 reports, streaming exports, saved
+reports, shared UI, migration, boundary matrix, and reconciliation tests are complete. Scheduled
+delivery remains deliberately deferred to Phase 10's Automation worker; it is not an open Phase 9
+item.
+
 **Roadmap:** `BUILD_ROADMAP.md:522–560`, 16 items — but item count badly understates it: the
 "Reports to implement" bullets expand to roughly 30 individual reports across 9 families.
 **Depends on:** D1, D2, Stage 5 (Projects reports), Stage 6 (currency/locale semantics), 4.1.
@@ -426,63 +432,117 @@ rules are not cosmetic.
 
 ### 9A — Report engine core
 
-- [ ] Report-definition registry: each report declares its source-of-truth query, columns, and
+- [x] Report-definition registry: each report declares its source-of-truth query, columns, and
       totals in one place (this is what makes the reconciliation tests in 9F writable at all)
-- [ ] Date/basis handling — cash vs accrual **only where the accounting logic genuinely supports
+- [x] Date/basis handling — cash vs accrual **only where the accounting logic genuinely supports
       it**; the roadmap says so explicitly, so surface "accrual only" rather than faking cash basis
-- [ ] Currency: transaction currency vs base currency, per D2's aggregation approach
-- [ ] Dimensions/tags filtering (needs D1)
-- [ ] Comparison periods
-- [ ] Drill-down to source transactions — every figure must be traceable, which Phase 13's
+- [x] Currency: transaction currency vs base currency, per D2's aggregation approach
+- [x] Dimensions/tags filtering (needs D1)
+- [x] Comparison periods
+- [x] Drill-down to source transactions — every figure must be traceable, which Phase 13's
       "explain a number" later depends on
-- [ ] Built on SQL aggregation per D2, with `trialBalance` refactored onto the same path as the
+- [x] Built on SQL aggregation per D2, with `trialBalance` refactored onto the same path as the
       reference implementation
 
 ### 9B — Export architecture
 
-- [ ] CSV, XLSX, PDF. Reuse `sales/document-rendering.service.ts` (Playwright) for PDF rather than
+- [x] CSV, XLSX, PDF. Reuse `sales/document-rendering.service.ts` (Playwright) for PDF rather than
       adding a second renderer
-- [ ] Large-report path: stream or queue rather than building in request memory
+- [x] Large-report path: stream or queue rather than building in request memory
 
 ### 9C — Reports, in dependency batches
 
-- [ ] **Batch 1 — Financial:** P&L, Balance Sheet, Cash Flow, Trial Balance (exists — port to the
+- [x] **Batch 1 — Financial:** P&L, Balance Sheet, Cash Flow, Trial Balance (exists — port to the
       engine), General Ledger, Journal Report
-- [ ] **Batch 2 — Receivables/Payables:** AR & AP Aging Summary/Detail, Customer/Vendor Balances,
+- [x] **Batch 2 — Receivables/Payables:** AR & AP Aging Summary/Detail, Customer/Vendor Balances,
       Invoice & Bill Details, Payments Received/Made
-- [ ] **Batch 3 — Sales/Purchases:** by customer, item, period, salesperson/tag; by vendor,
+- [x] **Batch 3 — Sales/Purchases:** by customer, item, period, salesperson/tag; by vendor,
       category, period
-- [ ] **Batch 4 — Tax:** Tax Summary, Tax Detail, taxable/exempt bases, liability/recoverable
-- [ ] **Batch 5 — Inventory:** Stock on Hand, Valuation, Movements, Adjustments, Reorder (several
+- [x] **Batch 4 — Tax:** Tax Summary, Tax Detail, taxable/exempt bases, liability/recoverable
+- [x] **Batch 5 — Inventory:** Stock on Hand, Valuation, Movements, Adjustments, Reorder (several
       have Phase 6 endpoints already — port, do not duplicate)
-- [ ] **Batch 6 — Projects:** Time, Unbilled Time/Expenses, Revenue/Cost, Profitability (Phase 7's
+- [x] **Batch 6 — Projects:** Time, Unbilled Time/Expenses, Revenue/Cost, Profitability (Phase 7's
       profitability view ports here)
-- [ ] **Batch 7 — Audit:** transaction history, user activity, approvals, void/reversal history
+- [x] **Batch 7 — Audit:** transaction history, user activity, approvals, void/reversal history
 
 ### 9D — Saved and scheduled reports
 
-- [ ] Saved filters / saved reports — deliver in Phase 9
-- [ ] **Scheduled delivery: defer to Phase 10.** The roadmap itself routes it through Automation,
+- [x] Saved filters / saved reports — deliver in Phase 9
+- [x] **Scheduled delivery: defer to Phase 10.** The roadmap itself routes it through Automation,
       and there is no generalized `ScheduledJob` yet (only the email queue). Building a second
       scheduler here guarantees consolidating two later. Record the deferral in `PHASE9_TODO.md`.
 
 ### 9E — UI
 
-- [ ] Report Library / Saved Reports navigation section
-- [ ] One shared report shell — filters, comparison, drill-down, export — used by all ~30 reports.
+- [x] Report Library / Saved Reports navigation section
+- [x] One shared report shell — filters, comparison, drill-down, export — used by all ~30 reports.
       Build it once, before Batch 1, or it will be rebuilt seven times.
 
 ### 9F — Tests
 
-- [ ] **Every report has a source-of-truth definition and a reconciliation test.** Non-negotiable:
+- [x] **Every report has a source-of-truth definition and a reconciliation test.** Non-negotiable:
       P&L and Balance Sheet tie to trial balance; AR/AP aging tie to their control accounts;
       inventory valuation ties to the inventory control account
-- [ ] Base-currency statements reconcile against underlying transaction-currency postings
-- [ ] Boundary matrix picks up report controllers automatically (2B.2)
+- [x] Base-currency statements reconcile against underlying transaction-currency postings
+- [x] Boundary matrix picks up report controllers automatically (2B.2)
 
 ### 9G — Close-out
 
-- [ ] `docs/PHASE9_TODO.md`, roadmap roll-up, handover refresh — same commit
+- [x] `docs/PHASE9_TODO.md`, roadmap roll-up, handover refresh — same commit
+
+---
+
+## Stage 8 — Phase 10: Automation & Approvals
+
+**Status: planned, not started (2026-09-04).** The implementation-ready checklist, architectural
+decisions, sequencing, and acceptance gates are in `docs/PHASE10_TODO.md`.
+
+**Roadmap:** `BUILD_ROADMAP.md` Phase 10. **Depends on:** the existing BullMQ/email worker,
+module-specific recurring templates, target state machines, Phase 9 report/export seams, tenant
+permissions, audit events, and object storage. **Critical blocker:** no durable domain-event bus.
+
+### 10A — Durable foundation
+
+- [ ] Add shared contracts, permissions, Phase 10 models, migration, and recurring-schedule backfill
+- [ ] Implement a PostgreSQL transactional outbox; never poll `AuditEvent` as a business event queue
+- [ ] Extend the existing worker with a typed automation queue, idempotent consumers, leases,
+      retries, health, metrics, and a testable clock
+- [ ] Establish one database-backed scheduler as the only owner of next-run state
+
+### 10B — Existing recurring work first
+
+- [ ] Port recurring invoices, bills, expenses, and journals to scheduler handler adapters
+- [ ] Preserve their public contracts while eliminating module-specific schedule advancement
+- [ ] Prove occurrence uniqueness under concurrent sweep, retry, replay, downtime, DST, and month-end
+
+### 10C — Approvals
+
+- [ ] Implement no/simple/multi-level/criteria policy resolution with frozen request-step snapshots
+- [ ] Add target adapters and non-bypassable finalization gates for every roadmap approval target
+- [ ] Deliver inbox, submit/reject/edit/resubmit/approve/history flows with maker-checker separation
+
+### 10D — Rules and notifications
+
+- [ ] Build declarative trigger/condition/action registries with only safe, permission-aware actions
+- [ ] Add automation tasks, loop protection, run history, in-app notifications, email preferences,
+      and lifecycle audits
+
+### 10E — Reminders, reports, and job operations
+
+- [ ] Schedule due/overdue invoice reminders and cancel/recheck them on paid or void state
+- [ ] Deliver scheduled reports and oversized PDFs through Phase 9's engine and object storage
+- [ ] Expose organization-scoped failed executions and audited, idempotent retry controls
+
+### 10F — Web workspaces
+
+- [ ] Approvals inbox/policies, rules, reminders, notification preferences, scheduled reports, and
+      organization job failures; every surface self-gates by permission
+
+### 10G — Acceptance and close-out
+
+- [ ] Pass the §18.7 approval scenario, event atomicity/replay, reminder cancellation, recurring
+      occurrence, scheduled-report, tenant-isolation, and boundary-matrix suites
+- [ ] Full repository gate and migration drift green; roll up roadmap, plan, handover, and runbooks
 
 ---
 

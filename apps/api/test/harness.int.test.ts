@@ -40,6 +40,12 @@ describe('integration harness', () => {
         depth: 0,
         failed: 0,
       }),
+      expect.objectContaining({
+        name: 'automation',
+        status: 'up',
+        depth: 0,
+        failed: 0,
+      }),
     ]);
   });
 

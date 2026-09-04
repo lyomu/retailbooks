@@ -7,6 +7,9 @@ export const EMAIL_JOB_NAMES = {
   invoiceSend: 'invoice.send',
   creditNoteSend: 'credit_note.send',
   quoteSend: 'quote.send',
+  scheduledReport: 'scheduled_report.send',
+  invoiceReminder: 'invoice_reminder.send',
+  automationNotification: 'automation_notification.send',
 } as const;
 
 export type EmailJobName = (typeof EMAIL_JOB_NAMES)[keyof typeof EMAIL_JOB_NAMES];

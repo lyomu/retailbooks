@@ -11,6 +11,8 @@ import {
   DropdownTrigger,
 } from '@retailbooks/ui';
 import {
+  AlarmClock,
+  AlertOctagon,
   ArrowRightLeft,
   Banknote,
   Bell,
@@ -26,6 +28,7 @@ import {
   CircleHelp,
   ClipboardList,
   FileClock,
+  FileBarChart,
   FileQuestion,
   FileText,
   FileUp,
@@ -41,10 +44,12 @@ import {
   Settings,
   ShieldCheck,
   SlidersHorizontal,
+  SquareCheckBig,
   Timer,
   TrendingUp,
   Undo2,
   Users,
+  Workflow,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -70,7 +75,7 @@ const navigationGroups: NavigationGroup[] = [
     label: 'Overview',
     items: [
       { label: 'Dashboard', icon: LayoutDashboard, href: '/' },
-      { label: 'Notifications', icon: Bell },
+      { label: 'Notifications', icon: Bell, href: '/notifications' },
     ],
   },
   {
@@ -141,6 +146,23 @@ const navigationGroups: NavigationGroup[] = [
       { label: 'Timesheet', icon: Timer, href: '/timesheets' },
       { label: 'Time approvals', icon: ListChecks, href: '/time-approvals' },
       { label: 'Profitability', icon: TrendingUp, href: '/project-profitability' },
+    ],
+  },
+  {
+    label: 'Automation',
+    items: [
+      { label: 'Approvals', icon: SquareCheckBig, href: '/approvals' },
+      { label: 'Workflow rules', icon: Workflow, href: '/automation/rules' },
+      { label: 'Reminders', icon: AlarmClock, href: '/automation/reminders' },
+      { label: 'Job failures', icon: AlertOctagon, href: '/automation/jobs' },
+    ],
+  },
+  {
+    label: 'Reports',
+    items: [
+      { label: 'Report library', icon: FileBarChart, href: '/reports' },
+      { label: 'Saved reports', icon: FileClock, href: '/reports/saved' },
+      { label: 'Scheduled reports', icon: CalendarClock, href: '/reports/scheduled' },
     ],
   },
   {

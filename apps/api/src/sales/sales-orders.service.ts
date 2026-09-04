@@ -9,6 +9,7 @@ import { roundHalfUpDivide } from '@retailbooks/accounting-core';
 
 import type { PublicUser } from '../auth/auth.service.js';
 import type { RequestMetadata } from '../auth/request-context.js';
+import { assertNoPendingApproval } from '../automation/approval-targets.js';
 import { PrismaService } from '../database/prisma.service.js';
 import { writeAuditEvent } from '../organizations/audit-event.js';
 import { SALES_ORDER_DOCUMENT_TYPE } from '../organizations/document-numbering.js';
@@ -303,6 +304,7 @@ export class SalesOrdersService {
     if (existing.convertedInvoiceId) {
       throw new ConflictException('This order has already been converted to an invoice.');
     }
+    await assertNoPendingApproval(this.prisma, context.id, 'SALES_ORDER', orderId);
 
     const invoice = await this.invoices.createDraft(
       context,

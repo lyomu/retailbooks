@@ -2,6 +2,7 @@ import { ConflictException, Injectable, NotFoundException } from '@nestjs/common
 import { AuditAction } from '@prisma/client';
 
 import type { PublicUser } from '../auth/auth.service.js';
+import { DomainEventsService } from '../automation/domain-events.service.js';
 import type { RequestMetadata } from '../auth/request-context.js';
 import { PrismaService } from '../database/prisma.service.js';
 import { writeAuditEvent } from '../organizations/audit-event.js';
@@ -10,7 +11,10 @@ import type { SetClearedTransactionsDto, StartReconciliationDto } from './reconc
 
 @Injectable()
 export class ReconciliationsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly events: DomainEventsService,
+  ) {}
 
   async list(organizationId: string, financialAccountId?: string) {
     const reconciliations = await this.prisma.reconciliation.findMany({
@@ -173,6 +177,13 @@ export class ReconciliationsService {
         before: { status: 'IN_PROGRESS' },
         after: { status: 'COMPLETED' },
         ipHash: metadata.ipHash,
+      });
+      await this.events.emit(tx, {
+        organizationId: context.id,
+        aggregateType: 'reconciliation',
+        aggregateId: reconciliationId,
+        eventName: 'reconciliation.completed',
+        payload: { reconciliationId, financialAccountId: record.financialAccountId },
       });
       return record;
     });

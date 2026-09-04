@@ -576,44 +576,53 @@ fallback, and currency/date/number formatting (Phase 1, Milestone 1F). Remaining
 
 ## Phase 9 — Reporting
 
+**Status: complete and verified (2026-09-04).** The 40 report definitions, export paths, saved
+reports, shared UI, report reconciliation tests, and permission boundary are implemented. Scheduled
+delivery is intentionally deferred to Phase 10 Automation; the detailed close-out record is
+`docs/PHASE9_TODO.md`.
+
 Report families from build spec §11; blueprint §12. Trial Balance and Account Ledger inquiry already
 exist from Phase 1 (part of the ledger module, not a general reporting engine).
 
 ### Backend/API — report engine
 
-- [ ] General reporting engine: date/basis (cash vs accrual, only where accounting logic supports it),
+- [x] General reporting engine: date/basis (cash vs accrual, only where accounting logic supports it),
       currency, dimensions/tags, comparison periods, drill-down to source transactions
-- [ ] CSV/XLSX/PDF export architecture
-- [ ] Saved filters and scheduled report delivery (email; integrates with Phase 10 automation)
+- [x] CSV/XLSX/PDF export architecture
+- [x] Saved filters; scheduled delivery is deferred to Phase 10 Automation
 
 ### Reports to implement
 
-- [ ] **Financial**: Profit & Loss, Balance Sheet, Cash Flow, Trial Balance (exists), General Ledger,
+- [x] **Financial**: Profit & Loss, Balance Sheet, Cash Flow, Trial Balance (exists), General Ledger,
       Journal Report
-- [ ] **Receivables**: AR Aging Summary/Detail, Customer Balances, Invoice Details, Payments Received
-- [ ] **Payables**: AP Aging Summary/Detail, Vendor Balances, Bill Details, Payments Made
-- [ ] **Sales**: Sales by Customer, Item, Period, Salesperson/tag
-- [ ] **Purchases**: Purchases/Expenses by Vendor, Category, Period
-- [ ] **Tax**: Tax Summary, Tax Detail, taxable/exempt bases, liability/recoverable views
-- [ ] **Inventory**: Stock on Hand, Valuation, Movements, Adjustments, Reorder
-- [ ] **Projects**: Time, Unbilled Time/Expenses, Revenue/Cost, Profitability
-- [ ] **Audit**: Transaction history, user activity, approvals, void/reversal history
+- [x] **Receivables**: AR Aging Summary/Detail, Customer Balances, Invoice Details, Payments Received
+- [x] **Payables**: AP Aging Summary/Detail, Vendor Balances, Bill Details, Payments Made
+- [x] **Sales**: Sales by Customer, Item, Period, Salesperson/tag
+- [x] **Purchases**: Purchases/Expenses by Vendor, Category, Period
+- [x] **Tax**: Tax Summary, Tax Detail, taxable/exempt bases, liability/recoverable views
+- [x] **Inventory**: Stock on Hand, Valuation, Movements, Adjustments, Reorder
+- [x] **Projects**: Time, Unbilled Time/Expenses, Revenue/Cost, Profitability
+- [x] **Audit**: Transaction history, user activity, approvals, void/reversal history
 
 ### UI
 
-- [ ] Report Library / Saved Reports / Scheduled Reports navigation section
-- [ ] Standard Report filter/comparison/drill-down/export UI shared across all reports above
+- [x] Report Library / Saved Reports navigation section; scheduled reports arrive in Phase 10
+- [x] Standard Report filter/comparison/drill-down/export UI shared across all reports above
 
 ### Tests/acceptance
 
-- [ ] Every report has a source-of-truth definition and a reconciliation test (P&L/Balance Sheet tie to
+- [x] Every report has a source-of-truth definition and a reconciliation test (P&L/Balance Sheet tie to
       trial balance; AR/AP aging tie to control accounts; inventory valuation ties to inventory control
       account)
-- [ ] Base-currency financial statements reconcile against underlying transaction-currency postings
+- [x] Base-currency financial statements reconcile against underlying transaction-currency postings
 
 ---
 
 ## Phase 10 — Automation & Approvals
+
+**Status: implementation plan ready; code not started (2026-09-04).** Detailed decisions,
+sequencing, migration strategy, and acceptance gates are in `docs/PHASE10_TODO.md` and
+`docs/EXECUTION_PLAN.md` Stage 8.
 
 Build spec §12; blueprint §13.
 

@@ -2,6 +2,8 @@ import { Module } from '@nestjs/common';
 
 import { AttachmentsModule } from '../attachments/attachments.module.js';
 import { AuthModule } from '../auth/auth.module.js';
+import { DomainEventsModule } from '../automation/domain-events.module.js';
+import { AutomationModule } from '../automation/automation.module.js';
 import { InventoryModule } from '../inventory/inventory.module.js';
 import { JobsModule } from '../jobs/jobs.module.js';
 import { OrganizationsModule } from '../organizations/organizations.module.js';
@@ -33,6 +35,8 @@ import { VendorsService } from './vendors.service.js';
     StorageModule,
     AttachmentsModule,
     InventoryModule,
+    DomainEventsModule,
+    AutomationModule,
   ],
   controllers: [
     VendorsController,
@@ -56,5 +60,6 @@ import { VendorsService } from './vendors.service.js';
     RecurringBillsService,
     RecurringExpensesService,
   ],
+  exports: [RecurringBillsService, RecurringExpensesService],
 })
 export class PurchasesModule {}

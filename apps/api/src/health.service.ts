@@ -1,16 +1,27 @@
 import { Injectable } from '@nestjs/common';
 import type { HealthResponse, QueueStatus, ServiceStatus } from '@retailbooks/contracts';
+import { DomainEventState } from '@prisma/client';
 import { Client as PostgresClient } from 'pg';
 import { createClient as createRedisClient } from 'redis';
 
+import { AUTOMATION_QUEUE_NAME } from './automation/automation-job.js';
+import { AutomationQueueService } from './automation/automation-queue.service.js';
+import { PrismaService } from './database/prisma.service.js';
 import { EMAIL_QUEUE_NAME } from './jobs/email-job.js';
 import { EmailQueueService } from './jobs/email-queue.service.js';
 
 const version = process.env.npm_package_version ?? '0.1.0';
 
+/** An outbox row pending this long without being dispatched suggests no worker is draining it. */
+const OUTBOX_STALE_MS = 5 * 60 * 1_000;
+
 @Injectable()
 export class HealthService {
-  constructor(private readonly emailQueue: EmailQueueService) {}
+  constructor(
+    private readonly emailQueue: EmailQueueService,
+    private readonly automationQueue: AutomationQueueService,
+    private readonly prisma: PrismaService,
+  ) {}
 
   liveness(): HealthResponse {
     return {
@@ -22,14 +33,23 @@ export class HealthService {
   }
 
   async readiness(): Promise<HealthResponse> {
-    const [postgres, redis, minio, emailQueue] = await Promise.all([
+    const [postgres, redis, minio, emailQueue, automationQueue, outbox] = await Promise.all([
       this.checkPostgres(),
       this.checkRedis(),
       this.checkMinio(),
       this.checkEmailQueue(),
+      this.checkAutomationQueue(),
+      this.checkDomainEventOutbox(),
     ]);
-    const dependencies = [postgres, redis, minio, emailQueue.dependency];
-    const queues = [emailQueue.queue];
+    const dependencies = [
+      postgres,
+      redis,
+      minio,
+      emailQueue.dependency,
+      automationQueue.dependency,
+      outbox,
+    ];
+    const queues = [emailQueue.queue, automationQueue.queue];
 
     return {
       ...this.liveness(),
@@ -77,6 +97,74 @@ export class HealthService {
           delayed: 0,
           failed: 0,
         },
+      };
+    }
+  }
+
+  private async checkAutomationQueue(): Promise<{ dependency: ServiceStatus; queue: QueueStatus }> {
+    const startedAt = performance.now();
+    try {
+      const counts = await this.automationQueue.counts();
+      const depth = counts.waiting + counts.active + counts.delayed;
+      return {
+        dependency: {
+          name: AUTOMATION_QUEUE_NAME,
+          status: 'up',
+          latencyMs: Math.round(performance.now() - startedAt),
+        },
+        queue: {
+          name: AUTOMATION_QUEUE_NAME,
+          status: counts.failed > 0 ? 'degraded' : 'up',
+          depth,
+          ...counts,
+        },
+      };
+    } catch {
+      return {
+        dependency: {
+          name: AUTOMATION_QUEUE_NAME,
+          status: 'down',
+          latencyMs: Math.round(performance.now() - startedAt),
+        },
+        queue: {
+          name: AUTOMATION_QUEUE_NAME,
+          status: 'down',
+          depth: 0,
+          waiting: 0,
+          active: 0,
+          delayed: 0,
+          failed: 0,
+        },
+      };
+    }
+  }
+
+  /**
+   * Aggregate-only: reports how stale the oldest pending row is, never per-organization rows or
+   * payloads, so an unauthenticated readiness probe cannot leak cross-tenant job data. A backlog
+   * older than `OUTBOX_STALE_MS` reads as `down` -- the most direct unauthenticated signal available
+   * that no worker is draining the outbox, since workers do not publish an explicit heartbeat.
+   */
+  private async checkDomainEventOutbox(): Promise<ServiceStatus> {
+    const startedAt = performance.now();
+    try {
+      const oldest = await this.prisma.domainEventOutbox.findFirst({
+        where: { state: DomainEventState.PENDING },
+        orderBy: { availableAt: 'asc' },
+        select: { availableAt: true },
+      });
+      const ageMs = oldest ? Date.now() - oldest.availableAt.getTime() : 0;
+      return {
+        name: 'domain-event-outbox',
+        status: ageMs > OUTBOX_STALE_MS ? 'down' : 'up',
+        latencyMs: Math.round(performance.now() - startedAt),
+        ageMs,
+      };
+    } catch {
+      return {
+        name: 'domain-event-outbox',
+        status: 'down',
+        latencyMs: Math.round(performance.now() - startedAt),
       };
     }
   }

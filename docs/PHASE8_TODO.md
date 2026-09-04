@@ -21,7 +21,7 @@ Two consequences of D3 that shaped the implementation:
    downgrade a tier a reviewer raised. Those change only through Phase 12's admin path.
 2. **Compliance is derived, never stored.** A stored flag would go stale the moment a pack's tier
    changed underneath it. `resolveCompliance` recomputes from the pinned pack at read time: Tier A
-   *published* → FULLY_REVIEWED, Tier B → GENERIC_CONFIGURATION, Tier C/unknown → UNSUPPORTED. A
+   _published_ → FULLY_REVIEWED, Tier B → GENERIC_CONFIGURATION, Tier C/unknown → UNSUPPORTED. A
    deprecated Tier A pack stops carrying compliance claims immediately.
 
 ## Milestone 8A — Schema and migration
@@ -95,4 +95,3 @@ including the new structured-invoice round-trip and pin tests).
 2. **API compliance field key diverged from contracts schema.** The store emitted `complianceStatus`
    but `packages/contracts` declared `status` on `OrganizationDetail.compliance`. The store now emits
    `status`, matching the schema the web consumes.
-

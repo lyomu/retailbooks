@@ -17,6 +17,8 @@ import {
 import { parseExchangeRateToScaled } from '@retailbooks/accounting-core';
 
 import type { PublicUser } from '../auth/auth.service.js';
+import { assertNoPendingApproval } from '../automation/approval-targets.js';
+import { DomainEventsService } from '../automation/domain-events.service.js';
 import type { RequestMetadata } from '../auth/request-context.js';
 import { PrismaService } from '../database/prisma.service.js';
 import { writeAuditEvent } from './audit-event.js';
@@ -45,6 +47,7 @@ export class LedgerService {
     private readonly numbering: DocumentNumberingService,
     private readonly tax: TaxService,
     private readonly currencies: CurrencyService,
+    private readonly events: DomainEventsService,
   ) {}
 
   async ensureStarterChart(
@@ -377,6 +380,7 @@ export class LedgerService {
         include: journalDetailInclude,
       });
       if (!journal) throw new NotFoundException('Journal not found.');
+      await assertNoPendingApproval(tx, context.id, 'JOURNAL', journalId);
       if (journal.status !== JournalStatus.DRAFT) {
         throw new ConflictException('Only draft journals can be posted.');
       }
@@ -547,6 +551,19 @@ export class LedgerService {
         exchangeRate: postedJournal.exchangeRate?.toString() ?? null,
       },
       ipHash: metadata.ipHash,
+    });
+    await this.events.emit(tx, {
+      organizationId: context.id,
+      aggregateType: 'journal',
+      aggregateId: postedJournal.id,
+      eventName: 'journal.posted',
+      payload: {
+        journalId: postedJournal.id,
+        sourceType: postedJournal.sourceType,
+        sourceId: postedJournal.sourceId,
+        reference: allocation.value,
+        currency: postedJournal.currency,
+      },
     });
 
     const finalJournal = await tx.journal.findFirst({

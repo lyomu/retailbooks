@@ -1,6 +1,7 @@
 ﻿import { Module } from '@nestjs/common';
 
 import { AuthModule } from '../auth/auth.module.js';
+import { DomainEventsModule } from '../automation/domain-events.module.js';
 import { PostingRulesService } from '../posting-rules/posting-rules.service.js';
 import { AuditLogController } from './audit-log.controller.js';
 import { AuditLogService } from './audit-log.service.js';
@@ -34,7 +35,7 @@ import { TaxController } from './tax.controller.js';
 import { TaxService } from './tax.service.js';
 
 @Module({
-  imports: [AuthModule],
+  imports: [AuthModule, DomainEventsModule],
   controllers: [
     OrganizationsController,
     InvitationsController,

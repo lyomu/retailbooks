@@ -1,5 +1,9 @@
 const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001').replace(/\/$/, '');
 
+export function apiDownloadUrl(path: string): string {
+  return `${API_URL}/api/v1${path}`;
+}
+
 interface ApiErrorPayload {
   error?: { code?: string; message?: string; fieldErrors?: string[] };
 }

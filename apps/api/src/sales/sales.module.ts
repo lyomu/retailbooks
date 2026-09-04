@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 
 import { AuthModule } from '../auth/auth.module.js';
+import { DomainEventsModule } from '../automation/domain-events.module.js';
+import { AutomationModule } from '../automation/automation.module.js';
 import { InventoryModule } from '../inventory/inventory.module.js';
 import { JobsModule } from '../jobs/jobs.module.js';
 import { OrganizationsModule } from '../organizations/organizations.module.js';
@@ -26,7 +28,15 @@ import { StatementsController } from './statements.controller.js';
 import { StatementsService } from './statements.service.js';
 
 @Module({
-  imports: [AuthModule, OrganizationsModule, JobsModule, StorageModule, InventoryModule],
+  imports: [
+    AuthModule,
+    OrganizationsModule,
+    JobsModule,
+    StorageModule,
+    InventoryModule,
+    DomainEventsModule,
+    AutomationModule,
+  ],
   controllers: [
     CustomersController,
     CatalogController,
@@ -51,6 +61,6 @@ import { StatementsService } from './statements.service.js';
     StatementsService,
   ],
   // Exported so Projects can bill through the one invoice path rather than forking a second one.
-  exports: [InvoicesService],
+  exports: [InvoicesService, DocumentRenderingService, RecurringInvoicesService],
 })
 export class SalesModule {}

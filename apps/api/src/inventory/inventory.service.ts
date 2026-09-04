@@ -15,6 +15,8 @@ import {
 import { roundHalfUpDivide } from '@retailbooks/accounting-core';
 
 import type { PublicUser } from '../auth/auth.service.js';
+import { assertNoPendingApproval } from '../automation/approval-targets.js';
+import { DomainEventsService } from '../automation/domain-events.service.js';
 import type { RequestMetadata } from '../auth/request-context.js';
 import { PrismaService } from '../database/prisma.service.js';
 import { writeAuditEvent } from '../organizations/audit-event.js';
@@ -38,6 +40,7 @@ export class InventoryService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly ledger: LedgerService,
+    private readonly events: DomainEventsService,
   ) {}
 
   async listWarehouses(organizationId: string) {
@@ -296,6 +299,7 @@ export class InventoryService {
         include: adjustmentInclude,
       });
       if (!adjustment) throw new NotFoundException('Inventory adjustment not found.');
+      await assertNoPendingApproval(tx, context.id, 'INVENTORY_ADJUSTMENT', adjustmentId);
       if (adjustment.status !== 'DRAFT' && adjustment.status !== 'APPROVED') {
         throw new ConflictException('Only draft or approved adjustments can be posted.');
       }
@@ -690,7 +694,7 @@ export class InventoryService {
         costRemainingMinor: input.totalCostMinor,
       },
     });
-    await tx.stockMovement.create({
+    const movement = await tx.stockMovement.create({
       data: {
         organizationId: context.id,
         itemId: input.itemId,
@@ -705,6 +709,20 @@ export class InventoryService {
         sourceLineId: input.sourceLineId,
         valuationLayerId: layer.id,
         createdByUserId: user.id,
+      },
+    });
+    await this.events.emit(tx, {
+      organizationId: context.id,
+      aggregateType: 'stock_movement',
+      aggregateId: movement.id,
+      eventName: 'stock.moved',
+      payload: {
+        movementId: movement.id,
+        itemId: input.itemId,
+        warehouseId: input.warehouseId,
+        direction: 'IN',
+        sourceType: input.sourceType,
+        sourceId: input.sourceId,
       },
     });
     return layer;
@@ -770,7 +788,7 @@ export class InventoryService {
           costRemainingMinor: layer.costRemainingMinor - layerCost,
         },
       });
-      await tx.stockMovement.create({
+      const movement = await tx.stockMovement.create({
         data: {
           organizationId: context.id,
           itemId: input.itemId,
@@ -785,6 +803,20 @@ export class InventoryService {
           sourceLineId: input.sourceLineId,
           valuationLayerId: layer.id,
           createdByUserId: user.id,
+        },
+      });
+      await this.events.emit(tx, {
+        organizationId: context.id,
+        aggregateType: 'stock_movement',
+        aggregateId: movement.id,
+        eventName: 'stock.moved',
+        payload: {
+          movementId: movement.id,
+          itemId: input.itemId,
+          warehouseId: input.warehouseId,
+          direction: 'OUT',
+          sourceType: input.sourceType,
+          sourceId: input.sourceId,
         },
       });
       remainingScaled -= consumeScaled;
@@ -856,7 +888,7 @@ export class InventoryService {
       remainingCostMinor -= layerCost;
     }
 
-    await tx.stockMovement.create({
+    const movement = await tx.stockMovement.create({
       data: {
         organizationId: context.id,
         itemId: input.itemId,
@@ -871,6 +903,20 @@ export class InventoryService {
         sourceLineId: input.sourceLineId,
         valuationLayerId: null,
         createdByUserId: user.id,
+      },
+    });
+    await this.events.emit(tx, {
+      organizationId: context.id,
+      aggregateType: 'stock_movement',
+      aggregateId: movement.id,
+      eventName: 'stock.moved',
+      payload: {
+        movementId: movement.id,
+        itemId: input.itemId,
+        warehouseId: input.warehouseId,
+        direction: 'OUT',
+        sourceType: input.sourceType,
+        sourceId: input.sourceId,
       },
     });
     return totalCostMinor;

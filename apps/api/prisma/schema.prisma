@@ -191,6 +191,84 @@ enum InvoiceStatus {
   VOID
 }
 
+enum DomainEventState {
+  PENDING
+  DISPATCHED
+  FAILED
+}
+
+enum ApprovalPolicyStatus {
+  DRAFT
+  ACTIVE
+  INACTIVE
+}
+
+enum ApprovalRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum ApprovalStepStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SKIPPED
+}
+
+enum ApprovalTargetType {
+  QUOTE
+  SALES_ORDER
+  INVOICE
+  CREDIT_NOTE
+  PURCHASE_ORDER
+  BILL
+  PAYMENT_MADE
+  INVENTORY_ADJUSTMENT
+  JOURNAL
+}
+
+enum WorkflowRuleStatus {
+  DRAFT
+  ACTIVE
+  INACTIVE
+}
+
+enum WorkflowRunStatus {
+  PENDING
+  RUNNING
+  SUCCEEDED
+  FAILED
+  SKIPPED
+}
+
+enum ScheduledJobStatus {
+  ACTIVE
+  PAUSED
+  COMPLETED
+  FAILED
+}
+
+enum ScheduledJobExecutionStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  SKIPPED
+}
+
+enum ScheduledJobMisfirePolicy {
+  CATCH_UP
+  RUN_ONCE
+  SKIP
+}
+
+enum NotificationStatus {
+  UNREAD
+  READ
+}
+
 model User {
   id                               String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   email                            String                     @unique @db.Citext
@@ -244,6 +322,11 @@ model User {
   projectTasksAssigned             ProjectTask[]              @relation("ProjectTaskAssignee")
   timeEntries                      TimeEntry[]                @relation("TimeEntryUser")
   timeEntriesApproved              TimeEntry[]                @relation("TimeEntryApprovedBy")
+  savedReportsCreated              SavedReport[]              @relation("SavedReportCreatedBy")
+  approvalPoliciesCreated          ApprovalPolicy[]           @relation("ApprovalPolicyCreatedBy")
+  workflowRulesCreated             WorkflowRule[]             @relation("WorkflowRuleCreatedBy")
+  scheduledJobsCreated             ScheduledJob[]             @relation("ScheduledJobCreatedBy")
+  notifications                    Notification[]             @relation("NotificationRecipient")
 
   @@map("users")
 }
@@ -444,6 +527,19 @@ model Organization {
   projectExpenses               ProjectExpense[]
   projectBudgets                ProjectBudget[]
   structuredInvoices            StructuredInvoice[]
+  savedReports                  SavedReport[]
+  domainEvents                  DomainEventOutbox[]
+  approvalPolicies              ApprovalPolicy[]
+  approvalRequests              ApprovalRequest[]
+  workflowRules                 WorkflowRule[]
+  workflowRuns                  WorkflowRun[]
+  automationTasks               AutomationTask[]
+  scheduledJobs                 ScheduledJob[]
+  scheduledJobExecutions        ScheduledJobExecution[]
+  reminderPolicies              ReminderPolicy[]
+  scheduledReports              ScheduledReport[]
+  notifications                 Notification[]
+  notificationPreferences       NotificationPreference[]
 
   @@index([createdByUserId])
   @@index([status])
@@ -3013,4 +3109,321 @@ model StructuredInvoice {
   @@unique([organizationId, documentType, documentId])
   @@index([organizationId, documentType])
   @@map("structured_invoices")
+}
+
+/// A named, reusable report configuration. The definition itself stays in the versioned code
+/// registry; this row stores only user choices, so a saved report automatically receives fixes to
+/// its source-of-truth query without copying executable report logic into JSON.
+model SavedReport {
+  id              String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId  String       @map("organization_id") @db.Uuid
+  createdByUserId String       @map("created_by_user_id") @db.Uuid
+  name            String       @db.VarChar(120)
+  reportKey       String       @map("report_key") @db.VarChar(80)
+  filters         Json         @default("{}") @db.JsonB
+  createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy       User         @relation("SavedReportCreatedBy", fields: [createdByUserId], references: [id], onDelete: Cascade)
+  scheduledReports ScheduledReport[]
+
+  @@unique([organizationId, createdByUserId, name])
+  @@index([organizationId, reportKey])
+  @@index([organizationId, createdByUserId, updatedAt])
+  @@map("saved_reports")
+}
+
+model DomainEventOutbox {
+  id             String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String           @map("organization_id") @db.Uuid
+  aggregateType  String           @map("aggregate_type") @db.VarChar(60)
+  aggregateId    String           @map("aggregate_id") @db.VarChar(100)
+  eventName      String           @map("event_name") @db.VarChar(100)
+  eventVersion   Int              @default(1) @map("event_version") @db.SmallInt
+  payload        Json             @default("{}") @db.JsonB
+  causationId    String?          @map("causation_id") @db.Uuid
+  correlationId  String?          @map("correlation_id") @db.Uuid
+  state          DomainEventState @default(PENDING)
+  availableAt    DateTime         @default(now()) @map("available_at") @db.Timestamptz(6)
+  leasedAt       DateTime?        @map("leased_at") @db.Timestamptz(6)
+  leaseToken     String?          @map("lease_token") @db.Uuid
+  leaseExpiresAt DateTime?        @map("lease_expires_at") @db.Timestamptz(6)
+  dispatchedAt   DateTime?        @map("dispatched_at") @db.Timestamptz(6)
+  attempts       Int              @default(0)
+  lastError      String?          @map("last_error") @db.Text
+  createdAt      DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([state, availableAt])
+  @@index([organizationId, createdAt])
+  @@index([aggregateType, aggregateId, createdAt])
+  @@map("domain_event_outbox")
+}
+
+model ApprovalPolicy {
+  id                String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId    String               @map("organization_id") @db.Uuid
+  createdByUserId   String               @map("created_by_user_id") @db.Uuid
+  name              String               @db.VarChar(120)
+  targetType        ApprovalTargetType   @map("target_type")
+  status            ApprovalPolicyStatus @default(DRAFT)
+  priority          Int                  @default(0)
+  conditions        Json                 @default("{}") @db.JsonB
+  allowSelfApproval Boolean              @default(false) @map("allow_self_approval")
+  version           Int                  @default(1)
+  createdAt         DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime             @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization      Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy         User                 @relation("ApprovalPolicyCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  steps             ApprovalPolicyStep[]
+  requests          ApprovalRequest[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId, targetType, status, priority])
+  @@map("approval_policies")
+}
+
+model ApprovalPolicyStep {
+  id                 String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  policyId           String         @map("policy_id") @db.Uuid
+  stepNumber         Int            @map("step_number") @db.SmallInt
+  approverUserId     String?        @map("approver_user_id") @db.Uuid
+  requiredPermission String?        @map("required_permission") @db.VarChar(120)
+  label              String?        @db.VarChar(120)
+  createdAt          DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  policy             ApprovalPolicy @relation(fields: [policyId], references: [id], onDelete: Cascade)
+
+  @@unique([policyId, stepNumber])
+  @@index([approverUserId])
+  @@map("approval_policy_steps")
+}
+
+model ApprovalRequest {
+  id                String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId    String                @map("organization_id") @db.Uuid
+  policyId          String                @map("policy_id") @db.Uuid
+  submitterUserId   String                @map("submitter_user_id") @db.Uuid
+  targetType        ApprovalTargetType    @map("target_type")
+  targetId          String                @map("target_id") @db.Uuid
+  targetVersion     DateTime              @map("target_version") @db.Timestamptz(6)
+  targetSnapshot    Json                  @default("{}") @map("target_snapshot") @db.JsonB
+  status            ApprovalRequestStatus @default(PENDING)
+  currentStepNumber Int                   @default(1) @map("current_step_number") @db.SmallInt
+  submittedAt       DateTime              @default(now()) @map("submitted_at") @db.Timestamptz(6)
+  completedAt       DateTime?             @map("completed_at") @db.Timestamptz(6)
+  cancelledAt       DateTime?             @map("cancelled_at") @db.Timestamptz(6)
+  organization      Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  policy            ApprovalPolicy        @relation(fields: [policyId], references: [id], onDelete: Restrict)
+  steps             ApprovalRequestStep[]
+
+  @@index([organizationId, targetType, targetId, status])
+  @@index([organizationId, submitterUserId, status, submittedAt])
+  @@map("approval_requests")
+}
+
+model ApprovalRequestStep {
+  id                 String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  requestId          String             @map("request_id") @db.Uuid
+  stepNumber         Int                @map("step_number") @db.SmallInt
+  approverUserId     String?            @map("approver_user_id") @db.Uuid
+  requiredPermission String?            @map("required_permission") @db.VarChar(120)
+  status             ApprovalStepStatus @default(PENDING)
+  decidedByUserId    String?            @map("decided_by_user_id") @db.Uuid
+  decidedAt          DateTime?          @map("decided_at") @db.Timestamptz(6)
+  createdAt          DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  request            ApprovalRequest    @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  decisions          ApprovalDecision[]
+
+  @@unique([requestId, stepNumber])
+  @@index([approverUserId, status])
+  @@map("approval_request_steps")
+}
+
+model ApprovalDecision {
+  id          String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  stepId      String              @map("step_id") @db.Uuid
+  actorUserId String              @map("actor_user_id") @db.Uuid
+  decision    ApprovalStepStatus
+  comment     String?             @db.VarChar(2000)
+  createdAt   DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  step        ApprovalRequestStep @relation(fields: [stepId], references: [id], onDelete: Cascade)
+
+  @@index([stepId, createdAt])
+  @@map("approval_decisions")
+}
+
+model WorkflowRule {
+  id              String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId  String             @map("organization_id") @db.Uuid
+  createdByUserId String             @map("created_by_user_id") @db.Uuid
+  name            String             @db.VarChar(120)
+  trigger         String             @db.VarChar(100)
+  conditions      Json               @default("{}") @db.JsonB
+  actions         Json               @default("[]") @db.JsonB
+  status          WorkflowRuleStatus @default(DRAFT)
+  version         Int                @default(1)
+  createdAt       DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization    Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy       User               @relation("WorkflowRuleCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  runs            WorkflowRun[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId, trigger, status])
+  @@map("workflow_rules")
+}
+
+model WorkflowRun {
+  id             String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String            @map("organization_id") @db.Uuid
+  ruleId         String            @map("rule_id") @db.Uuid
+  eventId        String            @map("event_id") @db.Uuid
+  status         WorkflowRunStatus @default(PENDING)
+  result         Json              @default("{}") @db.JsonB
+  error          String?           @db.Text
+  startedAt      DateTime?         @map("started_at") @db.Timestamptz(6)
+  completedAt    DateTime?         @map("completed_at") @db.Timestamptz(6)
+  createdAt      DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  rule           WorkflowRule      @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+
+  @@unique([ruleId, eventId])
+  @@index([organizationId, status, createdAt])
+  @@map("workflow_runs")
+}
+
+model AutomationTask {
+  id               String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId   String       @map("organization_id") @db.Uuid
+  title            String       @db.VarChar(240)
+  detail           String?      @db.Text
+  sourceEventId    String?      @map("source_event_id") @db.Uuid
+  assignedToUserId String?      @map("assigned_to_user_id") @db.Uuid
+  completedAt      DateTime?    @map("completed_at") @db.Timestamptz(6)
+  createdAt        DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, assignedToUserId, completedAt])
+  @@map("automation_tasks")
+}
+
+model ScheduledJob {
+  id              String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId  String                    @map("organization_id") @db.Uuid
+  createdByUserId String                    @map("created_by_user_id") @db.Uuid
+  handler         String                    @db.VarChar(100)
+  sourceType      String                    @map("source_type") @db.VarChar(60)
+  sourceId        String                    @map("source_id") @db.Uuid
+  payload         Json                      @default("{}") @db.JsonB
+  schedule        Json                      @default("{}") @db.JsonB
+  timeZone        String                    @map("time_zone") @db.VarChar(64)
+  misfirePolicy   ScheduledJobMisfirePolicy @default(RUN_ONCE) @map("misfire_policy")
+  status          ScheduledJobStatus        @default(ACTIVE)
+  nextRunAt       DateTime                  @map("next_run_at") @db.Timestamptz(6)
+  lastRunAt       DateTime?                 @map("last_run_at") @db.Timestamptz(6)
+  completedAt     DateTime?                 @map("completed_at") @db.Timestamptz(6)
+  createdAt       DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime                  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization    Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy       User                      @relation("ScheduledJobCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  executions      ScheduledJobExecution[]
+  scheduledReport ScheduledReport?
+
+  @@unique([organizationId, handler, sourceType, sourceId])
+  @@index([status, nextRunAt])
+  @@index([organizationId, status, nextRunAt])
+  @@map("scheduled_jobs")
+}
+
+model ScheduledJobExecution {
+  id             String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String                      @map("organization_id") @db.Uuid
+  scheduledJobId String                      @map("scheduled_job_id") @db.Uuid
+  occurrenceKey  String                      @map("occurrence_key") @db.VarChar(120)
+  status         ScheduledJobExecutionStatus @default(QUEUED)
+  attempts       Int                         @default(0)
+  startedAt      DateTime?                   @map("started_at") @db.Timestamptz(6)
+  completedAt    DateTime?                   @map("completed_at") @db.Timestamptz(6)
+  error          String?                     @db.Text
+  result         Json                        @default("{}") @db.JsonB
+  createdAt      DateTime                    @default(now()) @map("created_at") @db.Timestamptz(6)
+  organization   Organization                @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  scheduledJob   ScheduledJob                @relation(fields: [scheduledJobId], references: [id], onDelete: Cascade)
+
+  @@unique([scheduledJobId, occurrenceKey])
+  @@index([organizationId, status, createdAt])
+  @@map("scheduled_job_executions")
+}
+
+model ReminderPolicy {
+  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  name           String       @db.VarChar(120)
+  offsets        Json         @default("[]") @db.JsonB
+  subject        String       @db.VarChar(240)
+  bodyTemplate   String       @map("body_template") @db.Text
+  active         Boolean      @default(true)
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, name])
+  @@index([organizationId, active])
+  @@map("reminder_policies")
+}
+
+model ScheduledReport {
+  id               String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId   String       @map("organization_id") @db.Uuid
+  savedReportId    String       @map("saved_report_id") @db.Uuid
+  scheduledJobId   String       @unique @map("scheduled_job_id") @db.Uuid
+  name             String       @db.VarChar(120)
+  format           String       @db.VarChar(12)
+  recipientUserIds Json         @default("[]") @map("recipient_user_ids") @db.JsonB
+  active           Boolean      @default(true)
+  lastArtifactKey  String?      @map("last_artifact_key") @db.Text
+  createdAt        DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  savedReport      SavedReport  @relation(fields: [savedReportId], references: [id], onDelete: Cascade)
+  scheduledJob     ScheduledJob @relation(fields: [scheduledJobId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, name])
+  @@index([organizationId, active])
+  @@map("scheduled_reports")
+}
+
+model Notification {
+  id              String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId  String             @map("organization_id") @db.Uuid
+  recipientUserId String             @map("recipient_user_id") @db.Uuid
+  eventKey        String             @map("event_key") @db.VarChar(100)
+  title           String             @db.VarChar(240)
+  body            String?            @db.Text
+  href            String?            @db.VarChar(500)
+  metadata        Json               @default("{}") @db.JsonB
+  status          NotificationStatus @default(UNREAD)
+  readAt          DateTime?          @map("read_at") @db.Timestamptz(6)
+  createdAt       DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  organization    Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  recipient       User               @relation("NotificationRecipient", fields: [recipientUserId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, recipientUserId, status, createdAt])
+  @@map("notifications")
+}
+
+model NotificationPreference {
+  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  userId         String       @map("user_id") @db.Uuid
+  eventKey       String       @map("event_key") @db.VarChar(100)
+  inAppEnabled   Boolean      @default(true) @map("in_app_enabled")
+  emailEnabled   Boolean      @default(true) @map("email_enabled")
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId, eventKey])
+  @@index([organizationId, userId])
+  @@map("notification_preferences")
 }

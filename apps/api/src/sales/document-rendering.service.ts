@@ -32,7 +32,7 @@ export class DocumentRenderingService {
     });
     if (existing) return { storageKey: existing.storageKey, cached: true };
 
-    const pdf = await this.renderHtmlToPdf(html);
+    const pdf = await this.renderPdf(html);
     const storageKey = `${organizationId}/${documentType.toLowerCase()}/${documentId}.pdf`;
 
     await this.storage.ensureBucket();
@@ -48,7 +48,8 @@ export class DocumentRenderingService {
     return this.storage.getSignedDownloadUrl(storageKey);
   }
 
-  private async renderHtmlToPdf(html: string): Promise<Buffer> {
+  /** Shared Playwright PDF seam used by immutable sales snapshots and ephemeral report exports. */
+  async renderPdf(html: string): Promise<Buffer> {
     const browser = await chromium.launch();
     try {
       const page = await browser.newPage();

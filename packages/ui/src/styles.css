@@ -868,3 +868,118 @@
     animation-iteration-count: 1;
   }
 }
+
+/* Phase 9 reporting: one responsive library and one shared report workbench. */
+.rb-report-family {
+  display: grid;
+  gap: var(--rb-space-4);
+}
+
+.rb-report-family__heading,
+.rb-report-actions,
+.rb-report-export-actions,
+.rb-report-save-actions,
+.rb-saved-report-row,
+.rb-report-pagination {
+  display: flex;
+  align-items: center;
+  gap: var(--rb-space-3);
+}
+
+.rb-report-family__heading h2 {
+  margin: 0;
+  font-size: 1.125rem;
+}
+
+.rb-report-library-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(13.75rem, 1fr));
+  gap: var(--rb-space-3);
+}
+
+.rb-report-library-card {
+  display: grid;
+  gap: var(--rb-space-2);
+  min-height: 7rem;
+  padding: var(--rb-space-4);
+  border: 1px solid hsl(var(--rb-border));
+  border-radius: var(--rb-radius);
+  color: inherit;
+  text-decoration: none;
+  background: hsl(var(--rb-card));
+}
+
+.rb-report-library-card:hover {
+  border-color: hsl(var(--rb-primary-mid));
+  box-shadow: var(--rb-shadow-sm);
+}
+
+.rb-report-library-card span,
+.rb-saved-report-row span,
+.rb-report-provenance p,
+.rb-report-pagination,
+.rb-muted {
+  color: hsl(var(--rb-muted-foreground));
+}
+
+.rb-report-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9.375rem, 1fr));
+  gap: var(--rb-space-4);
+  align-items: end;
+}
+
+.rb-report-actions {
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.rb-report-save-actions {
+  margin-left: auto;
+}
+
+.rb-report-provenance {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--rb-space-5);
+}
+
+.rb-report-provenance p {
+  margin-bottom: 0;
+}
+
+.rb-saved-report-list {
+  display: grid;
+}
+
+.rb-saved-report-row {
+  justify-content: space-between;
+  padding: var(--rb-space-3) 0;
+  border-bottom: 1px solid hsl(var(--rb-border));
+}
+
+.rb-saved-report-row:last-child {
+  border-bottom: 0;
+}
+
+.rb-saved-report-row > div:first-child {
+  display: grid;
+  gap: var(--rb-space-1);
+}
+
+.rb-report-pagination {
+  justify-content: flex-end;
+  padding: var(--rb-space-3);
+  font-size: 0.875rem;
+}
+
+@media (max-width: 43.75rem) {
+  .rb-report-provenance {
+    grid-template-columns: 1fr;
+  }
+
+  .rb-report-save-actions {
+    width: 100%;
+    margin-left: 0;
+  }
+}

@@ -9,6 +9,7 @@ import { roundHalfUpDivide } from '@retailbooks/accounting-core';
 
 import type { PublicUser } from '../auth/auth.service.js';
 import type { RequestMetadata } from '../auth/request-context.js';
+import { assertNoPendingApproval } from '../automation/approval-targets.js';
 import { PrismaService } from '../database/prisma.service.js';
 import { EMAIL_JOB_NAMES } from '../jobs/email-job.js';
 import { EmailQueueService } from '../jobs/email-queue.service.js';
@@ -368,6 +369,7 @@ export class QuotesService {
     if (existing.status !== 'ACCEPTED') {
       throw new ConflictException('Only accepted quotes can be converted to an invoice.');
     }
+    await assertNoPendingApproval(this.prisma, context.id, 'QUOTE', quoteId);
 
     const invoice = await this.invoices.createDraft(
       context,

@@ -8,6 +8,9 @@ import { AuditAction, type Prisma } from '@prisma/client';
 import { roundHalfUpDivide } from '@retailbooks/accounting-core';
 
 import type { PublicUser } from '../auth/auth.service.js';
+import { DomainEventsService } from '../automation/domain-events.service.js';
+import { RemindersService } from '../automation/reminders.service.js';
+import { ApprovalsService } from '../automation/approvals.service.js';
 import type { RequestMetadata } from '../auth/request-context.js';
 import { PrismaService } from '../database/prisma.service.js';
 import { InventoryService } from '../inventory/inventory.service.js';
@@ -47,6 +50,9 @@ export class InvoicesService {
     private readonly documentRendering: DocumentRenderingService,
     private readonly emailQueue: EmailQueueService,
     private readonly inventory: InventoryService,
+    private readonly events: DomainEventsService,
+    private readonly reminders: RemindersService,
+    private readonly approvals: ApprovalsService,
   ) {}
 
   async list(organizationId: string, status?: string) {
@@ -249,6 +255,7 @@ export class InvoicesService {
         include: invoiceDetailInclude,
       });
       if (!invoice) throw new NotFoundException('Invoice not found.');
+      await this.approvals.assertNoPendingApproval(tx, context.id, 'INVOICE', invoiceId);
       if (invoice.status !== 'DRAFT') {
         throw new ConflictException('Only draft invoices can be issued.');
       }
@@ -400,6 +407,24 @@ export class InvoicesService {
         },
         ipHash: metadata.ipHash,
       });
+      await this.events.emit(tx, {
+        organizationId: context.id,
+        aggregateType: 'invoice',
+        aggregateId: invoiceId,
+        eventName: 'invoice.issued',
+        payload: {
+          invoiceId,
+          contactId: invoice.contactId,
+          totalMinor: totalMinor.toString(),
+          currency: invoice.currency,
+        },
+      });
+      await this.reminders.scheduleInvoiceReminders(tx, {
+        organizationId: context.id,
+        createdByUserId: user.id,
+        invoiceId,
+        dueDate: updated.dueDate,
+      });
 
       return updated;
     });
@@ -458,6 +483,13 @@ export class InvoicesService {
         before: { status: existing.status },
         after: { status: 'VOID' },
         ipHash: metadata.ipHash,
+      });
+      await this.events.emit(tx, {
+        organizationId: context.id,
+        aggregateType: 'invoice',
+        aggregateId: invoiceId,
+        eventName: 'invoice.voided',
+        payload: { invoiceId },
       });
 
       return invoice;

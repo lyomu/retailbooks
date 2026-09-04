@@ -7,6 +7,7 @@ import {
 import { AuditAction, type Prisma } from '@prisma/client';
 
 import type { PublicUser } from '../auth/auth.service.js';
+import { DomainEventsService } from '../automation/domain-events.service.js';
 import type { RequestMetadata } from '../auth/request-context.js';
 import { PrismaService } from '../database/prisma.service.js';
 import { writeAuditEvent } from '../organizations/audit-event.js';
@@ -35,6 +36,7 @@ export class PaymentsService {
     private readonly prisma: PrismaService,
     private readonly ledger: LedgerService,
     private readonly numbering: DocumentNumberingService,
+    private readonly events: DomainEventsService,
   ) {}
 
   async list(organizationId: string, status?: string) {
@@ -210,6 +212,18 @@ export class PaymentsService {
         action: AuditAction.CREATE,
         after: { contactId: contact.id, amountMinor: amountMinor.toString() },
         ipHash: metadata.ipHash,
+      });
+      await this.events.emit(tx, {
+        organizationId: context.id,
+        aggregateType: 'payment_received',
+        aggregateId: payment.id,
+        eventName: 'payment.recorded',
+        payload: {
+          paymentId: payment.id,
+          contactId: contact.id,
+          amountMinor: amountMinor.toString(),
+          currency,
+        },
       });
 
       return updated;

@@ -9,6 +9,7 @@ import { roundHalfUpDivide } from '@retailbooks/accounting-core';
 
 import type { PublicUser } from '../auth/auth.service.js';
 import type { RequestMetadata } from '../auth/request-context.js';
+import { assertNoPendingApproval } from '../automation/approval-targets.js';
 import { PrismaService } from '../database/prisma.service.js';
 import { EMAIL_JOB_NAMES } from '../jobs/email-job.js';
 import { EmailQueueService } from '../jobs/email-queue.service.js';
@@ -254,6 +255,7 @@ export class CreditNotesService {
         include: creditNoteDetailInclude,
       });
       if (!creditNote) throw new NotFoundException('Credit note not found.');
+      await assertNoPendingApproval(tx, context.id, 'CREDIT_NOTE', creditNoteId);
       if (creditNote.status !== 'DRAFT') {
         throw new ConflictException('Only draft credit notes can be issued.');
       }

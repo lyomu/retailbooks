@@ -316,6 +316,48 @@ const ENDPOINTS: readonly EndpointCase[] = [
   },
   {
     method: 'get',
+    path: 'organizations/:organizationId/reports/definitions',
+    permission: 'reports.view',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/reports/filter-options',
+    permission: 'reports.view',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/reports/saved',
+    permission: 'reports.view',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/reports/saved',
+    permission: 'reports.manage',
+    body: {},
+  },
+  {
+    method: 'patch',
+    path: 'organizations/:organizationId/reports/saved/:savedReportId',
+    permission: 'reports.manage',
+    body: {},
+  },
+  {
+    method: 'delete',
+    path: 'organizations/:organizationId/reports/saved/:savedReportId',
+    permission: 'reports.manage',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/reports/:reportKey/export',
+    permission: 'reports.view',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/reports/:reportKey',
+    permission: 'reports.view',
+  },
+  {
+    method: 'get',
     path: 'organizations/:organizationId/tax/codes',
     permission: 'tax.codes.view',
   },
@@ -362,6 +404,201 @@ const ENDPOINTS: readonly EndpointCase[] = [
     method: 'get',
     path: 'organizations/:organizationId/audit-log/export',
     permission: 'audit.export',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/automation/approval-policies',
+    permission: 'automation.approvals.view',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/automation/approval-policies',
+    permission: 'automation.approvals.manage',
+    body: {},
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/automation/approval-policies/inbox',
+    permission: 'automation.approvals.view',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/automation/approval-policies/requests/mine',
+    permission: 'automation.approvals.view',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/automation/approval-policies/requests/:requestId',
+    permission: 'automation.approvals.view',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/automation/approval-policies/requests/:requestId/decision',
+    permission: 'automation.approvals.view',
+    body: {},
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/automation/approval-policies/requests/:requestId/cancel',
+    permission: 'automation.approvals.view',
+  },
+  {
+    method: 'patch',
+    path: 'organizations/:organizationId/automation/approval-policies/:policyId',
+    permission: 'automation.approvals.manage',
+    body: {},
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/automation/approval-policies/:policyId/activate',
+    permission: 'automation.approvals.manage',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/automation/approval-policies/:policyId/deactivate',
+    permission: 'automation.approvals.manage',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/automation/approval-requests',
+    permission: 'automation.approvals.view',
+    body: {},
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/automation/workflow-rules',
+    permission: 'automation.rules.view',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/automation/workflow-rules',
+    permission: 'automation.rules.manage',
+    body: {},
+  },
+  {
+    method: 'patch',
+    path: 'organizations/:organizationId/automation/workflow-rules/:ruleId',
+    permission: 'automation.rules.manage',
+    body: {},
+  },
+  {
+    method: 'patch',
+    path: 'organizations/:organizationId/automation/workflow-rules/:ruleId/status',
+    permission: 'automation.rules.manage',
+    body: {},
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/automation/workflow-rules/:ruleId/dry-run',
+    permission: 'automation.rules.manage',
+    body: {},
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/automation/workflow-rules/:ruleId/runs',
+    permission: 'automation.rules.view',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/automation/tasks/mine',
+    permission: 'automation.rules.view',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/automation/tasks/:taskId/complete',
+    permission: 'automation.rules.view',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/automation/reminder-policies',
+    permission: 'automation.schedules.view',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/automation/reminder-policies',
+    permission: 'automation.schedules.manage',
+    body: {},
+  },
+  {
+    method: 'patch',
+    path: 'organizations/:organizationId/automation/reminder-policies/:policyId',
+    permission: 'automation.schedules.manage',
+    body: {},
+  },
+  {
+    method: 'patch',
+    path: 'organizations/:organizationId/automation/reminder-policies/:policyId/active',
+    permission: 'automation.schedules.manage',
+    body: { active: true },
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/automation/jobs/failed',
+    permission: 'automation.jobs.view',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/automation/jobs/:executionId',
+    permission: 'automation.jobs.view',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/automation/jobs/:executionId/retry',
+    permission: 'automation.jobs.retry',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/notifications',
+    permission: 'notifications.view',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/notifications/unread-count',
+    permission: 'notifications.view',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/notifications/preferences',
+    permission: 'notifications.view',
+  },
+  {
+    method: 'patch',
+    path: 'organizations/:organizationId/notifications/preferences',
+    permission: 'notifications.manage',
+    body: { eventKey: 'automation.workflow_rule_created' },
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/notifications/:notificationId/read',
+    permission: 'notifications.view',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/notifications/read-all',
+    permission: 'notifications.view',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/reports/scheduled',
+    permission: 'automation.schedules.view',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/reports/scheduled',
+    permission: 'automation.schedules.manage',
+    body: {},
+  },
+  {
+    method: 'patch',
+    path: 'organizations/:organizationId/reports/scheduled/:scheduledReportId',
+    permission: 'automation.schedules.manage',
+    body: {},
+  },
+  {
+    method: 'patch',
+    path: 'organizations/:organizationId/reports/scheduled/:scheduledReportId/active',
+    permission: 'automation.schedules.manage',
+    body: { active: true },
   },
   {
     method: 'get',
@@ -1664,7 +1901,13 @@ describe('organization authorization boundary over HTTP', () => {
       .replace(':projectId', ID)
       .replace(':timeEntryId', ID)
       .replace(':projectExpenseId', ID)
-      .replace(':taskId', ID);
+      .replace(':taskId', ID)
+      .replace(':requestId', ID)
+      .replace(':executionId', ID)
+      .replace(':policyId', ID)
+      .replace(':ruleId', ID)
+      .replace(':notificationId', ID)
+      .replace(':scheduledReportId', ID);
     const test = harness.http()[endpoint.method](path).set('Cookie', cookie);
     if (endpoint.body !== undefined) test.send(endpoint.body);
     return test;

@@ -4,6 +4,9 @@ export const serviceStatusSchema = z.object({
   name: z.string().min(1),
   status: z.enum(['up', 'down']),
   latencyMs: z.number().nonnegative(),
+  /** Age of the oldest unprocessed item this dependency is backing up on, when applicable (e.g. the
+   * domain-event outbox's oldest pending row) -- absent for a plain connectivity check. */
+  ageMs: z.number().nonnegative().optional(),
 });
 
 export const queueStatusSchema = z.object({
@@ -116,6 +119,7 @@ export const permissionKeySchema = z.enum([
   'journals.recurring.view',
   'journals.recurring.manage',
   'reports.view',
+  'reports.manage',
   'tax.codes.view',
   'tax.codes.manage',
   'audit.view',
@@ -214,7 +218,151 @@ export const permissionKeySchema = z.enum([
   'projects.expenses.manage',
   'projects.billing.manage',
   'projects.profitability.view',
+  'automation.approvals.view',
+  'automation.approvals.manage',
+  'automation.rules.view',
+  'automation.rules.manage',
+  'automation.schedules.view',
+  'automation.schedules.manage',
+  'automation.jobs.view',
+  'automation.jobs.retry',
+  'notifications.view',
+  'notifications.manage',
 ]);
+
+export const REPORT_KEYS = [
+  'financial.profit-loss',
+  'financial.balance-sheet',
+  'financial.cash-flow',
+  'financial.trial-balance',
+  'financial.general-ledger',
+  'financial.journal-report',
+  'receivables.aging-summary',
+  'receivables.aging-detail',
+  'receivables.customer-balances',
+  'receivables.invoice-details',
+  'receivables.payments-received',
+  'payables.aging-summary',
+  'payables.aging-detail',
+  'payables.vendor-balances',
+  'payables.bill-details',
+  'payables.payments-made',
+  'sales.by-customer',
+  'sales.by-item',
+  'sales.by-period',
+  'sales.by-tag',
+  'purchases.by-vendor',
+  'purchases.by-category',
+  'purchases.by-period',
+  'tax.summary',
+  'tax.detail',
+  'tax.taxable-exempt-bases',
+  'tax.liability-recoverable',
+  'inventory.stock-on-hand',
+  'inventory.valuation',
+  'inventory.movements',
+  'inventory.adjustments',
+  'inventory.reorder',
+  'projects.time',
+  'projects.unbilled',
+  'projects.revenue-cost',
+  'projects.profitability',
+  'audit.transaction-history',
+  'audit.user-activity',
+  'audit.approvals',
+  'audit.void-reversal-history',
+] as const;
+
+export const reportKeySchema = z.enum(REPORT_KEYS);
+export const reportFamilySchema = z.enum([
+  'Financial',
+  'Receivables',
+  'Payables',
+  'Sales',
+  'Purchases',
+  'Tax',
+  'Inventory',
+  'Projects',
+  'Audit',
+]);
+export const reportBasisSchema = z.enum(['ACCRUAL', 'CASH']);
+export const reportCurrencyModeSchema = z.enum(['BASE', 'TRANSACTION']);
+export const reportColumnSchema = z.object({
+  key: z.string().min(1),
+  label: z.string().min(1),
+  type: z.enum(['text', 'date', 'money', 'number', 'percent', 'status']),
+});
+export const reportDefinitionSchema = z.object({
+  key: reportKeySchema,
+  family: reportFamilySchema,
+  name: z.string().min(1),
+  description: z.string().min(1),
+  sourceOfTruth: z.string().min(1),
+  reconciliation: z.string().min(1),
+  columns: z.array(reportColumnSchema).min(1),
+  supportedBasis: z.array(reportBasisSchema).min(1),
+  supportedCurrencyModes: z.array(reportCurrencyModeSchema).min(1),
+  supportsProject: z.boolean(),
+  supportsTag: z.boolean(),
+});
+export const reportFiltersSchema = z.object({
+  from: z.iso.date().optional(),
+  to: z.iso.date().optional(),
+  basis: reportBasisSchema.default('ACCRUAL'),
+  currencyMode: reportCurrencyModeSchema.default('BASE'),
+  projectId: z.uuid().optional(),
+  tagId: z.uuid().optional(),
+  comparisonFrom: z.iso.date().optional(),
+  comparisonTo: z.iso.date().optional(),
+  page: z.number().int().min(1).default(1),
+  pageSize: z.number().int().min(1).max(500).default(100),
+});
+export const reportCellSchema = z.union([z.string(), z.number(), z.boolean(), z.null()]);
+export const reportRowSchema = z.object({
+  id: z.string().min(1),
+  cells: z.record(z.string(), reportCellSchema),
+  source: z
+    .object({
+      entityType: z.string().min(1),
+      entityId: z.string().min(1),
+      href: z.string().startsWith('/'),
+    })
+    .nullable(),
+});
+export const reportResultSchema = z.object({
+  data: z.object({
+    definition: reportDefinitionSchema,
+    filters: reportFiltersSchema,
+    baseCurrency: z.string().length(3),
+    rows: z.array(reportRowSchema),
+    totals: z.record(z.string(), reportCellSchema),
+    comparison: z
+      .object({
+        from: z.iso.date(),
+        to: z.iso.date(),
+        rows: z.array(reportRowSchema),
+        totals: z.record(z.string(), reportCellSchema),
+      })
+      .nullable(),
+    pagination: z.object({
+      page: z.number().int().positive(),
+      pageSize: z.number().int().positive(),
+      totalRows: z.number().int().nonnegative(),
+    }),
+  }),
+});
+export const reportDefinitionsResponseSchema = z.object({ data: z.array(reportDefinitionSchema) });
+export const savedReportSchema = z.object({
+  id: z.uuid(),
+  name: z.string().min(1),
+  reportKey: reportKeySchema,
+  filters: reportFiltersSchema.partial(),
+  createdByUserId: z.uuid(),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+});
+export const savedReportsResponseSchema = z.object({ data: z.array(savedReportSchema) });
+export const savedReportResponseSchema = z.object({ data: savedReportSchema });
 
 export const organizationSummarySchema = z.object({
   id: z.uuid(),
@@ -361,6 +509,7 @@ export const permissionDefinitionSchema = z.object({
     'Banking',
     'Inventory',
     'Projects',
+    'Automation',
   ]),
   protected: z.boolean(),
 });
@@ -3074,3 +3223,195 @@ export type ProjectProfitabilityResponse = z.infer<typeof projectProfitabilityRe
 export type ProjectBillableListResponse = z.infer<typeof projectBillableListResponseSchema>;
 export type TagListResponse = z.infer<typeof tagListResponseSchema>;
 export type TagResponse = z.infer<typeof tagResponseSchema>;
+
+export const domainEventSchema = z.object({
+  id: z.uuid(),
+  organizationId: z.uuid(),
+  aggregateType: z.string().min(1).max(60),
+  aggregateId: z.string().min(1).max(100),
+  name: z.string().min(1).max(100),
+  version: z.int().positive(),
+  payload: z.record(z.string(), z.unknown()),
+  causationId: z.uuid().nullable(),
+  correlationId: z.uuid().nullable(),
+});
+
+/**
+ * The full catalog of domain events the outbox can carry, shared by `DomainEventsService` (which
+ * only ever emits one of these) and workflow rules (whose `trigger` must name one of these -- a
+ * rule created against a typo'd or retired event name would otherwise sit active forever and never
+ * fire, with nothing to say why).
+ */
+export const DOMAIN_EVENT_NAMES = [
+  'invoice.issued',
+  'invoice.voided',
+  'payment.recorded',
+  'bill.posted',
+  'journal.posted',
+  'stock.moved',
+  'reconciliation.completed',
+  'approval.submitted',
+  'approval.step-approved',
+  'approval.rejected',
+  'approval.completed',
+  'approval.cancelled',
+  'scheduled-job.completed',
+  'scheduled-job.failed',
+] as const;
+export const domainEventNameSchema = z.enum(DOMAIN_EVENT_NAMES);
+export type DomainEventName = (typeof DOMAIN_EVENT_NAMES)[number];
+
+export const approvalTargetTypeSchema = z.enum([
+  'QUOTE',
+  'SALES_ORDER',
+  'INVOICE',
+  'CREDIT_NOTE',
+  'PURCHASE_ORDER',
+  'BILL',
+  'PAYMENT_MADE',
+  'INVENTORY_ADJUSTMENT',
+  'JOURNAL',
+]);
+export const approvalPolicyStatusSchema = z.enum(['DRAFT', 'ACTIVE', 'INACTIVE']);
+export const approvalRequestStatusSchema = z.enum(['PENDING', 'APPROVED', 'REJECTED', 'CANCELLED']);
+export const approvalStepStatusSchema = z.enum(['PENDING', 'APPROVED', 'REJECTED', 'SKIPPED']);
+export const approvalPolicyStepInputSchema = z
+  .object({
+    approverUserId: z.uuid().nullable().optional(),
+    requiredPermission: permissionKeySchema.nullable().optional(),
+    label: z.string().trim().min(1).max(120).nullable().optional(),
+  })
+  .refine((value) => value.approverUserId || value.requiredPermission, {
+    message: 'An approval step needs an assigned user or required permission.',
+  });
+export const approvalConditionsSchema = z.object({
+  minimumAmountMinor: z
+    .string()
+    .regex(/^-?\d+$/)
+    .optional(),
+  maximumAmountMinor: z
+    .string()
+    .regex(/^-?\d+$/)
+    .optional(),
+  submitterUserIds: z.array(z.uuid()).max(100).optional(),
+  tagIds: z.array(z.uuid()).max(100).optional(),
+  projectIds: z.array(z.uuid()).max(100).optional(),
+});
+export const createApprovalPolicySchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  targetType: approvalTargetTypeSchema,
+  priority: z.int().min(0).max(10_000).default(0),
+  conditions: approvalConditionsSchema.default({}),
+  allowSelfApproval: z.boolean().default(false),
+  steps: z.array(approvalPolicyStepInputSchema).min(1).max(12),
+});
+export const approvalDecisionInputSchema = z.object({
+  decision: z.enum(['APPROVED', 'REJECTED']),
+  comment: z.string().trim().max(2_000).optional(),
+});
+export const submitApprovalRequestSchema = z.object({
+  targetType: approvalTargetTypeSchema,
+  targetId: z.uuid(),
+});
+
+export const workflowRuleStatusSchema = z.enum(['DRAFT', 'ACTIVE', 'INACTIVE']);
+export const workflowConditionSchema = z.object({
+  field: z.string().trim().min(1).max(80),
+  operator: z.enum(['equals', 'notEquals', 'exists', 'greaterThan', 'lessThan', 'in']),
+  value: z.unknown().optional(),
+});
+export const workflowActionSchema = z.discriminatedUnion('type', [
+  z.object({
+    type: z.literal('CREATE_NOTIFICATION'),
+    recipientUserId: z.uuid(),
+    title: z.string().trim().min(1).max(240),
+    body: z.string().trim().max(4_000).optional(),
+    href: z.string().trim().max(500).optional(),
+  }),
+  z.object({
+    type: z.literal('CREATE_TASK'),
+    title: z.string().trim().min(1).max(240),
+    detail: z.string().trim().max(4_000).optional(),
+    assignedToUserId: z.uuid().optional(),
+  }),
+]);
+export const createWorkflowRuleSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  trigger: domainEventNameSchema,
+  conditions: z.array(workflowConditionSchema).max(20).default([]),
+  actions: z.array(workflowActionSchema).min(1).max(10),
+});
+export const updateWorkflowRuleSchema = z.object({
+  name: z.string().trim().min(1).max(120).optional(),
+  trigger: domainEventNameSchema.optional(),
+  conditions: z.array(workflowConditionSchema).max(20).optional(),
+  actions: z.array(workflowActionSchema).min(1).max(10).optional(),
+});
+export const workflowDryRunSchema = z.object({
+  payload: z.record(z.string(), z.unknown()).default({}),
+});
+
+export const scheduleCadenceSchema = z.enum([
+  'DAILY',
+  'WEEKLY',
+  'MONTHLY',
+  'QUARTERLY',
+  'ANNUALLY',
+]);
+export const scheduleDefinitionSchema = z.object({
+  cadence: scheduleCadenceSchema,
+  localTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
+  weekday: z.int().min(0).max(6).optional(),
+  dayOfMonth: z.int().min(1).max(31).optional(),
+  /** Organization-local `YYYY-MM-DD`; the occurrence on or after this date is the last one. */
+  endDate: z.iso.date().optional(),
+});
+export const scheduledReportFormatSchema = z.enum(['csv', 'xlsx', 'pdf']);
+export const createScheduledReportSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  savedReportId: z.uuid(),
+  recipientUserIds: z.array(z.uuid()).min(1).max(100),
+  format: scheduledReportFormatSchema,
+  schedule: scheduleDefinitionSchema,
+});
+
+export const notificationSchema = z.object({
+  id: z.uuid(),
+  eventKey: z.string().min(1),
+  title: z.string().min(1),
+  body: z.string().nullable(),
+  href: z.string().nullable(),
+  status: z.enum(['UNREAD', 'READ']),
+  createdAt: z.iso.datetime(),
+});
+
+export type ReportKey = z.infer<typeof reportKeySchema>;
+export type ReportFamily = z.infer<typeof reportFamilySchema>;
+export type ReportBasis = z.infer<typeof reportBasisSchema>;
+export type ReportCurrencyMode = z.infer<typeof reportCurrencyModeSchema>;
+export type ReportColumn = z.infer<typeof reportColumnSchema>;
+export type ReportDefinition = z.infer<typeof reportDefinitionSchema>;
+export type ReportFilters = z.infer<typeof reportFiltersSchema>;
+export type ReportRow = z.infer<typeof reportRowSchema>;
+export type ReportResult = z.infer<typeof reportResultSchema>;
+export type ReportDefinitionsResponse = z.infer<typeof reportDefinitionsResponseSchema>;
+export type SavedReport = z.infer<typeof savedReportSchema>;
+export type SavedReportsResponse = z.infer<typeof savedReportsResponseSchema>;
+export type SavedReportResponse = z.infer<typeof savedReportResponseSchema>;
+export type DomainEvent = z.infer<typeof domainEventSchema>;
+export type ApprovalTargetType = z.infer<typeof approvalTargetTypeSchema>;
+export type ApprovalPolicyStatus = z.infer<typeof approvalPolicyStatusSchema>;
+export type ApprovalRequestStatus = z.infer<typeof approvalRequestStatusSchema>;
+export type ApprovalStepStatus = z.infer<typeof approvalStepStatusSchema>;
+export type CreateApprovalPolicy = z.infer<typeof createApprovalPolicySchema>;
+export type ApprovalDecisionInput = z.infer<typeof approvalDecisionInputSchema>;
+export type SubmitApprovalRequest = z.infer<typeof submitApprovalRequestSchema>;
+export type WorkflowRuleStatus = z.infer<typeof workflowRuleStatusSchema>;
+export type WorkflowCondition = z.infer<typeof workflowConditionSchema>;
+export type WorkflowAction = z.infer<typeof workflowActionSchema>;
+export type CreateWorkflowRule = z.infer<typeof createWorkflowRuleSchema>;
+export type UpdateWorkflowRule = z.infer<typeof updateWorkflowRuleSchema>;
+export type WorkflowDryRun = z.infer<typeof workflowDryRunSchema>;
+export type ScheduleDefinition = z.infer<typeof scheduleDefinitionSchema>;
+export type CreateScheduledReport = z.infer<typeof createScheduledReportSchema>;
+export type Notification = z.infer<typeof notificationSchema>;

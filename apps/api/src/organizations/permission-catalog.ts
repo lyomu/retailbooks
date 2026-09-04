@@ -50,6 +50,7 @@ export const PERMISSION_KEYS = [
   'journals.recurring.view',
   'journals.recurring.manage',
   'reports.view',
+  'reports.manage',
   'tax.codes.view',
   'tax.codes.manage',
   'audit.view',
@@ -148,6 +149,16 @@ export const PERMISSION_KEYS = [
   'projects.expenses.manage',
   'projects.billing.manage',
   'projects.profitability.view',
+  'automation.approvals.view',
+  'automation.approvals.manage',
+  'automation.rules.view',
+  'automation.rules.manage',
+  'automation.schedules.view',
+  'automation.schedules.manage',
+  'automation.jobs.view',
+  'automation.jobs.retry',
+  'notifications.view',
+  'notifications.manage',
 ] as const;
 
 export type PermissionKey = (typeof PERMISSION_KEYS)[number];
@@ -174,7 +185,8 @@ export interface PermissionDefinition {
     | 'Purchases'
     | 'Banking'
     | 'Inventory'
-    | 'Projects';
+    | 'Projects'
+    | 'Automation';
   /**
    * Permanently OWNER-only. No role -- system or custom -- can hold a protected key; there is no
    * grant path for it anywhere, which is the entire privilege-escalation defence.
@@ -479,8 +491,15 @@ export const PERMISSION_CATALOG: readonly PermissionDefinition[] = Object.freeze
   },
   {
     key: 'reports.view',
-    label: 'View ledger reports',
-    description: 'See trial balance and account-ledger inquiries.',
+    label: 'View reports',
+    description: 'Run reports, inspect source drill-downs, and export results.',
+    group: 'Reports',
+    protected: false,
+  },
+  {
+    key: 'reports.manage',
+    label: 'Manage saved reports',
+    description: 'Create, rename, update, and delete saved report configurations.',
     group: 'Reports',
     protected: false,
   },
@@ -1176,6 +1195,76 @@ export const PERMISSION_CATALOG: readonly PermissionDefinition[] = Object.freeze
     label: 'View project profitability',
     description: 'See project revenue, cost, margin, and unbilled work.',
     group: 'Projects',
+    protected: false,
+  },
+  {
+    key: 'automation.approvals.view',
+    label: 'View approvals',
+    description: 'View approval policies, requests, and the assigned approvals inbox.',
+    group: 'Automation',
+    protected: false,
+  },
+  {
+    key: 'automation.approvals.manage',
+    label: 'Manage approval policies',
+    description: 'Create, edit, activate, and deactivate approval policies.',
+    group: 'Automation',
+    protected: false,
+  },
+  {
+    key: 'automation.rules.view',
+    label: 'View automation rules',
+    description: 'View safe workflow rules and their execution history.',
+    group: 'Automation',
+    protected: false,
+  },
+  {
+    key: 'automation.rules.manage',
+    label: 'Manage automation rules',
+    description: 'Create, test, activate, and deactivate safe workflow rules.',
+    group: 'Automation',
+    protected: false,
+  },
+  {
+    key: 'automation.schedules.view',
+    label: 'View schedules',
+    description: 'View recurring jobs, reminders, and scheduled reports.',
+    group: 'Automation',
+    protected: false,
+  },
+  {
+    key: 'automation.schedules.manage',
+    label: 'Manage schedules',
+    description: 'Manage recurring job schedules, reminders, and scheduled reports.',
+    group: 'Automation',
+    protected: false,
+  },
+  {
+    key: 'automation.jobs.view',
+    label: 'View automation job failures',
+    description: 'View organization-scoped automation job execution status and failures.',
+    group: 'Automation',
+    protected: false,
+  },
+  {
+    key: 'automation.jobs.retry',
+    label: 'Retry automation jobs',
+    description: 'Retry a failed organization-scoped automation job occurrence.',
+    group: 'Automation',
+    protected: false,
+  },
+  {
+    key: 'notifications.view',
+    label: 'View notifications',
+    description: 'View and mark personal in-app notifications as read.',
+    group: 'Automation',
+    protected: false,
+  },
+  {
+    key: 'notifications.manage',
+    label: 'Manage notification preferences',
+    description: 'Manage personal in-app and email notification preferences.',
+    group: 'Automation',
     protected: false,
   },
 ]);

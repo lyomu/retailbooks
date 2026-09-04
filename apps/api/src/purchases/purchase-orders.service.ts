@@ -9,6 +9,7 @@ import { roundHalfUpDivide } from '@retailbooks/accounting-core';
 
 import type { PublicUser } from '../auth/auth.service.js';
 import type { RequestMetadata } from '../auth/request-context.js';
+import { assertNoPendingApproval } from '../automation/approval-targets.js';
 import { PrismaService } from '../database/prisma.service.js';
 import { InventoryService } from '../inventory/inventory.service.js';
 import { writeAuditEvent } from '../organizations/audit-event.js';
@@ -219,6 +220,7 @@ export class PurchaseOrdersService {
       throw new ConflictException('Only approved orders can be issued.');
     }
     const updated = await this.prisma.$transaction(async (tx) => {
+      await assertNoPendingApproval(tx, context.id, 'PURCHASE_ORDER', orderId);
       const allocation = await this.numbering.allocateDocumentNumberWithClient(
         tx,
         context.id,
