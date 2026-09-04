@@ -383,6 +383,7 @@ export class InvoicesService {
       });
 
       await this.inventory.postInvoiceCogs(context, user, invoiceId, metadata, tx);
+      await this.persistStructuredInvoice(tx, context.id, updated);
       await this.recordInvoiceIdempotency(tx, context.id, idempotencyKey, invoiceId);
       await writeAuditEvent(tx, {
         organizationId: context.id,
@@ -690,6 +691,45 @@ export class InvoicesService {
       FOR UPDATE
     `;
   }
+
+  /**
+   * Persists the canonical structured-invoice artifact inside the issue transaction, so the artifact
+   * and the status flip commit together -- a half-issued invoice with no artifact, or an artifact
+   * with no issued invoice, is impossible. Idempotent on `invoiceId`: re-running the issue path
+   * (e.g. an idempotency-key replay) overwrites the artifact with the same payload rather than
+   * stacking duplicates.
+   */
+  private async persistStructuredInvoice(
+    tx: Prisma.TransactionClient,
+    organizationId: string,
+    invoice: InvoiceWithLines,
+  ): Promise<void> {
+    const payload = buildStructuredInvoicePayload(invoice) as Prisma.InputJsonValue;
+    await tx.structuredInvoice.upsert({
+      where: {
+        organizationId_documentType_documentId: {
+          organizationId,
+          documentType: 'INVOICE',
+          documentId: invoice.id,
+        },
+      },
+      create: {
+        organizationId,
+        documentType: 'INVOICE',
+        documentId: invoice.id,
+        countryPackCode: invoice.countryPackCodeSnapshot ?? '',
+        countryPackVersion: invoice.countryPackVersionSnapshot ?? '',
+        payload,
+        payloadSchemaVersion: '1',
+      },
+      update: {
+        countryPackCode: invoice.countryPackCodeSnapshot ?? '',
+        countryPackVersion: invoice.countryPackVersionSnapshot ?? '',
+        payload,
+        payloadSchemaVersion: '1',
+      },
+    });
+  }
 }
 
 function resolveDefaultPrice(
@@ -817,4 +857,52 @@ function dateOnly(date: Date): string {
 
 function isoDate(value: string): Date {
   return new Date(`${value.slice(0, 10)}T00:00:00.000Z`);
+}
+
+/**
+ * The canonical, JSON-ready data artifact for an issued invoice -- deliberately stored separately from
+ * the PDF-render `DocumentSnapshot`. The PDF is a render artifact that can be regenerated; this is
+ * the structured record a regulator or a customer's AP system consumes, and it stays legible even
+ * when the rendering pipeline changes. `payloadSchemaVersion` lets a future schema migration read
+ * old payloads without guessing.
+ */
+function buildStructuredInvoicePayload(invoice: InvoiceWithLines): Record<string, unknown> {
+  return {
+    invoiceNumber: invoice.invoiceNumber,
+    issueDate: invoice.issueDate ? dateOnly(invoice.issueDate) : null,
+    dueDate: invoice.dueDate ? dateOnly(invoice.dueDate) : null,
+    currency: invoice.currency,
+    exchangeRate: invoice.exchangeRate?.toString() ?? null,
+    organization: {
+      id: invoice.organizationId,
+    },
+    customer: {
+      id: invoice.contact.id,
+      name: invoice.contact.displayName,
+    },
+    countryPack: {
+      code: invoice.countryPackCodeSnapshot ?? null,
+      version: invoice.countryPackVersionSnapshot ?? null,
+    },
+    totals: {
+      subtotalMinor: invoice.subtotalMinor.toString(),
+      taxTotalMinor: invoice.taxTotalMinor.toString(),
+      totalMinor: invoice.totalMinor.toString(),
+    },
+    lines: invoice.lines.map((line) => ({
+      lineNumber: line.lineNumber,
+      description: line.descriptionSnapshot,
+      quantity: line.quantity.toString(),
+      unitPriceMinor: line.unitPriceMinor.toString(),
+      discountMinor: line.discountMinor.toString(),
+      lineTotalMinor: line.lineTotalMinor.toString(),
+      tax: {
+        code: line.taxCodeSnapshot ?? null,
+        treatment: line.taxTreatmentSnapshot ?? null,
+        ratePercent: line.taxRatePercentSnapshot?.toString() ?? null,
+        taxableAmountMinor: line.taxableAmountMinor?.toString() ?? '0',
+        taxAmountMinor: line.taxAmountMinor?.toString() ?? '0',
+      },
+    })),
+  };
 }

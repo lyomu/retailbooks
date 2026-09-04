@@ -20,12 +20,13 @@ apart from Phase 1's hardening debt.
 | 5 Banking & Reconciliation | Complete and verified (5A–5E)                                  |
 | 6 Inventory                | Complete and verified (6A–6E)                                  |
 | 7 Projects & Time          | Complete and verified (7A–7F)                                  |
-| 8–14                       | No code                                                        |
+| 8 Globalization            | Complete and verified (8A–8E)                                  |
+| 9–14                       | No code                                                        |
 
 **The active plan is `docs/EXECUTION_PLAN.md`.** It sequences the remaining verification debt
 (Stages 0–4) and Phases 7–9 (Stages 5–7), and records three decisions (D1 ledger dimensions,
 D2 report query strategy, D3 country-pack DB model). All three are decided; D1 is implemented.
-Read it before picking up work. **Next up is Stage 6 (Phase 8, Globalization), which turns on D3.**
+Read it before picking up work. **Next up is Stage 7 (Phase 9, Reporting), the largest phase in this plan — engine-first, reports in batches.**
 
 ### What is genuinely open, in priority order
 

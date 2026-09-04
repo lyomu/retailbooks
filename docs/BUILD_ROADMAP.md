@@ -532,36 +532,45 @@ fallback, and currency/date/number formatting (Phase 1, Milestone 1F). Remaining
 
 ### Data model
 
-- [ ] `CountryPack` versioning as a first-class entity (version, status, supported entity types,
-      defaults) — currently reference data lives in static `jurisdiction-catalog.ts`, not a
-      versionable/publishable DB-backed model
-- [ ] `TaxPack` versioning tied to country pack (labels, rates, registration fields,
-      inclusive/exclusive rules, exemptions, reporting mappings)
-- [ ] `DocumentRule` (required legal fields, numbering constraints, labels, footer/legal text) per country
-- [ ] `StructuredInvoice` canonical JSON/XML-ready model, stored separately from the PDF snapshot
+- [x] `CountryPack` as a versioned, publishable DB entity (unique `(code, version)`, status
+      DRAFT/PUBLISHED/DEPRECATED, tier TIER_A_REVIEWED/TIER_B_GENERIC/TIER_C_BLOCKED, JSONB
+      defaults/notes/supportedEntityTypes) — seeded from `jurisdiction-catalog.ts` per D3
+- [x] `TaxPack` versioned under each pack (rates, registration fields, exemptions, reporting mappings)
+- [x] `DocumentRule` per pack + document type (legal fields, numbering constraints, labels, footer text)
+- [x] `StructuredInvoice` — canonical JSON data artifact stored separately from the PDF-render
+      `DocumentSnapshot`, with its own `payloadSchemaVersion`
+- [x] Migration `20260903140000_add_phase8_globalization` written via the documented shadow-db
+      `migrate diff` dance, applied, and drift-checked empty
 
 ### Backend/API
 
-- [ ] Country-pack CRUD/versioning/publish/deprecate (feeds Phase 12 Platform Admin)
-- [ ] Additional launch-country tax/document packs beyond Kenya (Tier A: fully reviewed; Tier B: generic
-      support without compliance claim; Tier C: blocked from compliance-sensitive setup)
-- [ ] Compliance-status flag surfaced per organization/country: Fully reviewed / Generic configuration /
-      Unsupported — never imply compliance where unreviewed
-- [ ] Locale/i18n string catalog for multi-language UI (locale field exists on organizations today with
-      no translation catalog behind it)
-- [ ] Finalized transactions retain the country-pack/tax-pack version active when issued (extends the
-      existing tax-snapshot pattern)
+- [x] Country-pack CRUD + version/publish/deprecate behind a `PlatformAdminGuard` (interim
+      `PLATFORM_ADMIN_EMAILS` allowlist until Phase 12's superadmin auth); one-way DRAFT→PUBLISHED→DEPRECATED
+      lifecycle; published packs read-only, deprecated packs never re-published (version is the fix)
+- [x] Tier A/B/C enforcement on compliance-sensitive TAX setup (tax-registered or identifier):
+      rejected with 400 for Tier C/unknown packs — never imply compliance where unreviewed
+- [x] Per-organization compliance status derived at read time from the pinned pack (`CountryPackStore.resolveCompliance`):
+      Tier A published → FULLY_REVIEWED, Tier B → GENERIC_CONFIGURATION, Tier C/unknown → UNSUPPORTED;
+      surfaced as `compliance` on every org detail response via `packages/contracts`
+- [x] Locale/i18n string catalog in `packages/localization` (`enStrings` base bundle + `resolveStrings`
+      with honest base-bundle fallback); org settings render compliance badges and a language-fallback note
+- [x] Finalized transactions freeze the active country pack version at issue time (`issueInvoice`/`issueBill`
+      write `countryPackCodeSnapshot`/`countryPackVersionSnapshot` once inside the issue transaction);
+      the structured-invoice artifact is also persisted in the same transaction
 
 ### UI
 
-- [ ] Country pack indicator/compliance-status badge in organization settings
-- [ ] Locale/language switcher (once an i18n catalog exists)
+- [x] Compliance-status badge + pinned-pack block in organization settings (between Jurisdiction and Accounting)
+- [x] Language-fallback note in the locale switcher (surfaces `settings.language.fallback` when `fallbackUsed`)
 
 ### Tests/acceptance
 
-- [ ] Structured invoice model round-trips correctly and stays independent of PDF rendering
-- [ ] Unsupported-jurisdiction compliance claims are never shown in the UI
-- [ ] Country-pack version pinned to a transaction does not change if the pack is later edited
+- [x] Structured invoice round-trips and stays independent of PDF rendering (`structured-invoice.int.test.ts`:
+      canonical artifact at issue time, no render step required, artifact frozen when pack later edited)
+- [x] Unsupported-jurisdiction compliance claims never render (`compliance-claims.int.test.ts`: TAX setup
+      blocked for unknown pack, detail surfaces UNSUPPORTED with no fabricated pack name)
+- [x] Country-pack version pinned at issue does not change when the pack is later edited
+      (`invoices.int.test.ts` pin test + `country-packs.int.test.ts` acceptance test)
 
 ---
 
