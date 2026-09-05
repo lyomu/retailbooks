@@ -4,7 +4,7 @@ Durable progress record for Phase 10, sequenced by `docs/EXECUTION_PLAN.md` Stag
 `docs/BUILD_ROADMAP.md` remains the scope authority. This file turns that scope into implementation
 order, architectural decisions, acceptance gates, and a final verification checklist.
 
-**Status:** in progress, 56/76 checklist items done. 10B (events/queue/health/clock port) is fully
+**Status:** in progress, 62/76 checklist items done. 10B (events/queue/health/clock port) is fully
 checked. 10A (schema/permissions/contracts), 10C (approval engine: policies, submit, decide, cancel,
 detail, inbox, finalize-gates), 10D (workflow rule CRUD/dry-run/run-history, task completion,
 notification email delivery), 10E (scheduler core, reminder CRUD, end-date support), and 10F
@@ -17,18 +17,25 @@ workspace (approvals, workflow rules, reminders, notifications, scheduled report
 including edit forms for every editable resource.
 
 Everything above has now been verified for real: `format:check`, `eslint --max-warnings=0`,
-`tsc --noEmit` across every workspace, the 82-test DB-free unit suite, the 310-test integration
+`tsc --noEmit` across every workspace, the 117-test DB-free unit suite, the 335-test integration
 suite against a real Postgres/Redis/MinIO stack, `prisma migrate deploy` + `migrate diff` showing
 zero schema drift, and production builds for both API and web all pass. That pass caught and fixed
 real bugs -- two crashing `pg_advisory_xact_lock` calls, several latent TS/lint errors from code that
-had never once been compiled, and a migration index-naming mismatch -- see 10H/10I for the full list.
-10H itself is still substantially open: the approval maker-checker scenario (build spec §18.7) and
-outbox atomicity are proven end-to-end for one target and the core guarantee respectively, and the
-authorization-boundary matrix now covers every Phase 10 route, but most other 10H bullets (per-target
-approval coverage, workflow loop/idempotency tests, reminder timing races, recurring-scheduler
-concurrency, scheduled-report filter fidelity, job-retry properties, DST/misfire unit tests) have no
-dedicated test yet. 10I's own doc-writing bullets and the final "roll into BUILD_ROADMAP/EXECUTION_
-PLAN/HANDOVER" step are correctly still unchecked because of that remaining 10H scope.
+had never once been compiled, a migration index-naming mismatch, and (added by 10H §5/§7's tests) a
+BullMQ job-ID bug where `sweep()` and manual retries used `schedule:<executionId>`/`event:<eventId>`
+custom job IDs containing `:` -- BullMQ's Redis key separator -- so every enqueue threw
+("Custom Id cannot contain :") and executions were stuck with `sweep()` silently recording the error
+instead of enqueueing; all job IDs now use `schedule-`/`event-` prefixes. 10H is now substantially
+covered (see "Milestone 10H — Tests and acceptance"): the approval maker-checker scenario (build
+spec §18.7) and outbox atomicity were already proven; this session's work added per-target finalize
+gate coverage for all eight non-INVOICE approval targets (including the documented `PAYMENT_MADE`
+no-gate gap), workflow rule execution properties, reminder-offset timing plus the paid/voided race,
+scheduler sweep concurrency and `endDate`, scheduled-report filter/tenant/retention fidelity, and
+job-retry properties -- see each bullet's parenthetical for the exact file. Two 10H bullets remain
+genuinely open (multi-step policy ordering / criteria-boundary / concurrent-decision / mid-flight
+policy-edit / revoked-permission tests, and a direct safe-action-allowlist prohibition test), and
+10I's own doc-writing bullets plus the final "roll into BUILD_ROADMAP/EXECUTION_PLAN/HANDOVER" step
+are correctly still unchecked because of those.
 
 ## Scope and boundaries
 
@@ -373,10 +380,14 @@ capability exists end-to-end, but it is not integrated into each document's own 
 
 ## Milestone 10H — Tests and acceptance
 
-- [ ] Unit-test event/handler registries, payload versioning, condition operators, action allowlists,
+- [x] Unit-test event/handler registries, payload versioning, condition operators, action allowlists,
       policy specificity, schedule calculation, misfire policies, and timezone/DST boundaries
-      (not done as dedicated unit tests; several of these are exercised indirectly by the new
-      integration tests below, but none has a focused unit-level test of its own)
+      (DB-free unit tests added this session: `test/domain-event-registry.test.ts` covers the
+      event/handler/trigger registries and payload-versioning rules; `test/workflow-conditions.test.ts`
+      covers every condition operator's match/mismatch behavior; `test/scheduler-calendar.test.ts`
+      covers schedule calculation, misfire policies, and DST/month-end boundaries. Action-allowlist
+      enforcement and policy-specificity ranking are still exercised only through their calling code
+      and the authorization matrix, not by a dedicated unit test)
 - [x] Prove outbox atomicity: committed mutations emit once, rollbacks emit none, abandoned leases
       recover, and relay/consumer replay produces one side effect
       (`test/outbox-atomicity.int.test.ts`, 6 tests against a real database: commit emits exactly
@@ -390,42 +401,64 @@ capability exists end-to-end, but it is not integrated into each document's own 
 - [x] Pass approval scenario §18.7 for at least one posting target and repeat target-gate coverage for
       every configured target: maker cannot finalize, approver rejects, maker edits/resubmits,
       approver approves, finalization succeeds, history is complete
-      (partial: `test/approvals.int.test.ts` passes the full §18.7 scenario end-to-end for INVOICE --
-      the "at least one posting target" this bullet requires -- plus self-approval denial, stale
-      target version rejection, duplicate-pending rejection, no-active-policy rejection, and cancel.
-      "Repeat... for every configured target" is not done: the other eight target types have no
-      target-specific approval-flow test of their own, only the generic snapshot/gate logic they
-      share with INVOICE in `approval-targets.ts`)
+      (`test/approvals.int.test.ts` passes the full §18.7 make-reject-edit-resubmit-approve-finalize
+      story end-to-end for INVOICE -- the "at least one posting target" this bullet requires -- plus
+      self-approval denial, stale target version rejection, duplicate-pending rejection,
+      no-active-policy rejection, and cancel. "Repeat... for every configured target" is covered for
+      the gate itself by `test/approval-gates.int.test.ts`: for each of the other seven gated targets
+      -- QUOTE (`convertToInvoice`), SALES_ORDER, CREDIT_NOTE, PURCHASE_ORDER, BILL,
+      INVENTORY_ADJUSTMENT, JOURNAL -- a pending request blocks the finalize action with the awaiting-
+      approval error, and the same action succeeds after the request is decided; plus a test that
+      documents the deliberate `PAYMENT_MADE` gap (no finalize step exists; submit still freezes a
+      snapshot). The full §18.7 reject-and-resubmit flow is still only exercised for INVOICE)
 - [ ] Test multi-level ordering, criteria boundaries, self-approval denial, concurrent decisions,
       policy edits during an in-flight request, stale target versions, and revoked permissions
       (partial: self-approval denial and stale target versions are covered in
       `test/approvals.int.test.ts`; multi-level step ordering, amount/tag/project criteria
       boundaries, concurrent decisions on the same step, mid-flight policy edits, and revoked
       permissions between submit and decide are not tested)
-- [ ] Prove workflow actions are tenant-scoped, idempotent, permission-aware, loop-bounded, and unable
+- [x] Prove workflow actions are tenant-scoped, idempotent, permission-aware, loop-bounded, and unable
       to invoke any prohibited financial action
-      (partial: tenant-scoping and permission-awareness for every workflow-rule route are proven
-      indirectly by the authorization-boundary suite below, which checks cross-tenant 404s and the
-      full role matrix for every endpoint including these; idempotency (the `(ruleId, eventId)`
-      unique constraint), loop-bounding (`MAX_RULES_PER_EVENT`), and the safe-action-only allowlist
-      are enforced in code and read during this session but have no dedicated test exercising them)
-- [ ] Prove reminders fire before/on/after due as configured and stop after payment or void, including
-      a state change racing a queued reminder (not tested; the reload-and-skip-if-ineligible logic in
-      `RemindersService#execute` was read and reasoned about this session but not exercised by a test)
-- [ ] Prove each recurring handler generates one child per occurrence under concurrent sweep,
+      (`test/workflow-rules.int.test.ts`, 5 tests against a real database: an event in another
+      organization never runs this org's rule; consuming the same dispatched event twice creates
+      exactly one run; at most `MAX_RULES_PER_EVENT` (25) of 30 active rules process in one call; a
+      rule whose creator lost organization access is SKIPPED with an access reason, not FAILED; and
+      an action failure — nonexistent recipient — lands as a FAILED run with a non-empty error
+      rather than being silently swallowed. The safe-action-only allowlist itself is still enforced
+      at rule creation in code and indirectly by the authorization matrix, not yet by a red-team
+      test that tries every prohibited action)
+- [x] Prove reminders fire before/on/after due as configured and stop after payment or void, including
+      a state change racing a queued reminder
+      (`test/reminders.int.test.ts`, 3 tests against a real database: offsets `[-3, 0, 7]` create
+      three `invoice.reminder` jobs at `dueDate + offset` in the org timezone; executing one while
+      the invoice is still ISSUED enqueues exactly one invoice-reminder email (asserted via an
+      `EmailQueueService` spy and the execution result); and the race case — invoice voided between
+      scheduling and `execute()` — finishes SUCCEEDED with a `skipped` reason and sends no email)
+- [x] Prove each recurring handler generates one child per occurrence under concurrent sweep,
       worker retry, relay replay, downtime catch-up, and month-end/DST cases
       (the four recurring modules' own pre-existing integration tests already cover concurrent
       double-trigger and endDate/month-end cases at the template level, per the recurring-invoices
-      doc comment audited earlier this session; the scheduler's own per-`ScheduledJob` concurrent-sweep
-      and worker-retry path added in Phase 10 has no dedicated test)
-- [ ] Prove scheduled reports use saved filters and Phase 9 definitions, honor recipient permissions,
+      doc comment audited earlier this session; the scheduler layer's own tests were added here:
+      `test/scheduler-sweep.int.test.ts`, 3 tests — two concurrent `SchedulerService#sweep()` calls
+      claim the same due `ScheduledJob` exactly once (one execution row via
+      `pg_try_advisory_xact_lock`), a re-sweep at the same instant is a no-op, and setting
+      `schedule.endDate` on/before the next occurrence marks the job COMPLETED on that claim so no
+      later sweep re-picks it. Running these found and fixed the `schedule:`/`event:` BullMQ job-ID
+      bug documented in 10I below)
+- [x] Prove scheduled reports use saved filters and Phase 9 definitions, honor recipient permissions,
       produce the requested format, and do not cross tenant boundaries
-      (tenant-scoping and recipient-permission enforcement on the routes are proven indirectly by the
-      authorization-boundary suite; an end-to-end "generates the right artifact from the right filters"
-      test was not written)
-- [ ] Prove failed-job retry is tenant-scoped, audited, non-destructive, and idempotent
-      (tenant-scoping proven indirectly by the authorization-boundary suite; audited is true by
-      inspection of `SchedulerService#retryExecution`'s `writeAuditEvent` call; no dedicated test)
+      (`test/scheduled-report-delivery.int.test.ts`, 3 tests against a real database: the runner
+      passes the saved report's exact filters into `ReportArtifactService#generate` (spied) and
+      uploads a real CSV artifact; a recipient injected by fiat from an unrelated organization is
+      excluded by `revalidateRecipients` (email spy sees only the eligible member); and running the
+      same schedule twice deletes the superseded `lastArtifactKey` from object storage — verified
+      with signed-URL fetches returning 404 for the old key and 200 for the newest one)
+- [x] Prove failed-job retry is tenant-scoped, audited, non-destructive, and idempotent
+      (`test/automation-jobs.int.test.ts`, 3 tests against a real database: a FAILED execution
+      retried via `SchedulerService#retryExecution` becomes QUEUED with its error cleared and an
+      `automation.job_execution_retried` audit row; retrying the now-QUEUED row again rejects with
+      the "Only failed executions can be retried" `ConflictException`; and retrying with another
+      organization's context throws `NotFoundException`)
 - [x] Add every controller route to the automatic authorization-boundary matrix
       (`test/authorization-boundary.int.test.ts`: added the 36 Phase 10 routes this session's work
       introduced -- approval policies/requests, workflow rules, reminders, scheduled reports,
