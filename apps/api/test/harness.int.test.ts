@@ -1,7 +1,14 @@
+import { Queue } from 'bullmq';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
+import { AUTOMATION_QUEUE_NAME } from '../src/automation/automation-job.js';
+import { EMAIL_QUEUE_NAME } from '../src/jobs/email-job.js';
+import { producerConnection } from '../src/jobs/redis-connection.js';
 import { API, createTestHarness, type TestHarness } from './support/app.js';
 import { migrationCount } from './support/database.js';
+
+const redisUrl = process.env.REDIS_URL ?? 'redis://127.0.0.1:56379';
+const prefix = process.env.QUEUE_PREFIX ?? 'retailbooks-integration';
 
 describe('integration harness', () => {
   let harness: TestHarness;
@@ -16,6 +23,19 @@ describe('integration harness', () => {
 
   beforeEach(async () => {
     await harness.reset();
+    // Every file in the suite shares one Redis prefix and the harness boots no queue consumers,
+    // so jobs enqueued by earlier-running files (auth emails, relayed outbox events) would
+    // otherwise make the depth-zero assertions below depend on file ordering. Drain both queues
+    // so this file always sees the clean slate it asserts on.
+    const drain = (name: string) => {
+      const admin = new Queue(name, {
+        connection: producerConnection(redisUrl),
+        prefix,
+        skipWaitingForReady: true,
+      });
+      return admin.obliterate({ force: true }).finally(() => admin.close());
+    };
+    await Promise.allSettled([drain(EMAIL_QUEUE_NAME), drain(AUTOMATION_QUEUE_NAME)]);
   });
 
   it('serves the real application under the production api/v1 prefix', async () => {
