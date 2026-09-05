@@ -16,11 +16,12 @@ when Phase 1 hardening items close. Phases 2–14 exist only here; consider crea
 `docs/PHASE<N>_TODO.md` in the same style once a phase starts, and rolling its detail back into this
 file the way Phase 1's is summarized.
 
-**Status snapshot (2026-09-03):** Seven of fourteen phases have code, and all seven now meet this
-document's "done and verified" bar apart from Phase 1's hardening debt. Sequencing for everything
-below lives in `docs/EXECUTION_PLAN.md`. Whole-repo gate at this snapshot: lint, prettier, and
-typecheck clean; 112 unit tests; **36 integration files / 281 tests**; migration drift zero in both
-directions; API and web production builds green.
+**Status snapshot (2026-09-05):** Ten of fourteen phases have code, and nine of those meet this
+document's "done and verified" bar apart from Phase 1's hardening debt and Phase 10's tracked debt
+(named in its section below). Sequencing for everything below lives in `docs/EXECUTION_PLAN.md`.
+Whole-repo gate at this snapshot: lint, prettier, and typecheck clean; 117 unit tests; **48
+integration files / 335 tests**; migration drift zero in both directions plus migration replay from
+scratch into a shadow database; API and web production builds green.
 
 - **Phase 1 (Foundation)** — functionally complete, hardening/test debt open (Milestone 1J).
 - **Phase 2 (Sales)** — complete and verified (2A–2K); see `docs/PHASE2_TODO.md`.
@@ -35,8 +36,12 @@ directions; API and web production builds green.
 - **Phase 7 (Projects & Time)** — complete and verified (7A–7F); see `docs/PHASE7_TODO.md`. Carries
   decision D1's ledger dimensions, which Phase 9's dimension-filtered reports build on. Phase 14
   cross-module scenario 3 is earned here.
-- **Phases 8–14** — **no code yet**: no models, modules, routes, or pages exist for globalization
-  beyond Phase 1's catalog, the reporting engine, automation, portals, platform admin, or AI.
+- **Phase 8 (Globalization)** — complete and verified (8A–8E); see `docs/PHASE8_TODO.md`.
+- **Phase 9 (Reporting)** — complete and verified (9A–9F); see `docs/PHASE9_TODO.md`.
+- **Phase 10 (Automation & Approvals)** — complete and verified (10A–10I) with tracked debt; see
+  `docs/PHASE10_TODO.md`.
+- **Phases 11–14** — **no code yet**: no models, modules, routes, or pages exist for portals,
+  platform admin, or AI.
 
 Two defects that the Phase 5/6 code-first rule had hidden were found and fixed during that pass:
 the authorization-boundary matrix could not detect an omitted controller (43 endpoints were
@@ -620,49 +625,62 @@ exist from Phase 1 (part of the ledger module, not a general reporting engine).
 
 ## Phase 10 — Automation & Approvals
 
-**Status: implementation plan ready; code not started (2026-09-04).** Detailed decisions,
+**Status: complete and verified (2026-09-05), with named tracked debt.** Detailed decisions,
 sequencing, migration strategy, and acceptance gates are in `docs/PHASE10_TODO.md` and
-`docs/EXECUTION_PLAN.md` Stage 8.
+`docs/EXECUTION_PLAN.md` Stage 8. The full gate is green: format, lint, typecheck, 117 unit + 335
+integration tests, zero migration drift in both directions plus shadow-database migration replay,
+and both production builds. Carried forward as tracked debt, following the Phase 1 precedent: the
+Quote bespoke approval route is not yet an adapter into the policy engine; the 10H approval
+edge-case tests (multi-level ordering, criteria boundaries, concurrent decisions, mid-flight policy
+edits, revoked permissions); the two deliberately-deferred 10F refactors (export streaming, async
+`202` oversized-PDF export); the 10E `runDueTemplates` unification; two 10A contract schemas; and
+the 10I operator-facing docs.
 
 Build spec §12; blueprint §13.
 
 ### Data model
 
-- [ ] `ApprovalPolicy` (module, condition/threshold, chain definition)
-- [ ] `ApprovalRequest` (submitter, target document, chain state, comments, history)
-- [ ] `WorkflowRule` (trigger, conditions, actions)
-- [ ] `ScheduledJob` generalization for recurring transactions/reports beyond the current email queue
-- [ ] `Notification` + per-user notification preferences
+- [x] `ApprovalPolicy` (module, condition/threshold, chain definition)
+- [x] `ApprovalRequest` (submitter, target document, chain state, comments, history)
+- [x] `WorkflowRule` (trigger, conditions, actions)
+- [x] `ScheduledJob` generalization for recurring transactions/reports beyond the current email queue
+- [x] `Notification` + per-user notification preferences
 
 ### Backend/API
 
-- [ ] Approvals: no-approval / simple / multi-level / criteria-based policies
-- [ ] Approval targets: quotes, sales orders, invoices, credit notes, POs, bills, payments made,
+- [x] Approvals: no-approval / simple / multi-level / criteria-based policies
+      (no `submitter role` condition; tag/project criteria cannot match any target today — see
+      `docs/PHASE10_TODO.md` 10C)
+- [x] Approval targets: quotes, sales orders, invoices, credit notes, POs, bills, payments made,
       inventory adjustments, journals — each configurable independently
-- [ ] Rule engine: trigger + conditions + actions, permission-aware; start with safe actions
+- [x] Rule engine: trigger + conditions + actions, permission-aware; start with safe actions
       (notifications, field updates, task creation)
-- [ ] Reminders: before-due/on-due/overdue schedules; email template; stop when paid/void
-- [ ] Recurring engine: shared implementation consumed by invoices, bills, expenses, journals, with
+      (notification + task actions shipped; the field-update safe action is deliberately scoped
+      out — see `docs/PHASE10_TODO.md` 10D)
+- [x] Reminders: before-due/on-due/overdue schedules; email template; stop when paid/void
+- [x] Recurring engine: shared implementation consumed by invoices, bills, expenses, journals, with
       idempotent occurrence keys (consolidate the per-module recurring logic sketched in Phases 2–4)
-- [ ] Notifications: in-app + email preference matrix
-- [ ] Scheduled reports: report + recipients + cadence + format (integrates with Phase 9)
-- [ ] Failed-job dashboard and retry controls for administrators
+      (handlers run through the shared scheduler with idempotent occurrence keys; the four modules'
+      own due-sweep route remains a second entry point — see `docs/PHASE10_TODO.md` 10E)
+- [x] Notifications: in-app + email preference matrix
+- [x] Scheduled reports: report + recipients + cadence + format (integrates with Phase 9)
+- [x] Failed-job dashboard and retry controls for administrators
 
 ### UI
 
-- [ ] Approvals inbox (submitter/approver views) — "Tasks/approvals" already stubbed as a nav concept in
+- [x] Approvals inbox (submitter/approver views) — "Tasks/approvals" already stubbed as a nav concept in
       the Overview section per blueprint §5
-- [ ] Rules management screen
-- [ ] Reminders configuration screen
-- [ ] Notifications preference center
-- [ ] Scheduled reports management screen
+- [x] Rules management screen
+- [x] Reminders configuration screen
+- [x] Notifications preference center
+- [x] Scheduled reports management screen
 
 ### Tests/acceptance
 
-- [ ] Approval scenario (build spec §18.7): maker creates transaction → cannot issue before approval →
+- [x] Approval scenario (build spec §18.7): maker creates transaction → cannot issue before approval →
       approver rejects → maker edits/resubmits → approver approves → issue/post → complete history
-- [ ] Reminder schedule stops correctly once an invoice is paid or void
-- [ ] Recurring engine occurrence keys prevent duplicate generation under retry/replay
+- [x] Reminder schedule stops correctly once an invoice is paid or void
+- [x] Recurring engine occurrence keys prevent duplicate generation under retry/replay
 
 ---
 

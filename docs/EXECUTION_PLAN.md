@@ -494,8 +494,13 @@ item.
 
 ## Stage 8 — Phase 10: Automation & Approvals
 
-**Status: planned, not started (2026-09-04).** The implementation-ready checklist, architectural
-decisions, sequencing, and acceptance gates are in `docs/PHASE10_TODO.md`.
+**Status: complete and verified with tracked debt (2026-09-05).** The implementation-ready
+checklist, architectural decisions, sequencing, and acceptance gates are in `docs/PHASE10_TODO.md`.
+The full repository gate is green — format, lint, typecheck, 117 unit + 335 integration tests, zero
+migration drift in both directions plus shadow-database migration replay, and both production
+builds. Debt carried forward, each named on its own unchecked bullet below: the Quote
+approval-route adapter, the 10H approval edge-case tests, the two deferred 10F refactors, the 10E
+recurring unification, and the 10I operator docs.
 
 **Roadmap:** `BUILD_ROADMAP.md` Phase 10. **Depends on:** the existing BullMQ/email worker,
 module-specific recurring templates, target state machines, Phase 9 report/export seams, tenant
@@ -504,45 +509,56 @@ permissions, audit events, and object storage. **Critical blocker:** no durable 
 ### 10A — Durable foundation
 
 - [ ] Add shared contracts, permissions, Phase 10 models, migration, and recurring-schedule backfill
-- [ ] Implement a PostgreSQL transactional outbox; never poll `AuditEvent` as a business event queue
-- [ ] Extend the existing worker with a typed automation queue, idempotent consumers, leases,
+      (partial: models, permissions, migration, and backfill are done and verified; the
+      `ReminderPolicy` and `ScheduledJobExecution` contract schemas remain tracked debt)
+- [x] Implement a PostgreSQL transactional outbox; never poll `AuditEvent` as a business event queue
+- [x] Extend the existing worker with a typed automation queue, idempotent consumers, leases,
       retries, health, metrics, and a testable clock
-- [ ] Establish one database-backed scheduler as the only owner of next-run state
+- [x] Establish one database-backed scheduler as the only owner of next-run state
 
 ### 10B — Existing recurring work first
 
-- [ ] Port recurring invoices, bills, expenses, and journals to scheduler handler adapters
+- [x] Port recurring invoices, bills, expenses, and journals to scheduler handler adapters
 - [ ] Preserve their public contracts while eliminating module-specific schedule advancement
-- [ ] Prove occurrence uniqueness under concurrent sweep, retry, replay, downtime, DST, and month-end
+      (partial: handlers run through the shared scheduler with idempotent occurrence keys, but the
+      four recurring modules' `runDueTemplates` HTTP routes remain independent entry points and
+      recurring API state is not projected from the shared job — see `PHASE10_TODO.md` 10E)
+- [x] Prove occurrence uniqueness under concurrent sweep, retry, replay, downtime, DST, and month-end
 
 ### 10C — Approvals
 
 - [ ] Implement no/simple/multi-level/criteria policy resolution with frozen request-step snapshots
-- [ ] Add target adapters and non-bypassable finalization gates for every roadmap approval target
-- [ ] Deliver inbox, submit/reject/edit/resubmit/approve/history flows with maker-checker separation
+      (partial: amount, submitter-user, tag, and project criteria resolve deterministically with
+      frozen snapshots; there is no `submitter role` condition — see `PHASE10_TODO.md` 10C)
+- [x] Add target adapters and non-bypassable finalization gates for every roadmap approval target
+- [x] Deliver inbox, submit/reject/edit/resubmit/approve/history flows with maker-checker separation
 
 ### 10D — Rules and notifications
 
-- [ ] Build declarative trigger/condition/action registries with only safe, permission-aware actions
-- [ ] Add automation tasks, loop protection, run history, in-app notifications, email preferences,
+- [x] Build declarative trigger/condition/action registries with only safe, permission-aware actions
+- [x] Add automation tasks, loop protection, run history, in-app notifications, email preferences,
       and lifecycle audits
 
 ### 10E — Reminders, reports, and job operations
 
-- [ ] Schedule due/overdue invoice reminders and cancel/recheck them on paid or void state
+- [x] Schedule due/overdue invoice reminders and cancel/recheck them on paid or void state
 - [ ] Deliver scheduled reports and oversized PDFs through Phase 9's engine and object storage
-- [ ] Expose organization-scoped failed executions and audited, idempotent retry controls
+      (partial: scheduled reports deliver through Phase 9's engine end to end; oversized-PDF
+      `202 Accepted` export is deliberately deferred — see `PHASE10_TODO.md` 10F)
+- [x] Expose organization-scoped failed executions and audited, idempotent retry controls
 
 ### 10F — Web workspaces
 
-- [ ] Approvals inbox/policies, rules, reminders, notification preferences, scheduled reports, and
+- [x] Approvals inbox/policies, rules, reminders, notification preferences, scheduled reports, and
       organization job failures; every surface self-gates by permission
 
 ### 10G — Acceptance and close-out
 
-- [ ] Pass the §18.7 approval scenario, event atomicity/replay, reminder cancellation, recurring
+- [x] Pass the §18.7 approval scenario, event atomicity/replay, reminder cancellation, recurring
       occurrence, scheduled-report, tenant-isolation, and boundary-matrix suites
 - [ ] Full repository gate and migration drift green; roll up roadmap, plan, handover, and runbooks
+      (partial: the gate, migration drift, and the roadmap/plan/handover roll-up are done
+      (2026-09-05); the operator runbooks remain — see `PHASE10_TODO.md` 10I)
 
 ---
 

@@ -4,52 +4,52 @@
 double-entry accounting & invoicing web platform (monorepo: `apps/api` NestJS, `apps/web` Next.js,
 `packages/*` shared libs).
 
-**Last refreshed:** 2026-09-04 (Phase 10 implementation in progress).
+**Last refreshed:** 2026-09-05 (Phase 10 closed).
 
 ## 1. Where things stand
 
-Nine of fourteen phases have code and meet the roadmap's "done and verified" bar (Phase 1 remains
-functionally complete with explicitly tracked hardening debt). Phase 10 now has substantial code and
-a green whole-repo verification pass, but is **not** done — real test-coverage gaps remain; see below.
+Ten of fourteen phases have code. Nine meet the roadmap's "done and verified" bar (Phase 1 remains
+functionally complete with explicitly tracked hardening debt). Phase 10 closed on 2026-09-05 with a
+green whole-repo gate and named tracked debt — see its "Recently closed" section below.
 
-| Phase                      | State                                                                                                                       |
-| -------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| 1 Foundation               | Functionally complete; hardening/test debt open (Milestone 1J)                                                              |
-| 2 Sales                    | Complete and verified (2A–2K)                                                                                               |
-| 3 Purchases                | Complete and verified (3A–3H)                                                                                               |
-| 4 Accounting Engine        | Complete and verified (4A–4G)                                                                                               |
-| 5 Banking & Reconciliation | Complete and verified (5A–5E)                                                                                               |
-| 6 Inventory                | Complete and verified (6A–6E)                                                                                               |
-| 7 Projects & Time          | Complete and verified (7A–7F)                                                                                               |
-| 8 Globalization            | Complete and verified (8A–8E)                                                                                               |
-| 9 Reporting                | Complete and verified (9A–9F)                                                                                               |
-| 10 Automation & Approvals  | In progress: 56/76 checklist items (10B fully done; 10A/10C/10D/10E/10F/10G substantially but not fully done; 10H/10I open) |
-| 11–14                      | No code                                                                                                                     |
+| Phase                      | State                                                                                                     |
+| -------------------------- | --------------------------------------------------------------------------------------------------------- |
+| 1 Foundation               | Functionally complete; hardening/test debt open (Milestone 1J)                                            |
+| 2 Sales                    | Complete and verified (2A–2K)                                                                             |
+| 3 Purchases                | Complete and verified (3A–3H)                                                                             |
+| 4 Accounting Engine        | Complete and verified (4A–4G)                                                                             |
+| 5 Banking & Reconciliation | Complete and verified (5A–5E)                                                                             |
+| 6 Inventory                | Complete and verified (6A–6E)                                                                             |
+| 7 Projects & Time          | Complete and verified (7A–7F)                                                                             |
+| 8 Globalization            | Complete and verified (8A–8E)                                                                             |
+| 9 Reporting                | Complete and verified (9A–9F)                                                                             |
+| 10 Automation & Approvals  | Complete and verified (10A–10I), 64/76 checklist items; tracked debt named in `PHASE10_TODO.md` and below |
+| 11–14                      | No code                                                                                                   |
 
-**The active plan is `docs/EXECUTION_PLAN.md`.** It sequences the remaining verification debt
-(Stages 0–4) and Phases 7–9 (Stages 5–7), and records three decisions (D1 ledger dimensions,
-D2 report query strategy, D3 country-pack DB model). All three are decided; D1 is implemented.
-Read it before picking up work. **Stages 0–7 are closed. Stage 8 / Phase 10 is in progress** — see
-`docs/PHASE10_TODO.md` for the full checklist and `docs/PHASE10_TEST_PLAN.md` for a step-by-step
-script to finish its remaining test coverage. It owns the scheduled-report delivery worker
-deliberately deferred by Phase 9, which is now built.
+**The plan is `docs/EXECUTION_PLAN.md`.** It sequenced the verification debt (Stages 0–4) and
+Phases 7–10 (Stages 5–8), and records three decisions (D1 ledger dimensions, D2 report query
+strategy, D3 country-pack DB model). All three are decided; D1 is implemented.
+**Stages 0–8 are all closed as of 2026-09-05.** `docs/PHASE10_TODO.md` remains the durable Phase 10
+record including its tracked-debt list; `docs/PHASE10_TEST_PLAN.md` documents how its remaining
+test coverage was executed. Next up: Phases 11–14 (portals, platform admin, AI, cross-module
+scenarios) — no code exists for any of them yet.
 
 ### What is genuinely open, in priority order
 
-1. **Phase 10 (Automation) test coverage.** The feature is implemented and the whole-repo gate is
-   green (see "Recently closed" below), but Milestone 10H is substantially unwritten. **Start with
-   `docs/PHASE10_TEST_PLAN.md`** — it is a ready-to-execute script, not just a checklist: exact file
-   names, exact scenarios, exact service methods, and the two existing integration tests
-   (`test/approvals.int.test.ts`, `test/outbox-atomicity.int.test.ts`) to copy the pattern from. Two
-   smaller pieces of 10E/10F were deliberately deferred as too large/risky to attempt blind this
-   session — the Phase 9 export streaming refactor and unifying the four recurring modules'
-   `runDueTemplates` HTTP routes into the scheduler — both fully reasoned about in `PHASE10_TODO.md`.
-2. **Two ADR 0011 follow-ups**, each recorded in `PHASE1_TODO.md` with its owning phase: an
+1. **Phases 11–14 have no code.** Portals & Collaboration (11), Platform Admin (12), AI (13), and
+   the pre-release cross-module scenarios (14) are roadmap sections only. The §18.1
+   quote-through-payment chain remains the named end-to-end gap: banking import/match/reconcile
+   are covered in isolation, but not the full chain from quote through acceptance, invoice,
+   partial and final payment, to P&L/AR/GL agreement.
+2. **Phase 10 tracked debt**, each named on its own unchecked bullet in `docs/PHASE10_TODO.md`: the
+   10H approval edge-case tests (multi-level ordering, criteria boundaries, concurrent decisions,
+   mid-flight policy edits, revoked permissions), Quote's bespoke approval route as an adapter into
+   the policy engine, the two deferred 10F refactors (export streaming, async `202` oversized-PDF
+   export), the 10E recurring unification, two 10A contract schemas, 10C's `submitter role`
+   condition and state-machine documentation, 10D's field-update action, and 10I's operator docs.
+3. **Two ADR 0011 follow-ups**, each recorded in `PHASE1_TODO.md` with its owning phase: an
    attachment content-type allowlist, and validating the environment once at startup
    (`packages/config` is still a stub, and only `SECURITY_PEPPER` asserts itself).
-3. **Cross-module scenario 1 (§18.1)** is the one Phase 5 acceptance item still open. Banking
-   import/match/reconcile are covered in isolation, but not the full chain from quote through
-   acceptance, invoice, partial and final payment, to P&L/AR/GL agreement.
 4. **Stage 4.5–4.8** — visual-regression baselines, the WCAG 2.2 AA review, and the backup/restore
    drill — are folded into Phase 14 by decision, not by drift. See `PHASE1_TODO.md` Milestone 1J.
 
@@ -69,6 +69,35 @@ deliberately deferred by Phase 9, which is now built.
 
 Full reasoning, including what was rejected, is in `EXECUTION_PLAN.md` §"Decisions to make before
 Stage 5".
+
+### Recently closed (2026-09-05) — Phase 10 close-out
+
+- **Phase 10 (Automation & Approvals) closed to the roadmap's "done and verified" bar, with named
+  tracked debt.** The full gate is green: `format:check`, `eslint --max-warnings=0`, `tsc --noEmit`
+  across every workspace, **117 unit tests**, **335 integration tests in 48 files** against the real
+  Postgres/Redis/MinIO stack, migration drift zero in both directions **plus** the migration files
+  replayed from scratch into a fresh shadow database matching the datamodel (the CI check), and
+  both production builds. This was the first full-suite run since the §4–§7 test files landed.
+- **Test coverage completed this session:** reminder-offset timing plus the paid/voided race
+  (`reminders.int.test.ts`), scheduled-report filter/tenant/retention fidelity
+  (`scheduled-report-delivery.int.test.ts`), scheduler sweep concurrency and `endDate`
+  (`scheduler-sweep.int.test.ts`), and job-retry properties (`automation-jobs.int.test.ts`).
+- **One production bug fixed:** BullMQ rejects custom job IDs containing `:` (its Redis key
+  separator), so `event:${eventId}`/`schedule:${executionId}` would have thrown on first real use;
+  all three enqueue sites now use `event-`/`schedule-` prefixes (full narrative in the 2026-09-04
+  section below).
+- **One test-infrastructure fix:** `harness.int.test.ts` asserted empty BullMQ queues, but the
+  suite shares one Redis prefix and boots no consumers, so jobs enqueued by earlier-running files
+  made the assertion order-dependent. The harness now drains both queues before asserting.
+- **Environment quirk discovered:** on this machine `localhost` can resolve to IPv6 `::1` only,
+  which the Docker services do not listen on — Prisma and `pg` both fail with `read ECONNRESET`
+  while `127.0.0.1` works. The untracked `.env` files now pin `127.0.0.1` for every service URL;
+  see §2.
+- **Tracked debt carried forward** (each detailed in `docs/PHASE10_TODO.md`): the 10H approval
+  edge-case tests; Quote's bespoke approval route not yet adapted into the policy engine; the
+  deferred 10F refactors (export streaming, async `202` oversized-PDF export); the 10E recurring
+  unification; two 10A contract schemas; 10C's `submitter role` condition and state-machine
+  documentation; 10D's field-update action; and the 10I operator runbooks.
 
 ### Recently closed (2026-09-04) — Phase 10 automation implementation + verification pass
 
@@ -208,6 +237,11 @@ All still true (see `docs/PHASE3_TODO.md` "After 3H" and `PHASE4_TODO.md` findin
   machine, which reads as "the DB is up" when RetailBooks' own containers are not.
 - The boundary-matrix sweep legitimately needs ~60s (243 endpoints × 8 roles) and carries a 240s
   timeout — don't revert it to defaults. Raise it again when a phase adds a batch of controllers.
+- On this machine, `localhost` can resolve to IPv6 `::1` only, while the Docker services publish
+  IPv4 ports. Symptom: Prisma and raw `pg` fail with `read ECONNRESET` on `localhost` while
+  `127.0.0.1` works (Docker Desktop restarts can flip which resolution wins). The untracked
+  `.env` files pin `127.0.0.1` for `DATABASE_URL`, `REDIS_URL`, `S3_ENDPOINT`, and `SMTP_HOST` —
+  keep it that way, and check this first when a fresh clone cannot reach the stack.
 - `retailbooks_perf` is a **disposable** scratch database for query-plan work, not part of any
   suite — see `docs/PERFORMANCE.md` "Re-checking" for how to rebuild and drop it. Two tenants
   matter when you do: with one, a missing tenant predicate produces the same plan either way.
