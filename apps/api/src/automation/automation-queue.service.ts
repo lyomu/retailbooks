@@ -42,7 +42,7 @@ export class AutomationQueueService implements OnModuleDestroy {
     await this.queue.add(
       AUTOMATION_JOB_NAMES.domainEvent,
       { eventId },
-      { jobId: `event:${eventId}` },
+      { jobId: `event-${eventId}` },
     );
   }
 
@@ -50,7 +50,7 @@ export class AutomationQueueService implements OnModuleDestroy {
     await this.queue.add(
       AUTOMATION_JOB_NAMES.scheduledExecution,
       { executionId },
-      { jobId: `schedule:${executionId}` },
+      { jobId: `schedule-${executionId}` },
     );
   }
 
@@ -61,7 +61,7 @@ export class AutomationQueueService implements OnModuleDestroy {
    * record instead of running again, so the stale job is removed first.
    */
   async retryScheduledExecution(executionId: string): Promise<void> {
-    const jobId = `schedule:${executionId}`;
+    const jobId = `schedule-${executionId}`;
     const existing = await this.queue.getJob(jobId);
     if (existing) {
       const state = await existing.getState();
