@@ -61,6 +61,15 @@ import { StatementsService } from './statements.service.js';
     StatementsService,
   ],
   // Exported so Projects can bill through the one invoice path rather than forking a second one.
-  exports: [InvoicesService, DocumentRenderingService, RecurringInvoicesService, StatementsService],
+  exports: [
+    InvoicesService,
+    DocumentRenderingService,
+    RecurringInvoicesService,
+    StatementsService,
+    // Exported for the demo seed, which builds the Phase 11 portal fixture out of real customer and
+    // quote workflows rather than hand-written rows.
+    CustomersService,
+    QuotesService,
+  ],
 })
 export class SalesModule {}

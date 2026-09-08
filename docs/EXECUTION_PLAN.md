@@ -562,6 +562,54 @@ permissions, audit events, and object storage. **Critical blocker:** no durable 
 
 ---
 
+## Stage 9 — Phase 11: Portals & Collaboration
+
+**Status: implementation complete, verification partial (2026-09-08). Not closed.** The evidence
+ledger, the eleven defects this pass found and fixed, and the precise list of gates that have not
+been run are in `docs/PHASE11_TODO.md`. Phase 11 does **not** meet the Definition of Done below:
+item 8 (full CI sequence green) and item 9 (handover refreshed on a closed phase) are outstanding.
+
+**Roadmap:** `BUILD_ROADMAP.md` Phase 11. **Depends on:** verified-user sessions, the organization
+permission model, object storage and signed URLs, the audit event writer, statement derivation, and
+document rendering.
+
+### 11A–11G — Implementation
+
+- [x] Schema, migration, permissions and contracts for portal grants, invitations, comments,
+      attachments and the activity projection
+- [x] Portal identity, invitation lifecycle, scoped documents, statements and CSV export, atomic
+      quote decisions, and the permitted profile and address fields
+- [x] Accountant multi-client access as ordinary membership, with role context in the switcher
+- [x] Generic collaboration APIs behind one target registry, with the Bills/Expenses adapters kept
+      working including a re-authorized attachment download endpoint
+- [x] Unified activity timeline with stable cursor pagination, projected in the same round trip as
+      the audit event it derives from
+- [x] Portal web surfaces and the reusable Comments/Files/Activity panel on all twelve
+      transaction-detail routes
+
+### 11H — Tests
+
+- [x] Portal acceptance suite: invitation binding, expiry, replay, revocation, shared identity,
+      tenant and same-org contact isolation, lifecycle visibility, quote-decision concurrency,
+      statement reconciliation, profile rules, and the portal authorization-boundary matrix
+      (29/29 captured)
+- [x] Collaboration acceptance suite: internal/customer comment and attachment leakage, file
+      validation, download authorization, activity ordering and cursor paging, and accountant
+      multi-client isolation (21/21 captured)
+- [x] Internal authorization-boundary matrix extended to every Phase 11 organization-scoped route
+      (6/6 captured)
+- [ ] Portal E2E and accessibility coverage — written, never executed
+
+### 11I — Verification and close-out
+
+- [x] Migration applied locally and replayed from scratch in the dedicated E2E database
+- [x] API and web typecheck, and repository formatting
+- [ ] Lint, full-suite integration rerun, both production builds, Playwright, visual review, design
+      detector, and forward/reverse drift — **not captured**; see the ledger in `PHASE11_TODO.md`
+- [ ] Roll a verified Phase 11 into the roadmap, this plan, and the handover
+
+---
+
 ## Definition of done (every stage above)
 
 From the roadmap's own DoD, reduced to what is actually enforceable per phase:

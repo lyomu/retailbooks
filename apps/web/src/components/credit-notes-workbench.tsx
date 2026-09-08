@@ -31,6 +31,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { ApiError, apiRequest } from '../lib/api';
 import { hasPermission, useWorkspace } from '../lib/workspace';
+import { TransactionCollaboration } from './transaction-collaboration';
 
 type CreditNoteListResponse = { data: CreditNote[] };
 type CreditNoteResponse = { data: CreditNote };
@@ -858,6 +859,23 @@ export function CreditNoteEditorPage({ creditNoteId }: { creditNoteId?: string }
               </Card>
             ) : null}
           </>
+        ) : null}
+        {organizationId && creditNoteId ? (
+          <TransactionCollaboration
+            organizationId={organizationId}
+            targetType="CREDIT_NOTE"
+            targetId={creditNoteId}
+            canComment={hasPermission(organization, 'collaboration.comments.create')}
+            canUpload={
+              hasPermission(organization, 'collaboration.attachments.upload') &&
+              hasPermission(organization, 'sales.credit_notes.manage')
+            }
+            canShareWithCustomer={hasPermission(
+              organization,
+              'collaboration.customer_visibility.manage',
+            )}
+            customerEligible
+          />
         ) : null}
       </div>
     </>

@@ -127,6 +127,22 @@ export class BillsController {
     return { data: await this.attachments.list(request.organization.id, 'BILL', billId) };
   }
 
+  /**
+   * Phase 11 stopped putting a signed URL on every listed attachment: a listing is not an
+   * authorization to fetch bytes. This endpoint re-checks access and issues the short-lived link.
+   */
+  @Get(':billId/attachments/:attachmentId/download')
+  @RequirePermission('purchases.bills.view')
+  async downloadAttachment(
+    @Param('billId', new ParseUUIDPipe()) billId: string,
+    @Param('attachmentId', new ParseUUIDPipe()) attachmentId: string,
+    @Req() request: OrganizationRequest,
+  ) {
+    return {
+      data: await this.attachments.download(request.organization.id, 'BILL', billId, attachmentId),
+    };
+  }
+
   @Post(':billId/attachments')
   @HttpCode(201)
   @RequirePermission('purchases.bills.manage')

@@ -695,38 +695,52 @@ Build spec §13; blueprint §13.
 - [x] `Attachment` centralized with visibility, portal attribution, signed downloads, and audit data
 - [x] Unified `Activity` projection spanning recognised status/email/approval/accounting/user actions
 
+> **Status: implementation complete, verification partial. Phase 11 is not closed.**
+> `docs/PHASE11_TODO.md` holds the evidence ledger, the eleven defects this pass found and fixed,
+> and the exact list of gates that have not been run. Boxes below are ticked only where a captured
+> result supports them.
+
 ### Backend/API
 
-- [x] Customer Portal API: scoped documents, signed PDF downloads, statements, quote decisions,
-      comments/files, and permitted customer-profile fields; no online checkout
-- [ ] Accountant Access: dedicated role, multi-organization switcher (extend the existing
-      `organization-switcher.tsx`, currently scoped to internal member org-switching), journals/
-      reconciliation/reports/close permissions
+- [x] Customer Portal API: scoped documents, signed PDF downloads, statements and CSV statement
+      export, quote decisions, comments/files, and permitted customer-profile fields; no online
+      checkout
+- [x] Accountant Access: dedicated role, multi-organization switcher (extends the existing
+      `organization-switcher.tsx`), journals/reconciliation/reports/close permissions. Covered by
+      the accountant multi-client tests in `collaboration.int.test.ts`.
 - [x] Comments: internal by default; explicit customer-visible flag
-- [x] Attachments: upload/download with permission checks and audit trail
-- [x] Activity: unified timeline projection with stable cursor pagination
+- [x] Attachments: upload/download with permission checks and audit trail. A listing carries no URL;
+      a re-authorized download endpoint issues the short-lived link, on the generic route and on the
+      Bills/Expenses adapters alike.
+- [x] Activity: unified timeline projection with stable cursor pagination, written in the same
+      round trip as the audit event it projects
 
 ### UI
 
-- [x] Customer-facing portal shell (separate auth/branding surface from the internal app)
-- [ ] Finish portal document-detail screens, quote decision controls, statement detail/export, and
-      address editing. The overview supports account switching, downloads, a statement balance, and
-      basic profile editing.
-- [ ] Accountant multi-org switcher and scoped accounting/close screens
-- [ ] Roll the reusable Comments/Files/Activity component out to every current transaction-detail
-      screen, with internal/customer-visible controls where eligible. It is currently integrated on
-      Bill detail.
+- [x] Customer-facing portal shell (separate auth/branding surface from the internal app), landing
+      portal sign-ins on `/portal` rather than the internal dashboard
+- [x] Portal document-detail screens, confirmed quote-decision controls, statement detail with a
+      date window and CSV export, and full billing/shipping address editing
+- [x] Accountant multi-org switcher with role labels, search, and a safe post-switch destination
+- [x] Roll the reusable Comments/Files/Activity component out to every current transaction-detail
+      screen, with internal/customer-visible controls where eligible — all twelve detail routes
+- [ ] Browser-verify the accessible loading, empty, error, revoked, keyboard, and responsive states.
+      They are implemented and asserted in the E2E spec, but no browser run has happened.
 
 ### Tests/acceptance
 
-- [ ] Add and pass the dedicated portal boundary matrix: tenant/contact isolation across documents,
-      PDFs, statements, comments, files, activity, and shared identities.
-- [ ] Add and pass customer-visible comment/attachment filtering, lifecycle, invitation,
+- [x] Add and pass the dedicated portal boundary matrix: tenant/contact isolation across documents,
+      PDFs, statements, comments, files, activity, and shared identities. (29/29 captured.)
+- [x] Add and pass customer-visible comment/attachment filtering, lifecycle, invitation,
       revocation, rate-limit, download-authorization, cursor, and quote-concurrency coverage.
-- [ ] Add and pass accountant multi-client switching/no-cached-data-leakage coverage.
-- [ ] Repair and pass the managed-server Playwright gate, then complete keyboard, responsive,
-      visual-baseline, and desktop/mobile review.
-- [ ] Complete integration, reverse-drift/replay, production-build, formatter/lint/typecheck, and
+      (21/21 captured.)
+- [x] Add and pass accountant multi-client switching/no-cached-data-leakage coverage.
+- [x] Extend the internal authorization-boundary matrix to every Phase 11 organization-scoped route.
+      (6/6 captured, including the route-discovery synchronization check.)
+- [ ] Run the managed-server Playwright gate, then complete keyboard, responsive, visual-baseline,
+      and desktop/mobile review. The seed defect that blocked this gate is fixed and the webServer
+      timeouts are raised, but the gate has not been run.
+- [ ] Complete the full-suite integration rerun, lint, reverse-drift/replay, production-build, and
       frontend design-detector evidence; then roll Phase 11 into the execution plan and handover.
 
 ---

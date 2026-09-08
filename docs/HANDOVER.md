@@ -4,13 +4,15 @@
 double-entry accounting & invoicing web platform (monorepo: `apps/api` NestJS, `apps/web` Next.js,
 `packages/*` shared libs).
 
-**Last refreshed:** 2026-09-05 (Phase 10 closed).
+**Last refreshed:** 2026-09-08 (Phase 11 implementation complete, verification partial — not closed).
 
 ## 1. Where things stand
 
-Ten of fourteen phases have code. Nine meet the roadmap's "done and verified" bar (Phase 1 remains
-functionally complete with explicitly tracked hardening debt). Phase 10 closed on 2026-09-05 with a
-green whole-repo gate and named tracked debt — see its "Recently closed" section below.
+Eleven of fourteen phases have code. Nine meet the roadmap's "done and verified" bar (Phase 1
+remains functionally complete with explicitly tracked hardening debt). Phase 10 closed on
+2026-09-05 with a green whole-repo gate and named tracked debt. **Phase 11 has complete
+implementation and partial verification as of 2026-09-08; it is not closed** — the gates it still
+owes are listed below and enumerated in `docs/PHASE11_TODO.md`.
 
 | Phase                      | State                                                                                                     |
 | -------------------------- | --------------------------------------------------------------------------------------------------------- |
@@ -24,33 +26,42 @@ green whole-repo gate and named tracked debt — see its "Recently closed" secti
 | 8 Globalization            | Complete and verified (8A–8E)                                                                             |
 | 9 Reporting                | Complete and verified (9A–9F)                                                                             |
 | 10 Automation & Approvals  | Complete and verified (10A–10I), 64/76 checklist items; tracked debt named in `PHASE10_TODO.md` and below |
-| 11–14                      | No code                                                                                                   |
+| 11 Portals & Collaboration | **Implemented, partially verified — not closed.** Ledger in `PHASE11_TODO.md`                             |
+| 12–14                      | No code                                                                                                   |
 
 **The plan is `docs/EXECUTION_PLAN.md`.** It sequenced the verification debt (Stages 0–4) and
 Phases 7–10 (Stages 5–8), and records three decisions (D1 ledger dimensions, D2 report query
 strategy, D3 country-pack DB model). All three are decided; D1 is implemented.
 **Stages 0–8 are all closed as of 2026-09-05.** `docs/PHASE10_TODO.md` remains the durable Phase 10
 record including its tracked-debt list; `docs/PHASE10_TEST_PLAN.md` documents how its remaining
-test coverage was executed. Next up: Phases 11–14 (portals, platform admin, AI, cross-module
-scenarios) — no code exists for any of them yet.
+test coverage was executed. Stage 9 (Phase 11) is open: implementation is complete and its own
+acceptance suites pass, but the whole-repository gate has not been captured. Phases 12–14 (platform
+admin, AI, cross-module scenarios) have no code.
 
 ### What is genuinely open, in priority order
 
-1. **Phases 11–14 have no code.** Portals & Collaboration (11), Platform Admin (12), AI (13), and
-   the pre-release cross-module scenarios (14) are roadmap sections only. The §18.1
-   quote-through-payment chain remains the named end-to-end gap: banking import/match/reconcile
-   are covered in isolation, but not the full chain from quote through acceptance, invoice,
-   partial and final payment, to P&L/AR/GL agreement.
-2. **Phase 10 tracked debt**, each named on its own unchecked bullet in `docs/PHASE10_TODO.md`: the
+1. **Phase 11 owes its closing gates.** The code is written and its two dedicated acceptance suites
+   pass (29/29 portal, 21/21 collaboration, plus 6/6 authorization boundary). What has _not_ been
+   captured: `npm run lint`, a full-suite integration rerun after the final fixes, both production
+   builds, any Playwright run at all, visual review, the design detector, and drift/replay.
+   `docs/PHASE11_TODO.md` holds the evidence ledger and a three-step "what to run first" list.
+   Nothing there should be promoted to verified without captured output.
+2. **Phases 12–14 have no code.** Platform Admin (12), AI (13), and the pre-release cross-module
+   scenarios (14) are roadmap sections only. The §18.1 quote-through-payment chain remains the
+   named end-to-end gap: banking import/match/reconcile are covered in isolation, but not the full
+   chain from quote through acceptance, invoice, partial and final payment, to P&L/AR/GL
+   agreement.
+3. **Phase 10 tracked debt**, each named on its own unchecked bullet in `docs/PHASE10_TODO.md`: the
    10H approval edge-case tests (multi-level ordering, criteria boundaries, concurrent decisions,
    mid-flight policy edits, revoked permissions), Quote's bespoke approval route as an adapter into
    the policy engine, the two deferred 10F refactors (export streaming, async `202` oversized-PDF
    export), the 10E recurring unification, two 10A contract schemas, 10C's `submitter role`
    condition and state-machine documentation, 10D's field-update action, and 10I's operator docs.
-3. **Two ADR 0011 follow-ups**, each recorded in `PHASE1_TODO.md` with its owning phase: an
-   attachment content-type allowlist, and validating the environment once at startup
-   (`packages/config` is still a stub, and only `SECURITY_PEPPER` asserts itself).
-4. **Stage 4.5–4.8** — visual-regression baselines, the WCAG 2.2 AA review, and the backup/restore
+4. **One ADR 0011 follow-up** remains: validating the environment once at startup
+   (`packages/config` is still a stub, and only `SECURITY_PEPPER` asserts itself). The attachment
+   content-type allowlist landed with Phase 11 — uploads are now checked for a supported extension,
+   a matching declared MIME type, and bytes whose signature agrees with both.
+5. **Stage 4.5–4.8** — visual-regression baselines, the WCAG 2.2 AA review, and the backup/restore
    drill — are folded into Phase 14 by decision, not by drift. See `PHASE1_TODO.md` Milestone 1J.
 
 ### Decided (2026-09-02) — the execution plan's three pre-Phase-7 decisions
@@ -69,6 +80,42 @@ scenarios) — no code exists for any of them yet.
 
 Full reasoning, including what was rejected, is in `EXECUTION_PLAN.md` §"Decisions to make before
 Stage 5".
+
+### In progress (2026-09-08) — Phase 11 Portals & Collaboration
+
+**Implementation is complete across 11A–11G and the two dedicated acceptance suites pass. The phase
+is not closed:** lint, the full-suite integration rerun, production builds, Playwright, visual
+review, the design detector, and drift/replay have not been captured. Read `docs/PHASE11_TODO.md`
+before touching anything here; it lists exactly what is proven and what is not.
+
+Eleven live defects were found and fixed by the tests written in this pass. Four are worth knowing
+about because they shape how this area should be worked on:
+
+- **`prisma as any` hid a non-existent column.** The Phase 11 services were written before the
+  Prisma client was regenerated, so the delegates were reached through `as any`. Those casts
+  survived the regeneration, and one of them hid `PortalsService.invite` writing a `notifiedAt`
+  column that does not exist — portal invitations failed for every caller, and no compiler could
+  see it. The casts are gone; if you add a Phase 11 model, regenerate and drop the cast in the same
+  change.
+- **The collaboration target registry selected `contactId` on every model.** Most targets — bills,
+  journals, transfers, adjustments, projects — have no such column, so the panel returned 500 on
+  all of them. Whether a target may be shown to a customer is the registry's `customerEligible`
+  flag, never a column on the row.
+- **The audit-to-activity projection cost a second write per audit event inside every posting
+  transaction**, which pushed a multi-line inventory adjustment past Prisma's interactive
+  transaction deadline. It is now nested in the audit insert: one round trip, one shared
+  `occurredAt`. Anything else added to `writeAuditEvent` pays that cost on every posting path in
+  the application — measure before adding a round trip there.
+- **The demo seed asserted a hard-coded count of system-account keys** (13, against a catalog that
+  had grown to 15). This failed every `e2e:prepare`, which is the real cause of the
+  "managed-server lifecycle failure with no browser test IDs" recorded in earlier sessions — the
+  Playwright gate was never broken; its seed was. The assertion now derives from the catalog.
+
+Two structural changes worth carrying forward: a listing never carries an attachment download URL
+any more (a re-authorized endpoint issues the short-lived link, on the generic route and on the
+Bills/Expenses adapters alike), and the collaboration write routes declare their permissions with
+`@RequirePermission` rather than checking inside the service, so the authorization-boundary matrix
+can see them.
 
 ### Recently closed (2026-09-05) — Phase 10 close-out
 

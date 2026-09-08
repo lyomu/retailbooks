@@ -130,13 +130,7 @@ describe('attachments (Bills and Expenses nested routes) against a real database
 
     const list = (
       listResponse.body as {
-        data: {
-          id: string;
-          filename: string;
-          contentType: string;
-          sizeBytes: number;
-          downloadUrl: string;
-        }[];
+        data: { id: string; filename: string; contentType: string; sizeBytes: number }[];
       }
     ).data;
     expect(list).toHaveLength(1);
@@ -144,11 +138,22 @@ describe('attachments (Bills and Expenses nested routes) against a real database
     expect(list[0]?.filename).toBe('receipt.txt');
     expect(list[0]?.contentType).toBe('text/plain');
     expect(list[0]?.sizeBytes).toBe(content.length);
+    // A listing is not an authorization to fetch bytes, so it carries no URL of its own.
+    expect(list[0]).not.toHaveProperty('downloadUrl');
+
+    const downloadResponse = await harness
+      .http()
+      .get(
+        `${API}/organizations/${context.id}/bills/${bill.id}/attachments/${uploaded.id}/download`,
+      )
+      .set('Cookie', cookie)
+      .expect(200);
+    const { downloadUrl } = (downloadResponse.body as { data: { downloadUrl: string } }).data;
 
     // Confirm StorageService actually wrote to (real, running) MinIO -- not a no-op -- by fetching
     // the signed download URL and checking the round-tripped bytes match what was uploaded.
-    expect(list[0]?.downloadUrl).toMatch(/^https?:\/\//);
-    const stored = await fetch(list[0]!.downloadUrl);
+    expect(downloadUrl).toMatch(/^https?:\/\//);
+    const stored = await fetch(downloadUrl);
     expect(stored.status).toBe(200);
     const storedBytes = Buffer.from(await stored.arrayBuffer());
     expect(storedBytes.equals(content)).toBe(true);
@@ -164,7 +169,12 @@ describe('attachments (Bills and Expenses nested routes) against a real database
 
   it('uploads and lists an Expense attachment via the nested HTTP route', async () => {
     const expense = await createExpense();
-    const content = Buffer.from('Expense receipt image bytes', 'utf8');
+    // Phase 11 validates that an upload's bytes match its declared type, so the fixture carries a
+    // real PNG signature rather than prose.
+    const content = Buffer.concat([
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+      Buffer.from('Expense receipt image bytes', 'utf8'),
+    ]);
 
     const uploadResponse = await harness
       .http()
@@ -228,7 +238,10 @@ describe('attachments (Bills and Expenses nested routes) against a real database
       .http()
       .post(`${API}/organizations/${context.id}/bills/${billA.id}/attachments`)
       .set('Cookie', cookie)
-      .attach('file', Buffer.from('bill A receipt', 'utf8'), { filename: 'a.txt' })
+      .attach('file', Buffer.from('bill A receipt', 'utf8'), {
+        filename: 'a.txt',
+        contentType: 'text/plain',
+      })
       .expect(201);
 
     const listAResponse = await harness

@@ -1670,6 +1670,73 @@ const ENDPOINTS: readonly EndpointCase[] = [
     path: 'organizations/:organizationId/projects/:projectId/profitability',
     permission: 'projects.profitability.view',
   },
+  // Phase 11 -- portal access management and the generic collaboration surface. The collaboration
+  // reads carry no permission of their own: the target registry resolves the parent document's
+  // view permission per target type, and a caller without it gets the same not-found answer as one
+  // asking about a document that does not exist.
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/customers/:contactId/portal-users',
+    permission: 'portal.access.manage',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/customers/:contactId/portal-invitations',
+    permission: 'portal.access.manage',
+    body: {},
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/portal-invitations/:invitationId/resend',
+    permission: 'portal.access.manage',
+  },
+  {
+    method: 'delete',
+    path: 'organizations/:organizationId/portal-invitations/:invitationId',
+    permission: 'portal.access.manage',
+  },
+  {
+    method: 'delete',
+    path: 'organizations/:organizationId/portal-users/:portalUserId',
+    permission: 'portal.access.manage',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/collaboration/:targetType/:targetId/comments',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/collaboration/:targetType/:targetId/comments',
+    permission: 'collaboration.comments.create',
+    body: {},
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/collaboration/:targetType/:targetId/attachments',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/collaboration/:targetType/:targetId/attachments',
+    permission: 'collaboration.attachments.upload',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/collaboration/:targetType/:targetId/attachments/:attachmentId/download',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/collaboration/:targetType/:targetId/activity',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/bills/:billId/attachments/:attachmentId/download',
+    permission: 'purchases.bills.view',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/expenses/:expenseId/attachments/:attachmentId/download',
+    permission: 'purchases.expenses.view',
+  },
 ];
 
 /**
@@ -1907,7 +1974,11 @@ describe('organization authorization boundary over HTTP', () => {
       .replace(':policyId', ID)
       .replace(':ruleId', ID)
       .replace(':notificationId', ID)
-      .replace(':scheduledReportId', ID);
+      .replace(':scheduledReportId', ID)
+      .replace(':targetType', 'INVOICE')
+      .replace(':targetId', ID)
+      .replace(':attachmentId', ID)
+      .replace(':portalUserId', ID);
     const test = harness.http()[endpoint.method](path).set('Cookie', cookie);
     if (endpoint.body !== undefined) test.send(endpoint.body);
     return test;

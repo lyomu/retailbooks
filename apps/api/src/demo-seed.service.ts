@@ -15,6 +15,7 @@ import { PrismaService } from './database/prisma.service.js';
 import { EmailQueueService } from './jobs/email-queue.service.js';
 import { CurrencyService } from './organizations/currency.service.js';
 import { FiscalPeriodsService } from './organizations/fiscal-periods.service.js';
+import { SYSTEM_ACCOUNT_KEYS } from './organizations/ledger-starter-chart.js';
 import { LedgerService } from './organizations/ledger.service.js';
 import { OrganizationAccessService } from './organizations/organization-access.service.js';
 import type { OrganizationContext } from './organizations/organization-context.js';
@@ -22,6 +23,9 @@ import { OrganizationMembersService } from './organizations/organization-members
 import { OrganizationService } from './organizations/organization.service.js';
 import { RolesService } from './organizations/roles.service.js';
 import { TaxService } from './organizations/tax.service.js';
+import { CustomersService } from './sales/customers.service.js';
+import { InvoicesService } from './sales/invoices.service.js';
+import { QuotesService } from './sales/quotes.service.js';
 
 const DEMO_ORGANIZATION = 'RetailBooks Demo Company Ltd';
 const DEMO_PASSWORD = 'DemoRetailBooks1!';
@@ -41,6 +45,18 @@ const DEMO_USERS = [
   { key: 'VIEWER', displayName: 'Njeri Auditor', email: 'demo.viewer@retailbooks.local' },
 ] as const;
 
+/**
+ * The Phase 11 portal demo: one customer, the documents a customer would actually be shown, and a
+ * signed-in portal identity holding a grant to them. Seeding it here is what lets the portal be
+ * demonstrated and browser-tested at all -- the grant is the only way into `/portal`, and it cannot
+ * be reached by signing up.
+ */
+const DEMO_PORTAL_USER = {
+  displayName: 'Zawadi Mwangi',
+  email: 'demo.customer@retailbooks.local',
+} as const;
+const DEMO_PORTAL_CUSTOMER = 'Karibu Wholesale Ltd';
+
 @Injectable()
 export class DemoSeedService {
   constructor(
@@ -56,6 +72,9 @@ export class DemoSeedService {
     private readonly tax: TaxService,
     private readonly ledger: LedgerService,
     private readonly emailQueue: EmailQueueService,
+    private readonly customers: CustomersService,
+    private readonly invoices: InvoicesService,
+    private readonly quotes: QuotesService,
   ) {}
 
   async run() {
@@ -117,6 +136,7 @@ export class DemoSeedService {
     await this.ensureCurrencies(context, owner, metadata);
     const taxCodeId = await this.ensureTaxes(context, owner, metadata);
     await this.ensureJournals(context, owner, taxCodeId, metadata);
+    await this.ensurePortalDemo(context, owner, metadata);
 
     return this.verify(context.id);
   }
@@ -431,8 +451,109 @@ export class DemoSeedService {
     );
   }
 
+  /**
+   * Seeds the customer-portal demo. The grant is written directly rather than by redeeming an
+   * invitation: the token exists only in the invitation email, so a seed cannot replay the flow --
+   * invitation issue, binding, expiry, replay and revocation are covered by the integration suite
+   * instead. What the seed guarantees is the *end state* an accepted invitation produces.
+   */
+  private async ensurePortalDemo(
+    context: OrganizationContext,
+    owner: PublicUser,
+    metadata: RequestMetadata,
+  ) {
+    const portalUser = await this.auth.provisionVerifiedUserForBootstrap(
+      {
+        displayName: DEMO_PORTAL_USER.displayName,
+        email: DEMO_PORTAL_USER.email,
+        password: DEMO_PASSWORD,
+      },
+      metadata,
+    );
+
+    const existing = await this.prisma.contact.findFirst({
+      where: { organizationId: context.id, displayName: DEMO_PORTAL_CUSTOMER },
+      select: { id: true },
+    });
+    const contact =
+      existing ??
+      (await this.customers.create(
+        context,
+        owner,
+        {
+          displayName: DEMO_PORTAL_CUSTOMER,
+          email: 'accounts@karibu-wholesale.example',
+          phone: '+254712345678',
+        },
+        metadata,
+      ));
+
+    const invoiced = await this.prisma.invoice.count({
+      where: { organizationId: context.id, contactId: contact.id },
+    });
+    if (invoiced === 0) {
+      const draft = await this.invoices.createDraft(
+        context,
+        owner,
+        {
+          contactId: contact.id,
+          lines: [
+            { description: 'Shelf restock — assorted', quantity: '40', unitPriceMinor: '45000' },
+            { description: 'Delivery and handling', quantity: '1', unitPriceMinor: '120000' },
+          ],
+        },
+        metadata,
+      );
+      await this.invoices.issueInvoice(context, owner, draft.id, metadata);
+    }
+
+    const quoted = await this.prisma.quote.count({
+      where: { organizationId: context.id, contactId: contact.id },
+    });
+    if (quoted === 0) {
+      const quote = await this.quotes.createDraft(
+        context,
+        owner,
+        {
+          contactId: contact.id,
+          lines: [{ description: 'Q3 supply agreement', quantity: '1', unitPriceMinor: '2400000' }],
+        },
+        metadata,
+      );
+      await this.quotes.submitForApproval(context, owner, quote.id, metadata);
+      await this.quotes.approve(context, owner, quote.id, metadata);
+      await this.quotes.send(context, owner, quote.id, metadata);
+    }
+
+    await this.prisma.portalUser.upsert({
+      where: {
+        organizationId_contactId_userId: {
+          organizationId: context.id,
+          contactId: contact.id,
+          userId: portalUser.id,
+        },
+      },
+      update: { status: 'ACTIVE', revokedAt: null },
+      create: {
+        organizationId: context.id,
+        contactId: contact.id,
+        userId: portalUser.id,
+        invitedByUserId: owner.id,
+      },
+    });
+  }
+
   private async verify(organizationId: string) {
-    const [organization, systemAccounts, auditEvents, securityEvents, queue] = await Promise.all([
+    const [
+      organization,
+      systemAccounts,
+      auditEvents,
+      securityEvents,
+      queue,
+      portalGrants,
+      issuedInvoices,
+      sentQuotes,
+    ] = await Promise.all([
       this.prisma.organization.findUniqueOrThrow({
         where: { id: organizationId },
         include: {
@@ -454,7 +575,11 @@ export class DemoSeedService {
       this.prisma.auditEvent.count({ where: { organizationId } }),
       this.prisma.securityEvent.count({ where: { organizationId } }),
       this.emailQueue.counts(),
+      this.prisma.portalUser.count({ where: { organizationId, status: 'ACTIVE' } }),
+      this.prisma.invoice.count({ where: { organizationId, status: { not: 'DRAFT' } } }),
+      this.prisma.quote.count({ where: { organizationId, sentAt: { not: null } } }),
     ]);
+    const portalDocuments = issuedInvoices + sentQuotes;
     const foreign = organization.journals.find((journal) => journal.sourceId === 'foreign-sale');
     const taxed = organization.journals.find((journal) => journal.sourceId === 'taxed-sale');
     const reversed = organization.journals.find(
@@ -467,7 +592,13 @@ export class DemoSeedService {
       organization.members.length === 5,
       'Demo organization does not have five active members.',
     );
-    assert(systemAccounts === 13, 'Not all 13 system-account keys are bound.');
+    // Derived from the catalog rather than a literal: the key list has grown since Phase 1
+    // (customer_credit and vendor_credit arrived with credit notes), and a hard-coded count turns
+    // every future addition into a seed failure long after the change that caused it.
+    assert(
+      systemAccounts === SYSTEM_ACCOUNT_KEYS.length,
+      `Not all ${SYSTEM_ACCOUNT_KEYS.length} system-account keys are bound.`,
+    );
     assert(
       organization.fiscalYears[0]?.periods.length === 12,
       'The open fiscal year is incomplete.',
@@ -493,6 +624,8 @@ export class DemoSeedService {
       'The reversible demo journal was not reversed.',
     );
     assert(auditEvents > 0 && securityEvents > 0, 'Audit/security events were not created.');
+    assert(portalGrants === 1, 'The demo portal grant is missing.');
+    assert(portalDocuments >= 2, 'The demo portal customer has no visible documents.');
 
     return {
       organization: {
@@ -514,6 +647,8 @@ export class DemoSeedService {
         journals: organization.journals.length,
         auditEvents,
         securityEvents,
+        portalGrants,
+        portalDocuments,
       },
       proof: {
         taxSnapshot: true,

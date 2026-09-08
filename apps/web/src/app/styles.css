@@ -1296,6 +1296,237 @@ a.rb-nav-item:hover {
   justify-self: center;
 }
 
+.rb-portal__ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: 2.5rem;
+  padding: 0.5rem 0.85rem;
+  color: hsl(var(--rb-foreground));
+  background: hsl(var(--rb-card));
+  border: 1px solid hsl(var(--rb-border));
+  border-radius: 0.5rem;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.rb-portal__ghost:disabled,
+.rb-portal__link:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.rb-portal__ghost:focus-visible,
+.rb-portal__rowlink:focus-visible,
+.rb-portal__files button:focus-visible,
+.rb-portal__form input:focus-visible,
+.rb-portal__thread textarea:focus-visible,
+.rb-portal__filters input:focus-visible {
+  outline: 3px solid hsl(var(--rb-ring));
+  outline-offset: 2px;
+}
+.rb-portal__rowlink {
+  padding: 0;
+  color: hsl(var(--rb-primary));
+  background: transparent;
+  border: 0;
+  font: inherit;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+.rb-portal__alert {
+  margin: 1rem 0 0;
+  padding: 0.7rem 0.9rem;
+  color: hsl(var(--rb-danger));
+  background: hsl(var(--rb-danger-surface));
+  border-radius: 0.5rem;
+  font-size: 0.9rem;
+}
+.rb-portal__notice {
+  margin: 0 0 0.5rem;
+  padding: 0.7rem 0.9rem;
+  color: hsl(var(--rb-primary));
+  background: hsl(var(--rb-primary) / 0.1);
+  border-radius: 0.5rem;
+  font-size: 0.9rem;
+}
+.rb-portal__muted {
+  margin: 0;
+  color: hsl(var(--rb-muted-foreground));
+  font-size: 0.875rem;
+}
+.rb-portal__detail h2:focus-visible {
+  outline: 3px solid hsl(var(--rb-ring));
+  outline-offset: 4px;
+}
+.rb-portal__detail tfoot th,
+.rb-portal__detail tfoot td {
+  font-weight: 700;
+}
+.rb-portal__decision {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+.rb-portal__decision p {
+  flex: 1 1 18rem;
+  margin: 0;
+}
+.rb-portal__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: hsl(var(--rb-muted-foreground));
+  font-size: 0.875rem;
+}
+.rb-portal__thread {
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid hsl(var(--rb-border));
+}
+.rb-portal__thread h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+}
+.rb-portal__thread h3 svg {
+  width: 1rem;
+  height: 1rem;
+  color: hsl(var(--rb-primary));
+}
+.rb-portal__messages {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0 0 1rem;
+  padding: 0;
+  list-style: none;
+}
+.rb-portal__messages li {
+  padding: 0.75rem;
+  background: hsl(var(--rb-muted));
+  border-radius: 0.6rem;
+}
+.rb-portal__messages p {
+  margin: 0.3rem 0;
+  color: hsl(var(--rb-foreground));
+}
+.rb-portal__messages time {
+  color: hsl(var(--rb-muted-foreground));
+  font-size: 0.8rem;
+}
+.rb-portal__thread textarea {
+  width: 100%;
+  min-height: 5rem;
+  padding: 0.65rem;
+  color: hsl(var(--rb-foreground));
+  background: hsl(var(--rb-card));
+  border: 1px solid hsl(var(--rb-border));
+  border-radius: 0.5rem;
+  font: inherit;
+  resize: vertical;
+}
+.rb-portal__files {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0 0 0.5rem;
+  padding: 0;
+  list-style: none;
+}
+.rb-portal__files li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.55rem 0.75rem;
+  background: hsl(var(--rb-muted));
+  border-radius: 0.5rem;
+}
+.rb-portal__files button {
+  padding: 0;
+  color: hsl(var(--rb-primary));
+  background: transparent;
+  border: 0;
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+.rb-portal__files span {
+  color: hsl(var(--rb-muted-foreground));
+  font-size: 0.8rem;
+}
+.rb-portal__filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+.rb-portal__filters label,
+.rb-portal__form label {
+  display: grid;
+  gap: 0.3rem;
+  color: hsl(var(--rb-muted-foreground));
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+.rb-portal__filters input,
+.rb-portal__form input {
+  min-height: 2.5rem;
+  padding: 0 0.65rem;
+  color: hsl(var(--rb-foreground));
+  background: hsl(var(--rb-card));
+  border: 1px solid hsl(var(--rb-border));
+  border-radius: 0.5rem;
+  font: inherit;
+}
+.rb-portal__balance {
+  margin: 0 0 1.25rem;
+  font-size: 1rem;
+}
+.rb-portal__balance strong {
+  font-variant-numeric: tabular-nums;
+}
+.rb-portal__fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 0.9rem;
+}
+.rb-portal__address {
+  margin: 1rem 0 0;
+  padding: 1rem;
+  border: 1px solid hsl(var(--rb-border));
+  border-radius: 0.6rem;
+}
+.rb-portal__address legend {
+  padding: 0 0.4rem;
+  color: hsl(var(--rb-muted-foreground));
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.rb-portal__form h3 {
+  margin: 1.75rem 0 0;
+  font-size: 1rem;
+}
+
+@media (max-width: 42rem) {
+  .rb-portal__decision > button,
+  .rb-portal__filters > button {
+    flex: 1 1 100%;
+  }
+  .rb-portal__fields {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 42rem) {
   .rb-portal__welcome,
   .rb-portal__section--split {
@@ -1372,6 +1603,139 @@ a.rb-nav-item:hover {
 .rb-collaboration__tabs button:focus-visible {
   outline: 2px solid hsl(var(--rb-ring));
   outline-offset: 2px;
+}
+
+.rb-attachment-link {
+  padding: 0;
+  color: hsl(var(--rb-primary));
+  background: transparent;
+  border: 0;
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+.rb-attachment-link:focus-visible {
+  outline: 2px solid hsl(var(--rb-ring));
+  outline-offset: 2px;
+}
+
+.rb-collaboration__panel {
+  display: grid;
+  gap: 0.75rem;
+  padding-top: 1rem;
+}
+.rb-collaboration__muted {
+  margin: 0;
+  color: hsl(var(--rb-muted-foreground));
+  font-size: 0.875rem;
+}
+.rb-collaboration__alert {
+  margin: 0.75rem 0 0;
+  padding: 0.6rem 0.75rem;
+  color: hsl(var(--rb-danger));
+  background: hsl(var(--rb-danger-surface));
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+}
+.rb-collaboration__badge {
+  margin-left: 0.5rem;
+  padding: 0.1rem 0.45rem;
+  color: hsl(var(--rb-primary));
+  background: hsl(var(--rb-primary) / 0.12);
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.rb-collaboration__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+.rb-collaboration__actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 2.25rem;
+  padding: 0 0.9rem;
+  color: hsl(var(--rb-primary-foreground));
+  background: hsl(var(--rb-primary));
+  border: 0;
+  border-radius: 0.5rem;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.rb-collaboration__actions button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.rb-collaboration__actions button:focus-visible,
+.rb-collaboration__files button:focus-visible,
+.rb-collaboration__toggle input:focus-visible {
+  outline: 2px solid hsl(var(--rb-ring));
+  outline-offset: 2px;
+}
+.rb-collaboration__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: hsl(var(--rb-muted-foreground));
+  font-size: 0.875rem;
+}
+.rb-collaboration__files,
+.rb-collaboration__activity {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.rb-collaboration__files li,
+.rb-collaboration__activity li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: hsl(var(--rb-muted));
+  border-radius: 0.5rem;
+}
+.rb-collaboration__files button {
+  padding: 0;
+  color: hsl(var(--rb-primary));
+  background: transparent;
+  border: 0;
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+.rb-collaboration__files span,
+.rb-collaboration__activity time {
+  color: hsl(var(--rb-muted-foreground));
+  font-size: 0.8rem;
+}
+.rb-collaboration svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+@media (max-width: 640px) {
+  .rb-collaboration__tabs {
+    overflow-x: auto;
+  }
+  .rb-collaboration__tabs button {
+    flex: 0 0 auto;
+  }
+  .rb-collaboration__actions button {
+    width: 100%;
+    justify-content: center;
+  }
 }
 
 .rb-organization-switcher svg {

@@ -51,6 +51,7 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNo
 import { ApiError, apiRequest } from '../lib/api';
 import { formValue } from '../lib/forms';
 import { hasPermission, useWorkspace } from '../lib/workspace';
+import { TransactionCollaboration } from './transaction-collaboration';
 
 type ProjectListResponse = { data: Project[] };
 type ProjectResponse = { data: Project };
@@ -612,6 +613,18 @@ export function ProjectDetailPage({ projectId }: { projectId: string }) {
           canBill={hasPermission(organization, 'projects.billing.manage')}
           onBilled={() => void load()}
         />
+        {organizationId && projectId ? (
+          <TransactionCollaboration
+            organizationId={organizationId}
+            targetType="PROJECT"
+            targetId={projectId}
+            canComment={hasPermission(organization, 'collaboration.comments.create')}
+            canUpload={
+              hasPermission(organization, 'collaboration.attachments.upload') &&
+              hasPermission(organization, 'projects.manage')
+            }
+          />
+        ) : null}
       </div>
     </>
   );

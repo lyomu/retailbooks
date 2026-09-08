@@ -15,8 +15,11 @@ export class CreateCommentDto {
 }
 
 export class CollaborationCursorDto {
+  // A cursor is base64url over an ISO timestamp plus a UUID, which lands around 116 characters --
+  // the previous 100-character limit rejected the very cursors this API hands out, so the second
+  // page of any timeline was unreachable. The bound stays only to cap an obviously absurd input.
   @IsOptional()
   @IsString()
-  @MaxLength(100)
+  @MaxLength(512)
   cursor?: string;
 }

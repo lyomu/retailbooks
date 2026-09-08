@@ -23,7 +23,10 @@ import {
 import { AuthService } from '../auth/auth.service.js';
 import { requestMetadata } from '../auth/request-context.js';
 import { SessionGuard } from '../auth/session.guard.js';
-import { type OrganizationRequest } from '../organizations/organization-context.js';
+import {
+  RequirePermission,
+  type OrganizationRequest,
+} from '../organizations/organization-context.js';
 import { OrganizationGuard } from '../organizations/organization.guard.js';
 import { CollaborationCursorDto, CreateCommentDto } from './collaboration.dto.js';
 import { CollaborationService } from './collaboration.service.js';
@@ -48,6 +51,7 @@ export class CollaborationController {
 
   @Post('comments')
   @HttpCode(201)
+  @RequirePermission('collaboration.comments.create')
   async createComment(
     @Param('targetType') type: string,
     @Param('targetId', new ParseUUIDPipe()) id: string,
@@ -77,6 +81,7 @@ export class CollaborationController {
 
   @Post('attachments')
   @HttpCode(201)
+  @RequirePermission('collaboration.attachments.upload')
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_ATTACHMENT_BYTES } }))
   async uploadAttachment(
     @Param('targetType') type: string,

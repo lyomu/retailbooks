@@ -10,11 +10,13 @@ import {
   Post,
   Query,
   Req,
+  Res,
   UploadedFile,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import type { Response } from 'express';
 
 import {
   AttachmentsService,
@@ -24,7 +26,7 @@ import {
 import { AuthService } from '../auth/auth.service.js';
 import { AuthRateLimitService } from '../auth/auth-rate-limit.service.js';
 import { requestMetadata } from '../auth/request-context.js';
-import { SessionGuard } from '../auth/session.guard.js';
+import { SessionGuard, type AuthenticatedRequest } from '../auth/session.guard.js';
 import { CollaborationService } from '../collaboration/collaboration.service.js';
 import { CreateCommentDto } from '../collaboration/collaboration.dto.js';
 import {
@@ -38,6 +40,7 @@ import type { PortalRequest } from './portal-context.js';
 import {
   CreatePortalInvitationDto,
   PortalInvitationTokenDto,
+  PortalStatementQueryDto,
   UpdatePortalProfileDto,
 } from './portal.dto.js';
 import { PortalsService } from './portals.service.js';
@@ -122,7 +125,7 @@ export class PortalInvitationsController {
   @Post('accept')
   @HttpCode(200)
   @UseGuards(SessionGuard)
-  async accept(@Body() input: PortalInvitationTokenDto, @Req() request: any) {
+  async accept(@Body() input: PortalInvitationTokenDto, @Req() request: AuthenticatedRequest) {
     await this.limits.consume(`portal:invite-accept:${request.auth.user.id}`, 10, 60);
     return { data: await this.portals.accept(input.token, request.auth.user) };
   }
@@ -140,7 +143,7 @@ export class PortalAccountsController {
   ) {}
 
   @Get()
-  async accounts(@Req() request: any) {
+  async accounts(@Req() request: AuthenticatedRequest) {
     return { data: await this.portals.accounts(request.auth.user.id) };
   }
 
@@ -262,8 +265,22 @@ export class PortalAccountsController {
 
   @Get(':portalUserId/statement')
   @UseGuards(PortalAccessGuard)
-  async statement(@Query() query: { from?: string; to?: string }, @Req() request: PortalRequest) {
+  async statement(@Query() query: PortalStatementQueryDto, @Req() request: PortalRequest) {
     return { data: await this.portals.statement(request.portal, query) };
+  }
+
+  @Get(':portalUserId/statement/export')
+  @UseGuards(PortalAccessGuard)
+  async statementExport(
+    @Query() query: PortalStatementQueryDto,
+    @Req() request: PortalRequest,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    await this.limits.consume(`portal:statement-export:${request.portal.id}`, 20, 60);
+    const file = await this.portals.statementCsv(request.portal, query);
+    response.setHeader('Content-Type', file.contentType);
+    response.setHeader('Content-Disposition', `attachment; filename="${file.filename}"`);
+    return file.body;
   }
 
   @Post(':portalUserId/quotes/:quoteId/accept')
@@ -284,9 +301,16 @@ export class PortalAccountsController {
     return { data: await this.portals.decideQuote(request.portal, quoteId, 'DECLINED') };
   }
 
+  @Get(':portalUserId/profile')
+  @UseGuards(PortalAccessGuard)
+  async readProfile(@Req() request: PortalRequest) {
+    return { data: await this.portals.profile(request.portal) };
+  }
+
   @Patch(':portalUserId/profile')
   @UseGuards(PortalAccessGuard)
   async profile(@Body() input: UpdatePortalProfileDto, @Req() request: PortalRequest) {
+    await this.limits.consume(`portal:profile:${request.portal.id}`, 20, 60);
     return { data: await this.portals.updateProfile(request.portal, input) };
   }
 }

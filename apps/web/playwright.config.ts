@@ -7,7 +7,7 @@ export default defineConfig({
   fullyParallel: false,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
-  reporter: [['list']],
+  reporter: [['list'], ['json', { outputFile: 'test-results/results.json' }]],
   snapshotPathTemplate: '{testDir}/__screenshots__/{projectName}/{arg}{ext}',
   expect: {
     toHaveScreenshot: {
@@ -21,6 +21,7 @@ export default defineConfig({
     colorScheme: 'light',
     reducedMotion: 'reduce',
     trace: 'retain-on-failure',
+    screenshot: 'only-on-failure',
   },
   projects: [
     {
@@ -42,7 +43,11 @@ export default defineConfig({
         'npm run e2e:prepare --workspace @retailbooks/web && npm run start --workspace @retailbooks/api',
       url: 'http://127.0.0.1:3401/api/v1/health',
       reuseExistingServer: !process.env.CI,
-      timeout: 120_000,
+      // This command is not just "start the API": it migrates, truncates, drains the queues,
+      // compiles the Nest build and runs the demo seed first. On a cold cache that is minutes, not
+      // seconds, and the old 120s budget expired mid-build -- which surfaced as a managed-server
+      // lifecycle failure with no browser test ever running.
+      timeout: 900_000,
       cwd: '../..',
       env: {
         ...process.env,
@@ -58,7 +63,8 @@ export default defineConfig({
         'npm run build --workspace @retailbooks/web && npm run start --workspace @retailbooks/web -- --hostname 127.0.0.1 --port 3300',
       url: 'http://127.0.0.1:3300/login',
       reuseExistingServer: !process.env.CI,
-      timeout: 180_000,
+      // A cold Next production build of the whole app, then the server start.
+      timeout: 900_000,
       cwd: '../..',
       env: {
         ...process.env,

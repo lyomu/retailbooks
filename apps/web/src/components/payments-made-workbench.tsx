@@ -29,6 +29,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { ApiError, apiRequest } from '../lib/api';
 import { hasPermission, useWorkspace } from '../lib/workspace';
+import { TransactionCollaboration } from './transaction-collaboration';
 
 type PaymentListResponse = { data: PaymentMade[] };
 type PaymentResponse = { data: PaymentMade };
@@ -513,6 +514,18 @@ export function PaymentMadeEditorPage({ paymentId }: { paymentId?: string }) {
               </>
             )}
           </Card>
+        ) : null}
+        {organizationId && paymentId ? (
+          <TransactionCollaboration
+            organizationId={organizationId}
+            targetType="PAYMENT_MADE"
+            targetId={paymentId}
+            canComment={hasPermission(organization, 'collaboration.comments.create')}
+            canUpload={
+              hasPermission(organization, 'collaboration.attachments.upload') &&
+              hasPermission(organization, 'purchases.payments_made.record')
+            }
+          />
         ) : null}
       </div>
     </>

@@ -30,6 +30,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { ApiError, apiRequest } from '../lib/api';
 import { hasPermission, useWorkspace } from '../lib/workspace';
+import { TransactionCollaboration } from './transaction-collaboration';
 
 type PurchaseOrderListResponse = { data: PurchaseOrder[] };
 type PurchaseOrderResponse = { data: PurchaseOrder };
@@ -653,6 +654,18 @@ export function PurchaseOrderEditorPage({ orderId }: { orderId?: string }) {
             <FieldMessage error>Choose a vendor before saving this order.</FieldMessage>
           ) : null}
         </Card>
+        {organizationId && orderId ? (
+          <TransactionCollaboration
+            organizationId={organizationId}
+            targetType="PURCHASE_ORDER"
+            targetId={orderId}
+            canComment={hasPermission(organization, 'collaboration.comments.create')}
+            canUpload={
+              hasPermission(organization, 'collaboration.attachments.upload') &&
+              hasPermission(organization, 'purchases.orders.manage')
+            }
+          />
+        ) : null}
       </div>
     </>
   );

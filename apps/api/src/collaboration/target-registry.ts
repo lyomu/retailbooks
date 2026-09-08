@@ -1,4 +1,5 @@
 import { NotFoundException } from '@nestjs/common';
+import type { CollaborationTargetType } from '@prisma/client';
 
 import { PrismaService } from '../database/prisma.service.js';
 import type { OrganizationContext } from '../organizations/organization-context.js';
@@ -11,7 +12,7 @@ type TargetDefinition = {
 };
 
 /** One registry is the only way comments/files/activity learn what a target is. */
-const TARGETS: Record<string, TargetDefinition> = {
+const TARGETS: Record<CollaborationTargetType, TargetDefinition> = {
   QUOTE: {
     delegate: 'quote',
     viewPermission: 'sales.quotes.view',
@@ -114,10 +115,40 @@ const TARGETS: Record<string, TargetDefinition> = {
   },
 };
 
+/**
+ * Narrows a caller-supplied string to a known target type. Every collaboration entry point runs
+ * through here, so an unrecognised type is refused before it can reach a query -- and downstream
+ * code receives the enum value rather than the raw request string.
+ */
+/**
+ * Resolves a target row by delegate name. The registry is the single place a target type is mapped
+ * to a Prisma model, and the delegate name always comes from that table -- never from request data
+ * -- so the index is safe even though its type cannot be expressed statically.
+ */
+async function findById(
+  prisma: PrismaService,
+  delegate: string,
+  where: Record<string, string>,
+): Promise<{ id: string } | null> {
+  const model = (prisma as unknown as Record<string, ModelDelegate>)[delegate];
+  if (!model) throw new NotFoundException('Collaboration target not found.');
+  return model.findFirst({ where, select: { id: true } });
+}
+
+interface ModelDelegate {
+  findFirst(args: {
+    where: Record<string, string>;
+    select: { id: true };
+  }): Promise<{ id: string } | null>;
+}
+
+export function resolveTargetType(type: string): CollaborationTargetType {
+  if (!Object.hasOwn(TARGETS, type)) throw new NotFoundException('Collaboration target not found.');
+  return type as CollaborationTargetType;
+}
+
 export function targetDefinition(type: string): TargetDefinition {
-  const target = TARGETS[type];
-  if (!target) throw new NotFoundException('Collaboration target not found.');
-  return target;
+  return TARGETS[resolveTargetType(type)];
 }
 
 export async function requireInternalTarget(
@@ -127,16 +158,24 @@ export async function requireInternalTarget(
   id: string,
   mode: 'view' | 'manage',
 ) {
-  const definition = targetDefinition(type);
+  const targetType = resolveTargetType(type);
+  const definition = TARGETS[targetType];
   const permission = mode === 'view' ? definition.viewPermission : definition.managePermission;
   if (!context.permissions.has(permission as never))
     throw new NotFoundException('Collaboration target not found.');
-  const target = await (prisma as any)[definition.delegate].findFirst({
-    where: { id, organizationId: context.id },
-    select: { id: true, contactId: true },
+  // The delegate is looked up by name from the registry, which is the one place a target type is
+  // mapped to a model; that indirection is what the cast buys, and the key is never caller data.
+  //
+  // Only `id` is selected. Half these models have no `contactId` at all -- a Bill has a vendor, a
+  // Journal has neither -- so asking for it made every purchasing, banking, inventory, project and
+  // ledger target fail the query outright rather than answer. Whether a target may be shown to a
+  // customer is the registry's `customerEligible` flag, not a column on the row.
+  const target = await findById(prisma, definition.delegate, {
+    id,
+    organizationId: context.id,
   });
   if (!target) throw new NotFoundException('Collaboration target not found.');
-  return { ...target, definition };
+  return { id: target.id, targetType, definition };
 }
 
 export async function requirePortalTarget(
@@ -145,12 +184,14 @@ export async function requirePortalTarget(
   type: string,
   id: string,
 ) {
-  const definition = targetDefinition(type);
+  const targetType = resolveTargetType(type);
+  const definition = TARGETS[targetType];
   if (!definition.customerEligible) throw new NotFoundException('Portal document not found.');
-  const target = await (prisma as any)[definition.delegate].findFirst({
-    where: { id, organizationId: scope.organizationId, contactId: scope.contactId },
-    select: { id: true },
+  const target = await findById(prisma, definition.delegate, {
+    id,
+    organizationId: scope.organizationId,
+    contactId: scope.contactId,
   });
   if (!target) throw new NotFoundException('Portal document not found.');
-  return definition;
+  return targetType;
 }

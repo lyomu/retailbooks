@@ -11,7 +11,7 @@ import {
 /**
  * Mutations for the versioned `CountryPack` entity: draft creation, draft edits, publishing,
  * deprecating, and draft deletion. Only a platform administrator reaches these through HTTP
- * (`PlatformAdminGuard`); the seed path in `CountryPackStore` deliberately cannot do any of this
+ * (`PlatformGuard`, superadmin); the seed path in `CountryPackStore` deliberately cannot do any of this
  * beyond upserting its own catalog rows, so seeding can never publish a new tier or resurrect a
  * deprecated pack.
  *

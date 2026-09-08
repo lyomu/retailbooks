@@ -12,7 +12,7 @@ export class PortalAccessService {
   async require(userId: string, portalUserId: string): Promise<PortalContext> {
     // The Phase 11 delegates arrive with the Phase 11 Prisma client generation. Keeping the cast
     // local lets the code-first pass be reviewed before the explicitly deferred generation step.
-    const grant = await (this.prisma as any).portalUser.findFirst({
+    const grant = await this.prisma.portalUser.findFirst({
       where: { id: portalUserId, userId, status: 'ACTIVE' },
       select: {
         id: true,

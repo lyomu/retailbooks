@@ -1,5 +1,5 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { AuditAction } from '@prisma/client';
+import { AuditAction, Prisma, type PortalInvitationStatus } from '@prisma/client';
 
 import { AuthMailerService } from '../auth/auth-mailer.service.js';
 import type { PublicUser } from '../auth/auth.service.js';
@@ -13,6 +13,45 @@ import type { PortalContext } from './portal-context.js';
 import type { UpdatePortalProfileDto } from './portal.dto.js';
 
 const INVITATION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const CRLF = '\r\n';
+
+/**
+ * The only line shape the portal ever projects, shared by every customer-eligible document. The
+ * money and quantity columns are Prisma Decimal/BigInt values, so they are carried as their string
+ * forms rather than converted to a JavaScript number anywhere on the way out.
+ */
+interface DocumentLine {
+  descriptionSnapshot: string;
+  quantity: { toString(): string };
+  unitPriceMinor: { toString(): string };
+  discountMinor: { toString(): string };
+  lineTotalMinor: { toString(): string };
+}
+
+/** A customer-eligible document, normalised across the five models the portal can expose. */
+interface PortalDocumentRecord {
+  id: string;
+  number: string | null;
+  status: string;
+  issueDate: Date | null;
+  dueDate?: Date | null;
+  currency: string;
+  totalMinor?: bigint;
+  amountMinor?: bigint;
+  lines?: DocumentLine[];
+}
+
+/** One row of the document list, before it is serialised. */
+interface DocumentSummarySource {
+  id: string;
+  status: string;
+  currency: string;
+  issueDate?: Date | null;
+  dueDate?: Date | null;
+  totalMinor?: bigint;
+  amountMinor?: bigint;
+}
+const CSV_QUOTED = /[",\r\n]/;
 
 @Injectable()
 export class PortalsService {
@@ -25,7 +64,7 @@ export class PortalsService {
 
   async listInternal(organizationId: string, contactId: string) {
     await this.customer(organizationId, contactId);
-    const db = this.prisma as any;
+    const db = this.prisma;
     const [users, invitations] = await Promise.all([
       db.portalUser.findMany({
         where: { organizationId, contactId },
@@ -38,7 +77,7 @@ export class PortalsService {
       }),
     ]);
     return {
-      users: users.map((grant: any) => ({
+      users: users.map((grant) => ({
         id: grant.id,
         email: grant.user.email,
         displayName: grant.user.displayName,
@@ -55,7 +94,9 @@ export class PortalsService {
     const normalized = email.trim().toLowerCase();
     const token = createOpaqueToken();
     const expiresAt = new Date(Date.now() + INVITATION_TTL_MS);
-    const invitation = await this.prisma.$transaction(async (tx: any) => {
+    const invitation = await this.prisma.$transaction(async (tx) => {
+      // Superseding any live invitation to the same address keeps exactly one redeemable token per
+      // (customer, email) pair, so a resend cannot leave an older link working.
       await tx.portalInvitation.updateMany({
         where: { organizationId: context.id, contactId, email: normalized, status: 'PENDING' },
         data: { status: 'REVOKED', revokedAt: new Date() },
@@ -68,7 +109,6 @@ export class PortalsService {
           tokenHash: hashToken(token),
           invitedByUserId: actor.id,
           expiresAt,
-          notifiedAt: new Date(),
         },
       });
       await writeAuditEvent(tx, {
@@ -95,7 +135,7 @@ export class PortalsService {
   }
 
   async resend(context: OrganizationContext, actor: PublicUser, invitationId: string) {
-    const db = this.prisma as any;
+    const db = this.prisma;
     const previous = await db.portalInvitation.findFirst({
       where: { id: invitationId, organizationId: context.id, status: 'PENDING' },
       include: { contact: { select: { displayName: true } } },
@@ -106,7 +146,7 @@ export class PortalsService {
   }
 
   async revokeInvitation(organizationId: string, invitationId: string) {
-    const result = await (this.prisma as any).portalInvitation.updateMany({
+    const result = await this.prisma.portalInvitation.updateMany({
       where: { id: invitationId, organizationId, status: 'PENDING' },
       data: { status: 'REVOKED', revokedAt: new Date() },
     });
@@ -114,7 +154,7 @@ export class PortalsService {
   }
 
   async revokeUser(organizationId: string, portalUserId: string) {
-    const result = await (this.prisma as any).portalUser.updateMany({
+    const result = await this.prisma.portalUser.updateMany({
       where: { id: portalUserId, organizationId, status: 'ACTIVE' },
       data: { status: 'REVOKED', revokedAt: new Date() },
     });
@@ -137,7 +177,7 @@ export class PortalsService {
     if (invitation.email.toLowerCase() !== user.email.toLowerCase()) {
       throw new NotFoundException('Portal invitation not found.');
     }
-    const grant = await this.prisma.$transaction(async (tx: any) => {
+    const grant = await this.prisma.$transaction(async (tx) => {
       const consumed = await tx.portalInvitation.updateMany({
         where: { id: invitation.id, status: 'PENDING', expiresAt: { gt: new Date() } },
         data: { status: 'ACCEPTED', acceptedAt: new Date(), acceptedByUserId: user.id },
@@ -185,7 +225,7 @@ export class PortalsService {
   }
 
   async accounts(userId: string) {
-    const grants = await (this.prisma as any).portalUser.findMany({
+    const grants = await this.prisma.portalUser.findMany({
       where: { userId, status: 'ACTIVE' },
       include: {
         organization: { select: { legalName: true, tradingName: true } },
@@ -193,7 +233,7 @@ export class PortalsService {
       },
       orderBy: { createdAt: 'desc' },
     });
-    return grants.map((grant: any) => ({
+    return grants.map((grant) => ({
       id: grant.id,
       organizationName: grant.organization.tradingName ?? grant.organization.legalName,
       customerName: grant.contact.displayName,
@@ -201,8 +241,8 @@ export class PortalsService {
   }
 
   async documents(portal: PortalContext, type?: string) {
-    const db = this.prisma as any;
-    const rows: Array<Record<string, unknown>> = [];
+    const db = this.prisma;
+    const rows: Array<ReturnType<typeof documentSummary>> = [];
     const eligible = !type || type === 'QUOTE';
     if (eligible)
       rows.push(
@@ -225,7 +265,7 @@ export class PortalsService {
               sentAt: true,
             },
           })
-        ).map((item: any) => documentSummary('QUOTE', item, item.quoteNumber, item.sentAt)),
+        ).map((item) => documentSummary('QUOTE', item, item.quoteNumber, item.sentAt)),
       );
     if (!type || type === 'SALES_ORDER')
       rows.push(
@@ -247,7 +287,7 @@ export class PortalsService {
               portalVisibleAt: true,
             },
           })
-        ).map((item: any) =>
+        ).map((item) =>
           documentSummary('SALES_ORDER', item, item.orderNumber, item.portalVisibleAt),
         ),
       );
@@ -272,7 +312,7 @@ export class PortalsService {
               totalMinor: true,
             },
           })
-        ).map((item: any) => documentSummary('INVOICE', item, item.invoiceNumber, item.issueDate)),
+        ).map((item) => documentSummary('INVOICE', item, item.invoiceNumber, item.issueDate)),
       );
     if (!type || type === 'CREDIT_NOTE')
       rows.push(
@@ -294,7 +334,7 @@ export class PortalsService {
               totalMinor: true,
             },
           })
-        ).map((item: any) =>
+        ).map((item) =>
           documentSummary('CREDIT_NOTE', item, item.creditNoteNumber, item.issueDate),
         ),
       );
@@ -313,11 +353,11 @@ export class PortalsService {
               amountMinor: true,
             },
           })
-        ).map((item: any) =>
+        ).map((item) =>
           documentSummary('PAYMENT_RECEIVED', item, item.paymentNumber, item.receivedDate),
         ),
       );
-    return rows.sort((a: any, b: any) => String(b.exposedAt).localeCompare(String(a.exposedAt)));
+    return rows.sort((a, b) => b.exposedAt.localeCompare(a.exposedAt));
   }
 
   async document(portal: PortalContext, type: string, id: string) {
@@ -330,11 +370,11 @@ export class PortalsService {
       type,
       number: record.number,
       status: record.status,
-      issueDate: record.issueDate?.toISOString?.() ?? null,
-      dueDate: record.dueDate?.toISOString?.() ?? null,
+      issueDate: record.issueDate?.toISOString() ?? null,
+      dueDate: record.dueDate?.toISOString() ?? null,
       currency: record.currency,
       totalMinor: String(record.totalMinor ?? record.amountMinor),
-      lines: (record.lines ?? []).map((line: any) => ({
+      lines: (record.lines ?? []).map((line) => ({
         description: line.descriptionSnapshot,
         quantity: String(line.quantity),
         unitPriceMinor: String(line.unitPriceMinor),
@@ -345,7 +385,7 @@ export class PortalsService {
   }
 
   async decideQuote(portal: PortalContext, quoteId: string, decision: 'ACCEPTED' | 'DECLINED') {
-    const changed = await this.prisma.$transaction(async (tx: any) => {
+    const changed = await this.prisma.$transaction(async (tx) => {
       const update = await tx.quote.updateMany({
         where: {
           id: quoteId,
@@ -366,47 +406,121 @@ export class PortalsService {
         action: AuditAction.UPDATE,
         after: { status: decision, portalUserId: portal.id },
         ipHash: null,
+        // The customer performed this, so the projected activity row belongs on their timeline too.
+        portalUserId: portal.id,
       });
       return tx.quote.findUnique({ where: { id: quoteId }, select: { id: true, status: true } });
     });
     return changed;
   }
 
+  async profile(portal: PortalContext) {
+    const contact = await this.prisma.contact.findFirst({
+      where: { id: portal.contactId, organizationId: portal.organizationId, type: 'CUSTOMER' },
+      select: PROFILE_SELECT,
+    });
+    if (!contact) throw new NotFoundException('Portal account not found.');
+    return projectProfile(contact);
+  }
+
   async updateProfile(portal: PortalContext, input: UpdatePortalProfileDto) {
-    const db = this.prisma as any;
-    const contact = await db.contact.update({
-      where: { id: portal.contactId },
-      data: {
+    if (input.addresses) assertOneDefaultPerKind(input.addresses);
+    const before = await this.profile(portal);
+    return this.prisma.$transaction(async (tx) => {
+      // Scoped by organization as well as id: PortalContext already pins both, and re-stating the
+      // tenant on the read keeps it correct even if that context is ever built another way.
+      // Existence is established by this read rather than by an update count -- an addresses-only
+      // save changes no scalar column, and inferring "not found" from an empty update turned that
+      // perfectly valid request into a 404.
+      const existing = await tx.contact.findFirst({
+        where: { id: portal.contactId, organizationId: portal.organizationId, type: 'CUSTOMER' },
+        select: { id: true },
+      });
+      if (!existing) throw new NotFoundException('Portal account not found.');
+      const scalars = {
         ...(input.displayName !== undefined ? { displayName: input.displayName } : {}),
+        // Only the customer-facing contact email. The portal user's sign-in email lives on `User`
+        // and is deliberately unreachable from this endpoint.
         ...(input.email !== undefined ? { email: input.email } : {}),
         ...(input.phone !== undefined ? { phone: input.phone } : {}),
-        ...(input.addresses
-          ? {
-              addresses: {
-                deleteMany: {},
-                create: input.addresses.map((address) => ({
-                  organizationId: portal.organizationId,
-                  ...address,
-                  isDefault: Boolean(address.isDefault),
-                })),
-              },
-            }
-          : {}),
-      },
-      include: { addresses: true },
+      };
+      if (Object.keys(scalars).length > 0) {
+        await tx.contact.update({ where: { id: portal.contactId }, data: scalars });
+      }
+      if (input.addresses) {
+        await tx.contactAddress.deleteMany({
+          where: { organizationId: portal.organizationId, contactId: portal.contactId },
+        });
+        for (const address of input.addresses) {
+          await tx.contactAddress.create({
+            data: {
+              organizationId: portal.organizationId,
+              contactId: portal.contactId,
+              kind: address.kind,
+              line1: address.line1,
+              line2: address.line2 ?? null,
+              city: address.city ?? null,
+              region: address.region ?? null,
+              postalCode: address.postalCode ?? null,
+              countryCode: address.countryCode,
+              isDefault: Boolean(address.isDefault),
+            },
+          });
+        }
+      }
+      const contact = await tx.contact.findFirstOrThrow({
+        where: { id: portal.contactId, organizationId: portal.organizationId },
+        select: PROFILE_SELECT,
+      });
+      const after = projectProfile(contact);
+      await writeAuditEvent(tx, {
+        organizationId: portal.organizationId,
+        actorUserId: portal.userId,
+        eventKey: 'portal.profile_updated',
+        entityType: 'contact',
+        entityId: portal.contactId,
+        action: AuditAction.UPDATE,
+        before,
+        after,
+        ipHash: null,
+        portalUserId: portal.id,
+      });
+      return after;
     });
-    return {
-      displayName: contact.displayName,
-      email: contact.email,
-      phone: contact.phone,
-      addresses: contact.addresses,
-    };
   }
 
   async statement(portal: PortalContext, query: { from?: string; to?: string }) {
     // Statement derivation is shared with the internal endpoint, but the only identifiers supplied
     // come from PortalContext rather than request input.
     return this.statements.getStatement(portal.organizationId, portal.contactId, query);
+  }
+
+  /**
+   * The same derived statement the customer sees on screen, serialised as CSV. Rendering the export
+   * from the identical projection is what keeps a downloaded file and the visible table from ever
+   * disagreeing -- the export is a format, not a second derivation.
+   */
+  async statementCsv(portal: PortalContext, query: { from?: string; to?: string }) {
+    const statement = await this.statement(portal, query);
+    const rows: string[][] = [
+      ['Date', 'Description', 'Debit', 'Credit', 'Balance'],
+      ...statement.transactions.map((transaction) => [
+        transaction.date,
+        transaction.description,
+        minorToDecimal(transaction.debitMinor),
+        minorToDecimal(transaction.creditMinor),
+        minorToDecimal(transaction.balanceMinor),
+      ]),
+      [],
+      ['Opening balance', '', '', '', minorToDecimal(statement.summary.openingBalanceMinor)],
+      ['Closing balance', '', '', '', minorToDecimal(statement.summary.closingBalanceMinor)],
+    ];
+    const slug = statement.contact.displayName.replace(/[^A-Za-z0-9]+/g, '-').toLowerCase();
+    return {
+      filename: `statement-${slug}-${statement.to}.csv`,
+      contentType: 'text/csv; charset=utf-8',
+      body: rows.map((row) => row.map(csvCell).join(',')).join(CRLF),
+    };
   }
 
   async downloadDocument(portal: PortalContext, type: string, id: string) {
@@ -442,7 +556,7 @@ export class PortalsService {
   }
 
   private async findUsableInvitation(token: string) {
-    const db = this.prisma as any;
+    const db = this.prisma;
     const invitation = await db.portalInvitation.findFirst({
       where: { tokenHash: hashToken(token), status: 'PENDING', expiresAt: { gt: new Date() } },
       include: {
@@ -458,8 +572,8 @@ export class PortalsService {
     portal: PortalContext,
     type: string,
     id: string,
-  ): Promise<any> {
-    const db = this.prisma as any;
+  ): Promise<PortalDocumentRecord | null> {
+    const db = this.prisma;
     const base = { id, organizationId: portal.organizationId, contactId: portal.contactId };
     switch (type) {
       case 'QUOTE':
@@ -485,7 +599,7 @@ export class PortalsService {
               },
             },
           })
-          .then((row: any) => row && { ...row, number: row.quoteNumber, dueDate: row.expiryDate });
+          .then((row) => row && { ...row, number: row.quoteNumber, dueDate: row.expiryDate });
       case 'SALES_ORDER':
         return db.salesOrder
           .findFirst({
@@ -508,7 +622,7 @@ export class PortalsService {
               },
             },
           })
-          .then((row: any) => row && { ...row, number: row.orderNumber });
+          .then((row) => row && { ...row, number: row.orderNumber });
       case 'INVOICE':
         return db.invoice
           .findFirst({
@@ -532,7 +646,7 @@ export class PortalsService {
               },
             },
           })
-          .then((row: any) => row && { ...row, number: row.invoiceNumber });
+          .then((row) => row && { ...row, number: row.invoiceNumber });
       case 'CREDIT_NOTE':
         return db.creditNote
           .findFirst({
@@ -555,7 +669,7 @@ export class PortalsService {
               },
             },
           })
-          .then((row: any) => row && { ...row, number: row.creditNoteNumber });
+          .then((row) => row && { ...row, number: row.creditNoteNumber });
       case 'PAYMENT_RECEIVED':
         return db.paymentReceived
           .findFirst({
@@ -569,9 +683,7 @@ export class PortalsService {
               amountMinor: true,
             },
           })
-          .then(
-            (row: any) => row && { ...row, number: row.paymentNumber, issueDate: row.receivedDate },
-          );
+          .then((row) => row && { ...row, number: row.paymentNumber, issueDate: row.receivedDate });
       default:
         return null;
     }
@@ -586,12 +698,12 @@ function customerDocumentHtml(input: {
   status: string;
   currency: string;
   totalMinor: string;
-  lines: Array<{ descriptionSnapshot?: string; quantity?: unknown; lineTotalMinor?: unknown }>;
+  lines: readonly DocumentLine[];
 }) {
   const rows = input.lines
     .map(
       (line) =>
-        `<tr><td>${escapeHtml(line.descriptionSnapshot ?? '')}</td><td>${escapeHtml(String(line.quantity ?? ''))}</td><td>${escapeHtml(String(line.lineTotalMinor ?? ''))}</td></tr>`,
+        `<tr><td>${escapeHtml(line.descriptionSnapshot)}</td><td>${escapeHtml(line.quantity.toString())}</td><td>${escapeHtml(line.lineTotalMinor.toString())}</td></tr>`,
     )
     .join('');
   return `<!doctype html><html><head><meta charset="utf-8"><style>body{font:14px Arial;color:#10233f;padding:42px}h1{font-size:26px;margin:0 0 8px}p{color:#526681}table{width:100%;border-collapse:collapse;margin-top:28px}th,td{padding:10px;border-bottom:1px solid #dfe6ef;text-align:left}th:last-child,td:last-child{text-align:right}</style></head><body><p>${escapeHtml(input.organizationName)}</p><h1>${escapeHtml(input.type.replaceAll('_', ' '))} ${escapeHtml(input.number ?? '')}</h1><p>For ${escapeHtml(input.customerName)} · ${escapeHtml(input.status)}</p><table><thead><tr><th>Description</th><th>Quantity</th><th>Amount</th></tr></thead><tbody>${rows}</tbody></table><h2>Total: ${escapeHtml(input.currency)} ${escapeHtml((Number(input.totalMinor) / 100).toFixed(2))}</h2></body></html>`;
@@ -606,7 +718,82 @@ function escapeHtml(value: string) {
   );
 }
 
-function summarizeInvitation(invitation: any) {
+/** The only contact columns the portal ever projects. Addresses read back in a stable order. */
+const PROFILE_SELECT = {
+  displayName: true,
+  email: true,
+  phone: true,
+  addresses: { orderBy: [{ kind: 'asc' }, { createdAt: 'asc' }] },
+} satisfies Prisma.ContactSelect;
+
+function projectProfile(contact: {
+  displayName: string;
+  email: string | null;
+  phone: string | null;
+  addresses: ReadonlyArray<{
+    id: string;
+    kind: string;
+    line1: string;
+    line2: string | null;
+    city: string | null;
+    region: string | null;
+    postalCode: string | null;
+    countryCode: string;
+    isDefault: boolean;
+  }>;
+}) {
+  return {
+    displayName: contact.displayName,
+    email: contact.email,
+    phone: contact.phone,
+    addresses: contact.addresses.map((address) => ({
+      id: address.id,
+      kind: address.kind,
+      line1: address.line1,
+      line2: address.line2,
+      city: address.city,
+      region: address.region,
+      postalCode: address.postalCode,
+      countryCode: address.countryCode,
+      isDefault: address.isDefault,
+    })),
+  };
+}
+
+/**
+ * A contact holds at most one billing and one shipping default. Rejecting a second default for the
+ * same kind here keeps the stored set unambiguous, rather than letting whichever row is read first
+ * silently win.
+ */
+function assertOneDefaultPerKind(addresses: ReadonlyArray<{ kind: string; isDefault?: boolean }>) {
+  for (const kind of ['BILLING', 'SHIPPING'] as const) {
+    const defaults = addresses.filter(
+      (address) => address.kind === kind && Boolean(address.isDefault),
+    );
+    if (defaults.length > 1) {
+      throw new ConflictException(`Choose a single default ${kind.toLowerCase()} address.`);
+    }
+  }
+}
+
+function minorToDecimal(value: string) {
+  const negative = value.startsWith('-');
+  const digits = (negative ? value.slice(1) : value).padStart(3, '0');
+  return `${negative ? '-' : ''}${digits.slice(0, -2)}.${digits.slice(-2)}`;
+}
+
+function csvCell(value: string) {
+  return CSV_QUOTED.test(value) ? `"${value.replaceAll('"', '""')}"` : value;
+}
+
+function summarizeInvitation(invitation: {
+  id: string;
+  email: string;
+  status: PortalInvitationStatus;
+  expiresAt: Date;
+  createdAt: Date;
+  revokedAt: Date | null;
+}) {
   return {
     id: invitation.id,
     email: invitation.email,
@@ -617,16 +804,26 @@ function summarizeInvitation(invitation: any) {
   };
 }
 
-function documentSummary(type: string, item: any, number: string | null, exposedAt: Date) {
+/**
+ * `exposedAt` is the moment the document became customer-visible. Every query that feeds this
+ * already filters the column to non-null, but the model still types it as nullable; falling back to
+ * the issue date keeps the sort total rather than asserting the filter from here.
+ */
+function documentSummary(
+  type: string,
+  item: DocumentSummarySource,
+  number: string | null,
+  exposedAt: Date | null,
+) {
   return {
     id: item.id,
     type,
     number,
     status: item.status,
-    issueDate: item.issueDate?.toISOString?.() ?? null,
-    dueDate: item.dueDate?.toISOString?.() ?? null,
+    issueDate: item.issueDate?.toISOString() ?? null,
+    dueDate: item.dueDate?.toISOString() ?? null,
     currency: item.currency,
     totalMinor: String(item.totalMinor ?? item.amountMinor),
-    exposedAt: exposedAt.toISOString(),
+    exposedAt: (exposedAt ?? item.issueDate ?? new Date(0)).toISOString(),
   };
 }

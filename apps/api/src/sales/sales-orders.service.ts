@@ -370,7 +370,11 @@ export class SalesOrdersService {
           status: options.to,
           // This timestamp, rather than the current status, is the irreversible customer-visibility
           // fact. A later fulfilment or cancellation must not hide a confirmed order's history.
-          ...(options.to === 'CONFIRMED' ? { portalVisibleAt: new Date() } : {}),
+          // Only the *first* confirmation stamps it: re-confirming must not rewrite the moment the
+          // order became customer-visible, because the portal orders documents by that timestamp.
+          ...(options.to === 'CONFIRMED' && existing.portalVisibleAt === null
+            ? { portalVisibleAt: new Date() }
+            : {}),
         },
         include: orderDetailInclude,
       });

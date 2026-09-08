@@ -28,6 +28,248 @@ export const healthResponseSchema = z.object({
   queues: z.array(queueStatusSchema).optional(),
 });
 
+// --- Phase 12: Platform Admin ---
+//
+// Platform-scoped rather than tenant-scoped. None of these shapes carries a monetary column from a
+// tenant's books: the console reads standing and adoption, never amounts. Plan pricing is the
+// platform's own figure, not a tenant's.
+
+export const platformRoleSchema = z.enum(['SUPPORT', 'OPERATIONS', 'SUPERADMIN']);
+export const platformAdminStatusSchema = z.enum(['ACTIVE', 'REVOKED']);
+export const planStatusSchema = z.enum(['DRAFT', 'ACTIVE', 'RETIRED']);
+export const billingIntervalSchema = z.enum(['MONTHLY', 'YEARLY']);
+export const subscriptionStatusSchema = z.enum(['TRIALING', 'ACTIVE', 'PAST_DUE', 'CANCELLED']);
+export const featureFlagStatusSchema = z.enum(['ACTIVE', 'ARCHIVED']);
+export const featureFlagScopeSchema = z.enum(['GLOBAL', 'COUNTRY', 'PLAN', 'ORGANIZATION']);
+
+export const platformSessionSchema = z.object({
+  userId: z.uuid(),
+  email: z.email(),
+  displayName: z.string().min(1),
+  role: platformRoleSchema,
+});
+
+export const platformAdminSchema = z.object({
+  id: z.uuid(),
+  userId: z.uuid(),
+  email: z.email(),
+  displayName: z.string().min(1),
+  role: platformRoleSchema,
+  status: platformAdminStatusSchema,
+  note: z.string().nullable(),
+  grantedBy: z.string().nullable(),
+  grantedAt: z.iso.datetime(),
+  revokedAt: z.iso.datetime().nullable(),
+});
+
+export const platformPaginationSchema = z.object({
+  page: z.number().int().positive(),
+  pageSize: z.number().int().positive(),
+  totalRows: z.number().int().nonnegative(),
+});
+
+export const platformOrganizationSchema = z.object({
+  id: z.uuid(),
+  name: z.string().min(1),
+  legalName: z.string().min(1),
+  slug: z.string().min(1),
+  countryCode: z.string().length(2),
+  baseCurrency: z.string().length(3),
+  status: z.enum(['DRAFT', 'ACTIVE', 'SUSPENDED']),
+  suspendedAt: z.iso.datetime().nullable(),
+  suspendedReason: z.string().nullable(),
+  ownerEmail: z.email(),
+  ownerName: z.string().min(1),
+  planKey: z.string().nullable(),
+  planName: z.string().nullable(),
+  subscriptionStatus: subscriptionStatusSchema.nullable(),
+  memberCount: z.number().int().nonnegative(),
+  createdAt: z.iso.datetime(),
+});
+
+/**
+ * Adoption signals only: counts and dates. There is deliberately no monetary field here — "how
+ * much has this tenant invoiced" is precisely the question the platform console must not answer.
+ */
+export const platformUsageSchema = z.object({
+  issuedInvoices: z.number().int().nonnegative(),
+  firstInvoiceAt: z.iso.datetime().nullable(),
+  bills: z.number().int().nonnegative(),
+  postedJournals: z.number().int().nonnegative(),
+  reconciliations: z.number().int().nonnegative(),
+  projects: z.number().int().nonnegative(),
+  inventoryAdjustments: z.number().int().nonnegative(),
+  portalUsers: z.number().int().nonnegative(),
+});
+
+export const resolvedEntitlementSchema = z.object({
+  key: z.string().min(1),
+  enabled: z.boolean(),
+  /** Null means no limit, which is a different statement from a limit of zero. */
+  limitValue: z.number().int().nonnegative().nullable(),
+});
+
+export const resolvedFlagSchema = z.object({
+  key: z.string().min(1),
+  enabled: z.boolean(),
+  /** Which rule decided the answer, so an operator can see why a tenant has a feature. */
+  decidedBy: z.union([featureFlagScopeSchema, z.literal('DEFAULT')]),
+});
+
+export const organizationEntitlementsSchema = z.object({
+  organizationId: z.uuid(),
+  plan: z.object({ key: z.string(), name: z.string() }).nullable(),
+  subscription: z
+    .object({ status: z.string(), trialEndsAt: z.iso.datetime().nullable() })
+    .nullable(),
+  entitlements: z.array(resolvedEntitlementSchema),
+  flags: z.array(resolvedFlagSchema),
+});
+
+export const platformUserSchema = z.object({
+  id: z.uuid(),
+  email: z.email(),
+  displayName: z.string().min(1),
+  status: z.enum(['PENDING_VERIFICATION', 'ACTIVE', 'SUSPENDED', 'CLOSED']),
+  emailVerified: z.boolean(),
+  membershipCount: z.number().int().nonnegative(),
+  createdAt: z.iso.datetime(),
+});
+
+export const platformPlanSchema = z.object({
+  id: z.uuid(),
+  key: z.string().min(1),
+  name: z.string().min(1),
+  description: z.string().nullable(),
+  status: planStatusSchema,
+  isDefault: z.boolean(),
+  trialDays: z.number().int().nonnegative(),
+  priceMinor: z.string(),
+  currency: z.string().length(3),
+  billingInterval: billingIntervalSchema,
+  sortOrder: z.number().int(),
+  subscriberCount: z.number().int().nonnegative(),
+  entitlements: z.array(resolvedEntitlementSchema),
+});
+
+export const featureFlagRuleSchema = z.object({
+  id: z.uuid(),
+  scope: featureFlagScopeSchema,
+  enabled: z.boolean(),
+  note: z.string().nullable(),
+  countryCode: z.string().length(2).nullable(),
+  planId: z.uuid().nullable(),
+  planName: z.string().nullable(),
+  organizationId: z.uuid().nullable(),
+  organizationName: z.string().nullable(),
+});
+
+export const featureFlagSchema = z.object({
+  id: z.uuid(),
+  key: z.string().min(1),
+  name: z.string().min(1),
+  description: z.string().nullable(),
+  defaultEnabled: z.boolean(),
+  status: featureFlagStatusSchema,
+  rules: z.array(featureFlagRuleSchema),
+});
+
+export const platformQueueHealthSchema = z.object({
+  queues: z.object({
+    automation: z.record(z.string(), z.number()),
+    email: z.record(z.string(), z.number()),
+  }),
+  scheduler: z.object({
+    dueNow: z.number().int().nonnegative(),
+    failedLastDay: z.number().int().nonnegative(),
+    runningNow: z.number().int().nonnegative(),
+  }),
+  observedAt: z.iso.datetime(),
+});
+
+export const platformFailedJobSchema = z.object({
+  id: z.uuid(),
+  organizationId: z.uuid(),
+  organizationName: z.string().min(1),
+  handler: z.string().min(1),
+  sourceType: z.string().min(1),
+  sourceId: z.string().min(1),
+  occurrenceKey: z.string().min(1),
+  attempts: z.number().int().nonnegative(),
+  error: z.string().nullable(),
+  createdAt: z.iso.datetime(),
+  completedAt: z.iso.datetime().nullable(),
+});
+
+export const platformSecurityEventSchema = z.object({
+  id: z.uuid(),
+  eventKey: z.string().min(1),
+  severity: z.string().min(1),
+  occurredAt: z.iso.datetime(),
+  metadata: z.unknown(),
+  userId: z.uuid().nullable(),
+  userEmail: z.email().nullable(),
+  organizationId: z.uuid().nullable(),
+  organizationName: z.string().nullable(),
+});
+
+export const platformAuditEventSchema = z.object({
+  id: z.uuid(),
+  eventKey: z.string().min(1),
+  targetType: z.string().min(1),
+  targetId: z.string().nullable(),
+  organizationId: z.uuid().nullable(),
+  reason: z.string().nullable(),
+  before: z.unknown(),
+  after: z.unknown(),
+  actorEmail: z.email(),
+  actorName: z.string().min(1),
+  actorRole: platformRoleSchema,
+  occurredAt: z.iso.datetime(),
+});
+
+export const platformAnalyticsSchema = z.object({
+  organizations: z.object({
+    total: z.number().int().nonnegative(),
+    active: z.number().int().nonnegative(),
+    suspended: z.number().int().nonnegative(),
+    draft: z.number().int().nonnegative(),
+    createdLast30Days: z.number().int().nonnegative(),
+  }),
+  users: z.object({
+    total: z.number().int().nonnegative(),
+    active: z.number().int().nonnegative(),
+  }),
+  activation: z.object({
+    onboardingCompleted: z.number().int().nonnegative(),
+    onboardingCompletedRate: z.number(),
+    reachedFirstInvoice: z.number().int().nonnegative(),
+    reachedFirstInvoiceRate: z.number(),
+  }),
+  adoption: z.object({
+    invoicing: z.number().int().nonnegative(),
+    banking: z.number().int().nonnegative(),
+    inventory: z.number().int().nonnegative(),
+    projects: z.number().int().nonnegative(),
+    portals: z.number().int().nonnegative(),
+    automation: z.number().int().nonnegative(),
+  }),
+  retention: z.object({
+    activeLast30Days: z.number().int().nonnegative(),
+    activeLast90Days: z.number().int().nonnegative(),
+    activeLast30DaysRate: z.number(),
+  }),
+  distribution: z.object({
+    byCountry: z.array(
+      z.object({ countryCode: z.string().length(2), organizations: z.number().int() }),
+    ),
+    byPlan: z.array(
+      z.object({ planId: z.uuid(), planName: z.string(), organizations: z.number().int() }),
+    ),
+  }),
+  observedAt: z.iso.datetime(),
+});
+
 export type ServiceStatus = z.infer<typeof serviceStatusSchema>;
 export type QueueStatus = z.infer<typeof queueStatusSchema>;
 export type HealthResponse = z.infer<typeof healthResponseSchema>;
@@ -3491,3 +3733,28 @@ export type WorkflowDryRun = z.infer<typeof workflowDryRunSchema>;
 export type ScheduleDefinition = z.infer<typeof scheduleDefinitionSchema>;
 export type CreateScheduledReport = z.infer<typeof createScheduledReportSchema>;
 export type Notification = z.infer<typeof notificationSchema>;
+
+export type PlatformRole = z.infer<typeof platformRoleSchema>;
+export type PlatformAdminStatus = z.infer<typeof platformAdminStatusSchema>;
+export type PlatformSession = z.infer<typeof platformSessionSchema>;
+export type PlatformAdmin = z.infer<typeof platformAdminSchema>;
+export type PlatformPagination = z.infer<typeof platformPaginationSchema>;
+export type PlatformOrganization = z.infer<typeof platformOrganizationSchema>;
+export type PlatformUsage = z.infer<typeof platformUsageSchema>;
+export type PlatformUser = z.infer<typeof platformUserSchema>;
+export type PlanStatus = z.infer<typeof planStatusSchema>;
+export type BillingInterval = z.infer<typeof billingIntervalSchema>;
+export type SubscriptionStatus = z.infer<typeof subscriptionStatusSchema>;
+export type PlatformPlan = z.infer<typeof platformPlanSchema>;
+export type ResolvedEntitlement = z.infer<typeof resolvedEntitlementSchema>;
+export type ResolvedFlag = z.infer<typeof resolvedFlagSchema>;
+export type OrganizationEntitlements = z.infer<typeof organizationEntitlementsSchema>;
+export type FeatureFlagStatus = z.infer<typeof featureFlagStatusSchema>;
+export type FeatureFlagScope = z.infer<typeof featureFlagScopeSchema>;
+export type FeatureFlagRule = z.infer<typeof featureFlagRuleSchema>;
+export type FeatureFlag = z.infer<typeof featureFlagSchema>;
+export type PlatformQueueHealth = z.infer<typeof platformQueueHealthSchema>;
+export type PlatformFailedJob = z.infer<typeof platformFailedJobSchema>;
+export type PlatformSecurityEvent = z.infer<typeof platformSecurityEventSchema>;
+export type PlatformAuditEvent = z.infer<typeof platformAuditEventSchema>;
+export type PlatformAnalytics = z.infer<typeof platformAnalyticsSchema>;

@@ -24,6 +24,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { ApiError, apiRequest } from '../lib/api';
 import { hasPermission, useWorkspace } from '../lib/workspace';
+import { TransactionCollaboration } from './transaction-collaboration';
 
 type SalesOrderListResponse = { data: SalesOrder[] };
 type SalesOrderResponse = { data: SalesOrder };
@@ -622,6 +623,23 @@ export function SalesOrderEditorPage({ orderId }: { orderId?: string }) {
             <FieldMessage error>Choose a customer before saving this order.</FieldMessage>
           ) : null}
         </Card>
+        {organizationId && orderId ? (
+          <TransactionCollaboration
+            organizationId={organizationId}
+            targetType="SALES_ORDER"
+            targetId={orderId}
+            canComment={hasPermission(organization, 'collaboration.comments.create')}
+            canUpload={
+              hasPermission(organization, 'collaboration.attachments.upload') &&
+              hasPermission(organization, 'sales.orders.manage')
+            }
+            canShareWithCustomer={hasPermission(
+              organization,
+              'collaboration.customer_visibility.manage',
+            )}
+            customerEligible
+          />
+        ) : null}
       </div>
     </>
   );

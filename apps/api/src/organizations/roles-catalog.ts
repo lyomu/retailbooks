@@ -434,6 +434,9 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
       'purchases.recurring_bills.manage',
       'purchases.recurring_expenses.view',
       'purchases.recurring_expenses.manage',
+      'collaboration.comments.create',
+      'collaboration.attachments.upload',
+      'collaboration.activity.view',
     ],
   },
   {
@@ -455,6 +458,9 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
       'inventory.transfers.manage',
       'inventory.reorder.view',
       'inventory.valuation.view',
+      'collaboration.comments.create',
+      'collaboration.attachments.upload',
+      'collaboration.activity.view',
     ],
   },
   {
@@ -481,6 +487,9 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
       'sales.invoices.view',
       'sales.invoices.manage',
       'purchases.expenses.view',
+      'collaboration.comments.create',
+      'collaboration.attachments.upload',
+      'collaboration.activity.view',
     ],
   },
   {
@@ -488,7 +497,12 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
     name: 'Viewer/Auditor',
     description: 'Read-only organization access, including allowed audit and report views.',
     isOwnerRole: false,
-    permissions: [...READ_ONLY_BASELINE, 'reports.view', 'audit.view'],
+    permissions: [
+      ...READ_ONLY_BASELINE,
+      'reports.view',
+      'audit.view',
+      'collaboration.activity.view',
+    ],
   },
 ]);
 

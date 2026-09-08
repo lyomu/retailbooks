@@ -33,6 +33,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { ApiError, apiRequest, apiUpload } from '../lib/api';
 import { hasPermission, useWorkspace } from '../lib/workspace';
+import { TransactionCollaboration } from './transaction-collaboration';
 
 type ExpenseListResponse = { data: Expense[] };
 type ExpenseResponse = { data: Expense };
@@ -41,7 +42,9 @@ type VendorListResponse = { data: Vendor[] };
 type AccountListResponse = { data: LedgerAccount[] };
 type TaxCodeListResponse = { data: TaxCode[] };
 type ExpenseCategoryListResponse = { data: ExpenseCategory[] };
-type AttachmentWithUrl = AttachmentListResponse['data'][number];
+// The listing no longer carries a signed URL: the link is issued by a separate, re-authorized
+// download endpoint, so a stale list can never hand out a live link to bytes.
+type AttachmentRow = Omit<AttachmentListResponse['data'][number], 'downloadUrl'>;
 
 const statusOptions: readonly ExpenseStatus[] = [
   'DRAFT',
@@ -212,7 +215,7 @@ export function ExpenseEditorPage({ expenseId }: { expenseId?: string }) {
   const [categories, setCategories] = useState<ExpenseCategory[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [expense, setExpense] = useState<Expense | null>(null);
-  const [attachments, setAttachments] = useState<AttachmentWithUrl[] | null>(null);
+  const [attachments, setAttachments] = useState<AttachmentRow[] | null>(null);
   const [payeeVendorId, setPayeeVendorId] = useState('');
   const [payeeName, setPayeeName] = useState('');
   const [expenseDate, setExpenseDate] = useState(() => new Date().toISOString().slice(0, 10));
@@ -362,6 +365,19 @@ export function ExpenseEditorPage({ expenseId }: { expenseId?: string }) {
       setError(caught instanceof ApiError ? caught.message : 'That action could not be completed.');
     } finally {
       setBusy(null);
+    }
+  }
+
+  /** Re-authorizes and then opens the short-lived link, rather than trusting a listed URL. */
+  async function openAttachment(attachmentId: string) {
+    if (!organizationId || !expense?.id) return;
+    try {
+      const response = await apiRequest<{ data: { downloadUrl: string } }>(
+        `/organizations/${organizationId}/expenses/${expense.id}/attachments/${attachmentId}/download`,
+      );
+      window.open(response.data.downloadUrl, '_blank', 'noopener,noreferrer');
+    } catch (caught) {
+      setError(caught instanceof ApiError ? caught.message : 'The attachment could not be opened.');
     }
   }
 
@@ -651,9 +667,13 @@ export function ExpenseEditorPage({ expenseId }: { expenseId?: string }) {
               <ul className="rb-attachment-list">
                 {attachments.map((attachment) => (
                   <li key={attachment.id}>
-                    <a href={attachment.downloadUrl} target="_blank" rel="noreferrer">
+                    <button
+                      type="button"
+                      className="rb-attachment-link"
+                      onClick={() => void openAttachment(attachment.id)}
+                    >
                       {attachment.filename}
-                    </a>
+                    </button>
                     <span className="rb-table-secondary">
                       {(attachment.sizeBytes / 1024).toFixed(0)} KB
                     </span>
@@ -664,6 +684,18 @@ export function ExpenseEditorPage({ expenseId }: { expenseId?: string }) {
               <span className="rb-table-secondary">No receipt uploaded yet.</span>
             )}
           </Card>
+        ) : null}
+        {organizationId && expenseId ? (
+          <TransactionCollaboration
+            organizationId={organizationId}
+            targetType="EXPENSE"
+            targetId={expenseId}
+            canComment={hasPermission(organization, 'collaboration.comments.create')}
+            canUpload={
+              hasPermission(organization, 'collaboration.attachments.upload') &&
+              hasPermission(organization, 'purchases.expenses.manage')
+            }
+          />
         ) : null}
       </div>
     </>

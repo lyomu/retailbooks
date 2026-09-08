@@ -31,6 +31,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { ApiError, apiRequest } from '../lib/api';
 import { hasPermission, useWorkspace } from '../lib/workspace';
+import { TransactionCollaboration } from './transaction-collaboration';
 
 type VendorCreditListResponse = { data: VendorCredit[] };
 type VendorCreditResponse = { data: VendorCredit };
@@ -766,6 +767,18 @@ export function VendorCreditEditorPage({ vendorCreditId }: { vendorCreditId?: st
               </>
             )}
           </Card>
+        ) : null}
+        {organizationId && vendorCreditId ? (
+          <TransactionCollaboration
+            organizationId={organizationId}
+            targetType="VENDOR_CREDIT"
+            targetId={vendorCreditId}
+            canComment={hasPermission(organization, 'collaboration.comments.create')}
+            canUpload={
+              hasPermission(organization, 'collaboration.attachments.upload') &&
+              hasPermission(organization, 'purchases.vendor_credits.manage')
+            }
+          />
         ) : null}
       </div>
     </>

@@ -43,6 +43,28 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
   return response.json() as Promise<T>;
 }
 
+/**
+ * Fetches a file endpoint that answers with bytes rather than JSON (a CSV export, for example) and
+ * hands back the blob plus the filename the server chose. Kept separate from apiRequest because
+ * that one always parses JSON, and separate from a plain link because the download must carry the
+ * session cookie cross-origin.
+ */
+export async function apiDownload(path: string): Promise<{ blob: Blob; filename: string }> {
+  const response = await fetch(`${API_URL}/api/v1${path}`, { credentials: 'include' });
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => ({}))) as ApiErrorPayload;
+    throw new ApiError(
+      payload.error?.message ?? 'The download could not be completed.',
+      response.status,
+      payload.error?.code,
+      payload.error?.fieldErrors,
+    );
+  }
+  const disposition = response.headers.get('Content-Disposition') ?? '';
+  const match = /filename="?([^";]+)"?/i.exec(disposition);
+  return { blob: await response.blob(), filename: match?.[1] ?? 'download' };
+}
+
 /** Multipart upload (attachments) -- deliberately skips the JSON `Content-Type` header apiRequest
  * always sets, so the browser can set its own multipart boundary. */
 export async function apiUpload<T>(

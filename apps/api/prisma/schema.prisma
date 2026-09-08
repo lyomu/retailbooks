@@ -282,6 +282,11 @@ model User {
   actionTokens                     ActionToken[]
   securityEvents                   SecurityEvent[]
   auditEvents                      AuditEvent[]
+  platformAdmin                    PlatformAdmin?             @relation("PlatformAdminUser")
+  platformGrantsIssued             PlatformAdmin[]            @relation("PlatformAdminGrantedBy")
+  platformAuditEvents              PlatformAuditEvent[]       @relation("PlatformAuditActor")
+  portalGrantsInvited              PortalUser[]               @relation("PortalUserInvitedBy")
+  organizationsSuspended           Organization[]             @relation("OrganizationSuspendedBy")
   memberships                      OrganizationMember[]
   organizationsCreated             Organization[]             @relation("OrganizationCreatedBy")
   invitationsSent                  OrganizationInvitation[]   @relation("InvitationInvitedBy")
@@ -447,17 +452,27 @@ model Organization {
   fiscalYearStartMonth          Int                            @default(1) @map("fiscal_year_start_month") @db.SmallInt
   fiscalYearStartDay            Int                            @default(1) @map("fiscal_year_start_day") @db.SmallInt
   status                        OrganizationStatus             @default(DRAFT)
+  /// Phase 12 suspension metadata. Suspension blocks access and changes nothing else, so these
+  /// three columns are the whole record of it: who, when, and why. Reactivation clears
+  /// `suspendedAt` and leaves the reason in the platform audit log.
+  suspendedAt                   DateTime?                      @map("suspended_at") @db.Timestamptz(6)
+  suspendedReason               String?                        @map("suspended_reason") @db.VarChar(500)
+  suspendedByUserId             String?                        @map("suspended_by_user_id") @db.Uuid
   onboardingStep                OnboardingStep                 @default(JURISDICTION) @map("onboarding_step")
   onboardingCompletedAt         DateTime?                      @map("onboarding_completed_at") @db.Timestamptz(6)
   createdByUserId               String                         @map("created_by_user_id") @db.Uuid
   createdAt                     DateTime                       @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt                     DateTime                       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   createdBy                     User                           @relation("OrganizationCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  suspendedBy                   User?                          @relation("OrganizationSuspendedBy", fields: [suspendedByUserId], references: [id], onDelete: SetNull)
   preferences                   OrganizationPreference?
   members                       OrganizationMember[]
   invitations                   OrganizationInvitation[]
   securityEvents                SecurityEvent[]
   auditEvents                   AuditEvent[]
+  platformAuditEvents           PlatformAuditEvent[]
+  subscription                  OrganizationSubscription?
+  featureFlagRules              FeatureFlagRule[]
   roles                         Role[]
   fiscalYears                   FiscalYear[]
   fiscalPeriods                 FiscalPeriod[]
@@ -546,10 +561,10 @@ model Organization {
   scheduledReports              ScheduledReport[]
   notifications                 Notification[]
   notificationPreferences       NotificationPreference[]
-  portalUsers                  PortalUser[]
-  portalInvitations            PortalInvitation[]
-  comments                     Comment[]
-  activities                   Activity[]
+  portalUsers                   PortalUser[]
+  portalInvitations             PortalInvitation[]
+  comments                      Comment[]
+  activities                    Activity[]
 
   @@index([createdByUserId])
   @@index([status])
@@ -1121,27 +1136,28 @@ enum PortalInvitationStatus {
 /// Customer-scoped access to the portal. This is deliberately not an OrganizationMember: a portal
 /// user cannot inherit internal permissions or reach arbitrary organization records.
 model PortalUser {
-  id              String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  organizationId  String           @map("organization_id") @db.Uuid
-  contactId       String           @map("contact_id") @db.Uuid
-  userId          String           @map("user_id") @db.Uuid
-  status          PortalUserStatus @default(ACTIVE)
-  invitedByUserId String           @map("invited_by_user_id") @db.Uuid
-  activatedAt     DateTime         @default(now()) @map("activated_at") @db.Timestamptz(6)
-  revokedAt       DateTime?        @map("revoked_at") @db.Timestamptz(6)
-  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  organization    Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  contact         Contact          @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  user            User             @relation("PortalUserUser", fields: [userId], references: [id], onDelete: Cascade)
+  id              String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId  String             @map("organization_id") @db.Uuid
+  contactId       String             @map("contact_id") @db.Uuid
+  userId          String             @map("user_id") @db.Uuid
+  status          PortalUserStatus   @default(ACTIVE)
+  invitedByUserId String             @map("invited_by_user_id") @db.Uuid
+  activatedAt     DateTime           @default(now()) @map("activated_at") @db.Timestamptz(6)
+  revokedAt       DateTime?          @map("revoked_at") @db.Timestamptz(6)
+  createdAt       DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization    Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  contact         Contact            @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  user            User               @relation("PortalUserUser", fields: [userId], references: [id], onDelete: Cascade)
+  invitedBy       User               @relation("PortalUserInvitedBy", fields: [invitedByUserId], references: [id], onDelete: Restrict)
   invitations     PortalInvitation[]
   attachments     Attachment[]
   comments        Comment[]
   activities      Activity[]
 
-  @@unique([organizationId, contactId, userId])
-  @@index([userId, status])
-  @@index([organizationId, contactId, status])
+  @@unique([organizationId, contactId, userId], map: "portal_users_org_contact_user_key")
+  @@index([userId, status], map: "portal_users_user_status_idx")
+  @@index([organizationId, contactId, status], map: "portal_users_org_contact_status_idx")
   @@map("portal_users")
 }
 
@@ -1166,7 +1182,7 @@ model PortalInvitation {
   acceptedBy       User?                  @relation("PortalInvitationAcceptedBy", fields: [acceptedByUserId], references: [id], onDelete: SetNull)
   portalUser       PortalUser?            @relation(fields: [portalUserId], references: [id], onDelete: SetNull)
 
-  @@index([organizationId, contactId, status])
+  @@index([organizationId, contactId, status], map: "portal_invites_org_contact_status_idx")
   @@index([email, status])
   @@index([expiresAt])
   @@map("portal_invitations")
@@ -1210,42 +1226,42 @@ enum ActivityKind {
 }
 
 model Comment {
-  id           String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  organizationId String                 @map("organization_id") @db.Uuid
-  targetType   CollaborationTargetType @map("target_type")
-  targetId     String                  @map("target_id") @db.Uuid
-  body         String                  @db.VarChar(4000)
-  visibility   CollaborationVisibility @default(INTERNAL)
-  authorUserId String                  @map("author_user_id") @db.Uuid
-  portalUserId String?                 @map("portal_user_id") @db.Uuid
-  createdAt    DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
-  organization Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  author       User                     @relation("CommentAuthor", fields: [authorUserId], references: [id], onDelete: Restrict)
-  portalUser   PortalUser?              @relation(fields: [portalUserId], references: [id], onDelete: SetNull)
+  id             String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String                  @map("organization_id") @db.Uuid
+  targetType     CollaborationTargetType @map("target_type")
+  targetId       String                  @map("target_id") @db.Uuid
+  body           String                  @db.VarChar(4000)
+  visibility     CollaborationVisibility @default(INTERNAL)
+  authorUserId   String                  @map("author_user_id") @db.Uuid
+  portalUserId   String?                 @map("portal_user_id") @db.Uuid
+  createdAt      DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  organization   Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  author         User                    @relation("CommentAuthor", fields: [authorUserId], references: [id], onDelete: Restrict)
+  portalUser     PortalUser?             @relation(fields: [portalUserId], references: [id], onDelete: SetNull)
 
-  @@index([organizationId, targetType, targetId, createdAt])
+  @@index([organizationId, targetType, targetId, createdAt], map: "comments_org_target_created_idx")
   @@map("comments")
 }
 
 model Activity {
-  id           String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  organizationId String                 @map("organization_id") @db.Uuid
-  targetType   CollaborationTargetType @map("target_type")
-  targetId     String                  @map("target_id") @db.Uuid
-  kind         ActivityKind
-  visibility   CollaborationVisibility @default(INTERNAL)
-  eventKey     String                  @map("event_key") @db.VarChar(120)
-  metadata     Json                    @default("{}") @db.JsonB
-  actorUserId  String?                 @map("actor_user_id") @db.Uuid
-  portalUserId String?                 @map("portal_user_id") @db.Uuid
-  auditEventId String?                 @unique @map("audit_event_id") @db.Uuid
-  occurredAt   DateTime                @default(now()) @map("occurred_at") @db.Timestamptz(6)
-  organization Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  actor        User?                    @relation("ActivityActor", fields: [actorUserId], references: [id], onDelete: SetNull)
-  portalUser   PortalUser?              @relation(fields: [portalUserId], references: [id], onDelete: SetNull)
-  auditEvent   AuditEvent?              @relation(fields: [auditEventId], references: [id], onDelete: SetNull)
+  id             String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String                  @map("organization_id") @db.Uuid
+  targetType     CollaborationTargetType @map("target_type")
+  targetId       String                  @map("target_id") @db.Uuid
+  kind           ActivityKind
+  visibility     CollaborationVisibility @default(INTERNAL)
+  eventKey       String                  @map("event_key") @db.VarChar(120)
+  metadata       Json                    @default("{}") @db.JsonB
+  actorUserId    String?                 @map("actor_user_id") @db.Uuid
+  portalUserId   String?                 @map("portal_user_id") @db.Uuid
+  auditEventId   String?                 @unique @map("audit_event_id") @db.Uuid
+  occurredAt     DateTime                @default(now()) @map("occurred_at") @db.Timestamptz(6)
+  organization   Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  actor          User?                   @relation("ActivityActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+  portalUser     PortalUser?             @relation(fields: [portalUserId], references: [id], onDelete: SetNull)
+  auditEvent     AuditEvent?             @relation(fields: [auditEventId], references: [id], onDelete: SetNull)
 
-  @@index([organizationId, targetType, targetId, occurredAt])
+  @@index([organizationId, targetType, targetId, occurredAt], map: "activities_org_target_occurred_idx")
   @@map("activities")
 }
 
@@ -1528,40 +1544,40 @@ model ItemPrice {
 /// posted Journal is immutable except for reversal. `journalId` is set at Issue, when this invoice's
 /// lines post AR/revenue/tax through LedgerService.postJournalFromLines.
 model Invoice {
-  id                      String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  organizationId          String                 @map("organization_id") @db.Uuid
-  contactId               String                 @map("contact_id") @db.Uuid
-  invoiceNumber           String?                @map("invoice_number") @db.VarChar(64)
-  status                  InvoiceStatus          @default(DRAFT)
-  issueDate               DateTime?              @map("issue_date") @db.Date
-  dueDate                 DateTime?              @map("due_date") @db.Date
-  currency                String                 @db.Char(3)
-  exchangeRate            Decimal?               @map("exchange_rate") @db.Decimal(20, 10)
-  subtotalMinor           BigInt                 @default(0) @map("subtotal_minor") @db.BigInt
-  taxTotalMinor           BigInt                 @default(0) @map("tax_total_minor") @db.BigInt
-  totalMinor              BigInt                 @default(0) @map("total_minor") @db.BigInt
-  paidMinor               BigInt                 @default(0) @map("paid_minor") @db.BigInt
-  balanceMinor            BigInt                 @default(0) @map("balance_minor") @db.BigInt
-  journalId               String?                @unique @map("journal_id") @db.Uuid
-  voidedAt                DateTime?              @map("voided_at") @db.Timestamptz(6)
-  sentAt                  DateTime?              @map("sent_at") @db.Timestamptz(6)
+  id                         String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId             String                 @map("organization_id") @db.Uuid
+  contactId                  String                 @map("contact_id") @db.Uuid
+  invoiceNumber              String?                @map("invoice_number") @db.VarChar(64)
+  status                     InvoiceStatus          @default(DRAFT)
+  issueDate                  DateTime?              @map("issue_date") @db.Date
+  dueDate                    DateTime?              @map("due_date") @db.Date
+  currency                   String                 @db.Char(3)
+  exchangeRate               Decimal?               @map("exchange_rate") @db.Decimal(20, 10)
+  subtotalMinor              BigInt                 @default(0) @map("subtotal_minor") @db.BigInt
+  taxTotalMinor              BigInt                 @default(0) @map("tax_total_minor") @db.BigInt
+  totalMinor                 BigInt                 @default(0) @map("total_minor") @db.BigInt
+  paidMinor                  BigInt                 @default(0) @map("paid_minor") @db.BigInt
+  balanceMinor               BigInt                 @default(0) @map("balance_minor") @db.BigInt
+  journalId                  String?                @unique @map("journal_id") @db.Uuid
+  voidedAt                   DateTime?              @map("voided_at") @db.Timestamptz(6)
+  sentAt                     DateTime?              @map("sent_at") @db.Timestamptz(6)
   /// Pack version active when the invoice was finalized. Written once at issue time and never
   /// updated, the same freeze the per-line tax snapshot columns use -- a later pack edit must not
   /// restate what an issued document declared.
-  countryPackCodeSnapshot    String?             @map("country_pack_code_snapshot") @db.VarChar(8)
-  countryPackVersionSnapshot String?             @map("country_pack_version_snapshot") @db.VarChar(24)
-  createdByUserId         String                 @map("created_by_user_id") @db.Uuid
-  createdAt               DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt               DateTime               @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  organization            Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  contact                 Contact                @relation(fields: [contactId], references: [id], onDelete: Restrict)
-  journal                 Journal?               @relation(fields: [journalId], references: [id], onDelete: Restrict)
-  createdBy               User                   @relation("InvoiceCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
-  lines                   InvoiceLine[]
-  allocations             PaymentAllocation[]
-  creditNoteAllocations   CreditNoteAllocation[]
-  convertedFromQuote      Quote?
-  convertedFromSalesOrder SalesOrder?
+  countryPackCodeSnapshot    String?                @map("country_pack_code_snapshot") @db.VarChar(8)
+  countryPackVersionSnapshot String?                @map("country_pack_version_snapshot") @db.VarChar(24)
+  createdByUserId            String                 @map("created_by_user_id") @db.Uuid
+  createdAt                  DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                  DateTime               @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization               Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  contact                    Contact                @relation(fields: [contactId], references: [id], onDelete: Restrict)
+  journal                    Journal?               @relation(fields: [journalId], references: [id], onDelete: Restrict)
+  createdBy                  User                   @relation("InvoiceCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  lines                      InvoiceLine[]
+  allocations                PaymentAllocation[]
+  creditNoteAllocations      CreditNoteAllocation[]
+  convertedFromQuote         Quote?
+  convertedFromSalesOrder    SalesOrder?
 
   @@unique([organizationId, invoiceNumber])
   @@index([organizationId, status, issueDate])
@@ -1898,7 +1914,7 @@ model SalesOrder {
   @@unique([organizationId, orderNumber])
   @@index([organizationId, status, issueDate])
   @@index([organizationId, contactId])
-  @@index([organizationId, contactId, portalVisibleAt])
+  @@index([organizationId, contactId, portalVisibleAt], map: "sales_orders_org_contact_portal_idx")
   @@map("sales_orders")
 }
 
@@ -2100,40 +2116,40 @@ enum BillStatus {
 /// document -- distinct from `billNumber`, which this organization allocates on issue the way
 /// `invoiceNumber` is allocated.
 model Bill {
-  id                      String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  organizationId          String                   @map("organization_id") @db.Uuid
-  vendorId                String                   @map("vendor_id") @db.Uuid
-  purchaseOrderId         String?                  @map("purchase_order_id") @db.Uuid
-  billNumber              String?                  @map("bill_number") @db.VarChar(64)
-  vendorReference         String?                  @map("vendor_reference") @db.VarChar(64)
-  status                  BillStatus               @default(DRAFT)
-  issueDate               DateTime?                @map("issue_date") @db.Date
-  dueDate                 DateTime?                @map("due_date") @db.Date
-  currency                String                   @db.Char(3)
-  exchangeRate            Decimal?                 @map("exchange_rate") @db.Decimal(20, 10)
-  subtotalMinor           BigInt                   @default(0) @map("subtotal_minor") @db.BigInt
-  taxTotalMinor           BigInt                   @default(0) @map("tax_total_minor") @db.BigInt
-  totalMinor              BigInt                   @default(0) @map("total_minor") @db.BigInt
-  paidMinor               BigInt                   @default(0) @map("paid_minor") @db.BigInt
-  balanceMinor            BigInt                   @default(0) @map("balance_minor") @db.BigInt
-  journalId               String?                  @unique @map("journal_id") @db.Uuid
-  voidedAt                DateTime?                @map("voided_at") @db.Timestamptz(6)
+  id                         String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId             String                   @map("organization_id") @db.Uuid
+  vendorId                   String                   @map("vendor_id") @db.Uuid
+  purchaseOrderId            String?                  @map("purchase_order_id") @db.Uuid
+  billNumber                 String?                  @map("bill_number") @db.VarChar(64)
+  vendorReference            String?                  @map("vendor_reference") @db.VarChar(64)
+  status                     BillStatus               @default(DRAFT)
+  issueDate                  DateTime?                @map("issue_date") @db.Date
+  dueDate                    DateTime?                @map("due_date") @db.Date
+  currency                   String                   @db.Char(3)
+  exchangeRate               Decimal?                 @map("exchange_rate") @db.Decimal(20, 10)
+  subtotalMinor              BigInt                   @default(0) @map("subtotal_minor") @db.BigInt
+  taxTotalMinor              BigInt                   @default(0) @map("tax_total_minor") @db.BigInt
+  totalMinor                 BigInt                   @default(0) @map("total_minor") @db.BigInt
+  paidMinor                  BigInt                   @default(0) @map("paid_minor") @db.BigInt
+  balanceMinor               BigInt                   @default(0) @map("balance_minor") @db.BigInt
+  journalId                  String?                  @unique @map("journal_id") @db.Uuid
+  voidedAt                   DateTime?                @map("voided_at") @db.Timestamptz(6)
   /// Pack version active when the bill was finalized -- the Invoice freeze mirrored on the
   /// purchases side, so an issued bill keeps the pack it was issued under.
-  countryPackCodeSnapshot    String?               @map("country_pack_code_snapshot") @db.VarChar(8)
-  countryPackVersionSnapshot String?               @map("country_pack_version_snapshot") @db.VarChar(24)
-  createdByUserId         String                   @map("created_by_user_id") @db.Uuid
-  createdAt               DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt               DateTime                 @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  organization            Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  vendor                  Vendor                   @relation(fields: [vendorId], references: [id], onDelete: Restrict)
-  purchaseOrder           PurchaseOrder?           @relation(fields: [purchaseOrderId], references: [id], onDelete: SetNull)
-  journal                 Journal?                 @relation(fields: [journalId], references: [id], onDelete: Restrict)
-  createdBy               User                     @relation("BillCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
-  lines                   BillLine[]
-  paymentAllocations      PaymentMadeAllocation[]
-  vendorCreditAllocations VendorCreditAllocation[]
-  vendorCreditsAsSource   VendorCredit[]
+  countryPackCodeSnapshot    String?                  @map("country_pack_code_snapshot") @db.VarChar(8)
+  countryPackVersionSnapshot String?                  @map("country_pack_version_snapshot") @db.VarChar(24)
+  createdByUserId            String                   @map("created_by_user_id") @db.Uuid
+  createdAt                  DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                  DateTime                 @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization               Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  vendor                     Vendor                   @relation(fields: [vendorId], references: [id], onDelete: Restrict)
+  purchaseOrder              PurchaseOrder?           @relation(fields: [purchaseOrderId], references: [id], onDelete: SetNull)
+  journal                    Journal?                 @relation(fields: [journalId], references: [id], onDelete: Restrict)
+  createdBy                  User                     @relation("BillCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  lines                      BillLine[]
+  paymentAllocations         PaymentMadeAllocation[]
+  vendorCreditAllocations    VendorCreditAllocation[]
+  vendorCreditsAsSource      VendorCredit[]
 
   @@unique([organizationId, billNumber])
   @@index([organizationId, status, issueDate])
@@ -2205,21 +2221,21 @@ enum AttachmentEntityType {
 /// one Phase 3 entity and can be reused for other attachment needs later without a new table.
 /// `StorageService` (already generic S3-compatible storage, not sales/PDF-specific) is reused as-is.
 model Attachment {
-  id               String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  organizationId   String               @map("organization_id") @db.Uuid
-  entityType       AttachmentEntityType @map("entity_type")
-  entityId         String               @map("entity_id") @db.Uuid
-  filename         String               @db.VarChar(255)
-  contentType      String               @map("content_type") @db.VarChar(120)
-  storageKey       String               @map("storage_key") @db.VarChar(500)
-  sizeBytes        Int                  @map("size_bytes")
-  uploadedByUserId String               @map("uploaded_by_user_id") @db.Uuid
+  id               String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId   String                  @map("organization_id") @db.Uuid
+  entityType       AttachmentEntityType    @map("entity_type")
+  entityId         String                  @map("entity_id") @db.Uuid
+  filename         String                  @db.VarChar(255)
+  contentType      String                  @map("content_type") @db.VarChar(120)
+  storageKey       String                  @map("storage_key") @db.VarChar(500)
+  sizeBytes        Int                     @map("size_bytes")
+  uploadedByUserId String                  @map("uploaded_by_user_id") @db.Uuid
   visibility       CollaborationVisibility @default(INTERNAL)
-  portalUserId     String?              @map("portal_user_id") @db.Uuid
-  createdAt        DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
-  organization     Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  uploadedBy       User                 @relation("AttachmentUploadedBy", fields: [uploadedByUserId], references: [id], onDelete: Restrict)
-  portalUser       PortalUser?          @relation(fields: [portalUserId], references: [id], onDelete: SetNull)
+  portalUserId     String?                 @map("portal_user_id") @db.Uuid
+  createdAt        DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  organization     Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  uploadedBy       User                    @relation("AttachmentUploadedBy", fields: [uploadedByUserId], references: [id], onDelete: Restrict)
+  portalUser       PortalUser?             @relation(fields: [portalUserId], references: [id], onDelete: SetNull)
 
   @@index([organizationId, entityType, entityId])
   @@map("attachments")
@@ -3291,16 +3307,16 @@ model StructuredInvoice {
 /// registry; this row stores only user choices, so a saved report automatically receives fixes to
 /// its source-of-truth query without copying executable report logic into JSON.
 model SavedReport {
-  id              String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  organizationId  String       @map("organization_id") @db.Uuid
-  createdByUserId String       @map("created_by_user_id") @db.Uuid
-  name            String       @db.VarChar(120)
-  reportKey       String       @map("report_key") @db.VarChar(80)
-  filters         Json         @default("{}") @db.JsonB
-  createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  createdBy       User         @relation("SavedReportCreatedBy", fields: [createdByUserId], references: [id], onDelete: Cascade)
+  id               String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId   String            @map("organization_id") @db.Uuid
+  createdByUserId  String            @map("created_by_user_id") @db.Uuid
+  name             String            @db.VarChar(120)
+  reportKey        String            @map("report_key") @db.VarChar(80)
+  filters          Json              @default("{}") @db.JsonB
+  createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization     Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy        User              @relation("SavedReportCreatedBy", fields: [createdByUserId], references: [id], onDelete: Cascade)
   scheduledReports ScheduledReport[]
 
   @@unique([organizationId, createdByUserId, name])
@@ -3602,4 +3618,212 @@ model NotificationPreference {
   @@unique([organizationId, userId, eventKey])
   @@index([organizationId, userId])
   @@map("notification_preferences")
+}
+
+// ---------------------------------------------------------------------------------------------
+// Phase 12 - Platform Admin
+//
+// Everything below is *platform*-scoped rather than tenant-scoped: rows either have no
+// `organizationId` discriminator at all, or reference an organization from the outside rather than
+// living inside one. That is the point of the phase, and also its main hazard, so the boundary is a
+// table (`PlatformAdmin`) rather than a configuration value, and every mutation lands in its own
+// append-only log (`PlatformAuditEvent`).
+// ---------------------------------------------------------------------------------------------
+
+/// Ordered by privilege: each role includes everything the one before it can do.
+enum PlatformRole {
+  SUPPORT
+  OPERATIONS
+  SUPERADMIN
+}
+
+enum PlatformAdminStatus {
+  ACTIVE
+  REVOKED
+}
+
+/// A person's standing permission to use the platform console. Distinct from `OrganizationMember`
+/// in every way that matters: it is not scoped to a tenant, it is never granted by a tenant, and it
+/// confers no membership of any organization.
+model PlatformAdmin {
+  id              String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId          String               @unique @map("user_id") @db.Uuid
+  role            PlatformRole         @default(SUPPORT)
+  status          PlatformAdminStatus  @default(ACTIVE)
+  /// Null only for a bootstrap grant, which by definition has no existing administrator to vouch
+  /// for it. Every later grant names the administrator who created it.
+  grantedByUserId String?              @map("granted_by_user_id") @db.Uuid
+  note            String?              @db.VarChar(500)
+  grantedAt       DateTime             @default(now()) @map("granted_at") @db.Timestamptz(6)
+  revokedAt       DateTime?            @map("revoked_at") @db.Timestamptz(6)
+  createdAt       DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime             @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  user            User                 @relation("PlatformAdminUser", fields: [userId], references: [id], onDelete: Cascade)
+  grantedBy       User?                @relation("PlatformAdminGrantedBy", fields: [grantedByUserId], references: [id], onDelete: SetNull)
+  auditEvents     PlatformAuditEvent[]
+
+  @@index([status, role])
+  @@map("platform_admins")
+}
+
+/// Append-only record of every mutating platform-administrator action. Deliberately separate from
+/// tenant `AuditEvent`: many of these actions are cross-tenant, and the ones that are not still must
+/// not appear in a tenant's own audit trail as though the tenant performed them.
+model PlatformAuditEvent {
+  id              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  platformAdminId String        @map("platform_admin_id") @db.Uuid
+  actorUserId     String        @map("actor_user_id") @db.Uuid
+  eventKey        String        @map("event_key") @db.VarChar(100)
+  targetType      String        @map("target_type") @db.VarChar(60)
+  targetId        String?       @map("target_id") @db.VarChar(100)
+  /// Set when the action concerns one tenant, so a support question about a single organization can
+  /// be answered without scanning the whole log. Null for global reference-data changes.
+  organizationId  String?       @map("organization_id") @db.Uuid
+  /// Required by the service layer for any action that changes a tenant's standing, so a suspension
+  /// can still be explained months later.
+  reason          String?       @db.VarChar(500)
+  before          Json?         @map("before_json") @db.JsonB
+  after           Json?         @map("after_json") @db.JsonB
+  ipHash          String?       @map("ip_hash") @db.Char(64)
+  occurredAt      DateTime      @default(now()) @map("occurred_at") @db.Timestamptz(6)
+  platformAdmin   PlatformAdmin @relation(fields: [platformAdminId], references: [id], onDelete: Cascade)
+  actor           User          @relation("PlatformAuditActor", fields: [actorUserId], references: [id], onDelete: Restrict)
+  organization    Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+
+  @@index([occurredAt])
+  @@index([organizationId, occurredAt])
+  @@index([eventKey, occurredAt])
+  @@map("platform_audit_events")
+}
+
+enum PlanStatus {
+  DRAFT
+  ACTIVE
+  RETIRED
+}
+
+enum BillingInterval {
+  MONTHLY
+  YEARLY
+}
+
+/// A sellable tier. The price fields exist so a future billing provider has somewhere to land;
+/// nothing in Phase 12 charges anyone, and no provider identifiers are stored here.
+model Plan {
+  id              String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key             String                     @unique @db.VarChar(40)
+  name            String                     @db.VarChar(120)
+  description     String?                    @db.VarChar(500)
+  status          PlanStatus                 @default(DRAFT)
+  /// At most one active plan is the default; new organizations are subscribed to it.
+  isDefault       Boolean                    @default(false) @map("is_default")
+  trialDays       Int                        @default(0) @map("trial_days") @db.SmallInt
+  priceMinor      BigInt                     @default(0) @map("price_minor")
+  currency        String                     @default("USD") @db.Char(3)
+  billingInterval BillingInterval            @default(MONTHLY) @map("billing_interval")
+  sortOrder       Int                        @default(0) @map("sort_order") @db.SmallInt
+  createdAt       DateTime                   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime                   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  entitlements    PlanEntitlement[]
+  subscriptions   OrganizationSubscription[]
+  flagRules       FeatureFlagRule[]
+
+  @@index([status, sortOrder])
+  @@map("plans")
+}
+
+/// One capability or limit carried by a plan. A null `limitValue` means "no limit" rather than
+/// zero; a withdrawn capability is `enabled = false`, which is a different statement from a limit
+/// of 0.
+model PlanEntitlement {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  planId     String   @map("plan_id") @db.Uuid
+  key        String   @db.VarChar(60)
+  enabled    Boolean  @default(true)
+  limitValue Int?     @map("limit_value")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  plan       Plan     @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@unique([planId, key])
+  @@map("plan_entitlements")
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+}
+
+/// One organization's current plan. One row per organization: the history lives in
+/// `PlatformAuditEvent`, which already records who changed a plan, when, and why.
+model OrganizationSubscription {
+  id             String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String             @unique @map("organization_id") @db.Uuid
+  planId         String             @map("plan_id") @db.Uuid
+  status         SubscriptionStatus @default(TRIALING)
+  trialEndsAt    DateTime?          @map("trial_ends_at") @db.Timestamptz(6)
+  startedAt      DateTime           @default(now()) @map("started_at") @db.Timestamptz(6)
+  cancelledAt    DateTime?          @map("cancelled_at") @db.Timestamptz(6)
+  createdAt      DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  plan           Plan               @relation(fields: [planId], references: [id], onDelete: Restrict)
+
+  @@index([planId, status])
+  @@map("organization_subscriptions")
+}
+
+enum FeatureFlagStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+/// Scope of one targeting rule, declared least to most specific. The resolver reads this order
+/// directly, so adding a scope means deciding where it sits in the precedence chain.
+enum FeatureFlagScope {
+  GLOBAL
+  COUNTRY
+  PLAN
+  ORGANIZATION
+}
+
+model FeatureFlag {
+  id             String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key            String            @unique @db.VarChar(60)
+  name           String            @db.VarChar(120)
+  description    String?           @db.VarChar(500)
+  /// The answer when no rule matches, so a flag with no rules is still well-defined.
+  defaultEnabled Boolean           @default(false) @map("default_enabled")
+  status         FeatureFlagStatus @default(ACTIVE)
+  createdAt      DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  rules          FeatureFlagRule[]
+
+  @@index([status])
+  @@map("feature_flags")
+}
+
+/// One targeting rule. Exactly one scope column is populated, matching `scope`; GLOBAL populates
+/// none. Keeping the three as separate typed columns rather than one polymorphic string means a
+/// plan or organization rule carries a real foreign key and cannot outlive what it targets.
+model FeatureFlagRule {
+  id             String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  flagId         String           @map("flag_id") @db.Uuid
+  scope          FeatureFlagScope
+  countryCode    String?          @map("country_code") @db.Char(2)
+  planId         String?          @map("plan_id") @db.Uuid
+  organizationId String?          @map("organization_id") @db.Uuid
+  enabled        Boolean
+  note           String?          @db.VarChar(500)
+  createdAt      DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  flag           FeatureFlag      @relation(fields: [flagId], references: [id], onDelete: Cascade)
+  plan           Plan?            @relation(fields: [planId], references: [id], onDelete: Cascade)
+  organization   Organization?    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([flagId, scope])
+  @@index([organizationId])
+  @@map("feature_flag_rules")
 }

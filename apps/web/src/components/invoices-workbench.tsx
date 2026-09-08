@@ -24,6 +24,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { ApiError, apiRequest } from '../lib/api';
 import { hasPermission, useWorkspace } from '../lib/workspace';
+import { TransactionCollaboration } from './transaction-collaboration';
 
 type InvoiceListResponse = { data: Invoice[] };
 type InvoiceResponse = { data: Invoice };
@@ -657,6 +658,23 @@ export function InvoiceEditorPage({ invoiceId }: { invoiceId?: string }) {
             <FieldMessage error>Choose a customer before saving this invoice.</FieldMessage>
           ) : null}
         </Card>
+        {organizationId && invoiceId ? (
+          <TransactionCollaboration
+            organizationId={organizationId}
+            targetType="INVOICE"
+            targetId={invoiceId}
+            canComment={hasPermission(organization, 'collaboration.comments.create')}
+            canUpload={
+              hasPermission(organization, 'collaboration.attachments.upload') &&
+              hasPermission(organization, 'sales.invoices.manage')
+            }
+            canShareWithCustomer={hasPermission(
+              organization,
+              'collaboration.customer_visibility.manage',
+            )}
+            customerEligible
+          />
+        ) : null}
       </div>
     </>
   );

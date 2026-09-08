@@ -1,4 +1,4 @@
-import type { AuditAction, Prisma } from '@prisma/client';
+import type { ActivityKind, AuditAction, CollaborationTargetType, Prisma } from '@prisma/client';
 
 export interface AuditEventInput {
   readonly organizationId: string;
@@ -12,6 +12,12 @@ export interface AuditEventInput {
   readonly after?: Prisma.InputJsonValue | null;
   readonly metadata?: Prisma.InputJsonObject;
   readonly ipHash?: string | null;
+  /**
+   * Set only by portal-originated writes. A customer performed the action, so the projected
+   * activity row is customer-visible and attributed to the portal grant. Internal callers leave
+   * this unset and keep the default `INTERNAL` projection.
+   */
+  readonly portalUserId?: string | null;
 }
 
 /**
@@ -21,7 +27,25 @@ export interface AuditEventInput {
  * Mirrors the in-transaction `event(tx, ...)` helpers already used for SecurityEvent.
  */
 export async function writeAuditEvent(tx: Prisma.TransactionClient, input: AuditEventInput) {
-  const audit = await tx.auditEvent.create({
+  // Activity is a read projection of audit history, never the authoritative audit log. Where an
+  // event represents a recognised collaboration target, it is written in the same transaction and
+  // bound uniquely to its source audit event. Comments and files own richer activity rows of their
+  // own, so they are intentionally excluded from this generic projection.
+  //
+  // The projection is nested inside the audit insert rather than issued as a second call. Every
+  // posting path in the application funnels through here, often many times per transaction, and a
+  // second round trip per event was enough to push long postings -- a multi-line inventory
+  // adjustment, for instance -- past Prisma's interactive-transaction deadline. Nesting also means
+  // `occurredAt` is one value shared by both rows rather than two clocks that can disagree.
+  const targetType = toCollaborationTarget(input.entityType);
+  const projected =
+    targetType &&
+    input.entityId &&
+    !input.eventKey.startsWith('attachments.') &&
+    !input.eventKey.startsWith('collaboration.comment_');
+  const occurredAt = new Date();
+
+  return tx.auditEvent.create({
     data: {
       organizationId: input.organizationId,
       actorUserId: input.actorUserId,
@@ -33,38 +57,30 @@ export async function writeAuditEvent(tx: Prisma.TransactionClient, input: Audit
       after: input.after ?? undefined,
       metadata: input.metadata ?? {},
       ipHash: input.ipHash ?? null,
+      occurredAt,
+      ...(projected && targetType && input.entityId
+        ? {
+            activity: {
+              create: {
+                organizationId: input.organizationId,
+                targetType,
+                targetId: input.entityId,
+                kind: activityKind(input.eventKey),
+                visibility: input.portalUserId ? 'CUSTOMER' : 'INTERNAL',
+                eventKey: input.eventKey,
+                metadata: input.metadata ?? {},
+                actorUserId: input.actorUserId,
+                portalUserId: input.portalUserId ?? null,
+                occurredAt,
+              },
+            },
+          }
+        : {}),
     },
   });
-  // Activity is a read projection of audit history, never the authoritative audit log. Where an
-  // event represents a recognised collaboration target, write it in the same transaction and
-  // bind it uniquely to its source audit event. Comments/files own richer activity rows below, so
-  // they are intentionally excluded from this generic projection.
-  const targetType = toCollaborationTarget(input.entityType);
-  if (
-    targetType &&
-    input.entityId &&
-    !input.eventKey.startsWith('attachments.') &&
-    !input.eventKey.startsWith('collaboration.comment_')
-  ) {
-    await (tx as any).activity.create({
-      data: {
-        organizationId: input.organizationId,
-        targetType,
-        targetId: input.entityId,
-        kind: activityKind(input.eventKey),
-        visibility: 'INTERNAL',
-        eventKey: input.eventKey,
-        metadata: input.metadata ?? {},
-        actorUserId: input.actorUserId,
-        auditEventId: audit.id,
-        occurredAt: audit.occurredAt,
-      },
-    });
-  }
-  return audit;
 }
 
-const COLLABORATION_TARGETS: Record<string, string> = {
+const COLLABORATION_TARGETS: Record<string, CollaborationTargetType> = {
   quote: 'QUOTE',
   sales_order: 'SALES_ORDER',
   invoice: 'INVOICE',
@@ -86,11 +102,11 @@ const COLLABORATION_TARGETS: Record<string, string> = {
   time_entry: 'TIME_ENTRY',
 };
 
-function toCollaborationTarget(entityType: string): string | undefined {
+function toCollaborationTarget(entityType: string): CollaborationTargetType | undefined {
   return COLLABORATION_TARGETS[entityType];
 }
 
-function activityKind(eventKey: string): string {
+function activityKind(eventKey: string): ActivityKind {
   if (eventKey.includes('approval')) return 'APPROVAL';
   if (eventKey.includes('sent') || eventKey.includes('email')) return 'EMAIL';
   if (eventKey.includes('posted') || eventKey.includes('issued') || eventKey.includes('allocated'))

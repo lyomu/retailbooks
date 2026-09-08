@@ -84,7 +84,7 @@ export class AttachmentsService {
         after: { filename: file.originalname, sizeBytes: file.size, visibility },
         ipHash: metadata.ipHash,
       });
-      await (tx as any).activity.create({
+      await tx.activity.create({
         data: {
           organizationId: context.id,
           targetType: entityType,
@@ -108,13 +108,9 @@ export class AttachmentsService {
       where: { organizationId, entityType, entityId },
       orderBy: [{ createdAt: 'desc' }],
     });
-    return Promise.all(
-      attachments.map(async (attachment) => ({
-        ...summarize(attachment),
-        // Listing never authorizes a download. A dedicated, re-authorized endpoint issues the
-        // short-lived URL only after target access has been checked again.
-      })),
-    );
+    // Listing never authorizes a download. A dedicated, re-authorized endpoint issues the
+    // short-lived URL only after target access has been checked again.
+    return attachments.map(summarize);
   }
 
   async download(

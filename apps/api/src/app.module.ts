@@ -18,6 +18,7 @@ import { ReportingModule } from './reporting/reporting.module.js';
 import { JobsModule } from './jobs/jobs.module.js';
 import { OrganizationsModule } from './organizations/organizations.module.js';
 import { PurchasesModule } from './purchases/purchases.module.js';
+import { PlatformModule } from './platform/platform.module.js';
 import { PortalsModule } from './portals/portals.module.js';
 import { SalesModule } from './sales/sales.module.js';
 
@@ -32,6 +33,7 @@ import { SalesModule } from './sales/sales.module.js';
     OrganizationsModule,
     CollaborationModule,
     PortalsModule,
+    PlatformModule,
     SalesModule,
     PurchasesModule,
     BankingModule,

@@ -8,7 +8,7 @@ export default function PortalLogin() {
       title="Customer portal"
       description="Sign in with the verified email address that received your portal invitation."
     >
-      <AuthForm mode="login" />
+      <AuthForm mode="login" redirectTo="/portal" />
     </AuthShell>
   );
 }

@@ -26,11 +26,18 @@ export function AuthForm({
   mode,
   token,
   invitation,
+  redirectTo = '/',
 }: {
   mode: AuthMode;
   token?: string;
   /** Set when the visitor arrived from an organization invitation link. */
   invitation?: string;
+  /**
+   * Where a successful sign-in lands. The customer portal is a separate surface with its own
+   * sign-in page, and its visitors are not organization members -- sending them to the internal
+   * dashboard bounced them straight into onboarding for a business they do not work for.
+   */
+  redirectTo?: string;
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -61,7 +68,7 @@ export function AuthForm({
       await apiRequest(config.endpoint, { method: 'POST', body: JSON.stringify(body) });
       if (mode === 'login') {
         router.push(
-          invitation ? `/accept-invitation?token=${encodeURIComponent(invitation)}` : '/',
+          invitation ? `/accept-invitation?token=${encodeURIComponent(invitation)}` : redirectTo,
         );
         router.refresh();
         return;

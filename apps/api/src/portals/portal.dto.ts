@@ -6,11 +6,15 @@ import {
   IsOptional,
   IsString,
   Length,
+  Matches,
   MaxLength,
   ValidateNested,
 } from 'class-validator';
 
 const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value);
+const upper = ({ value }: { value: unknown }): unknown =>
+  typeof value === 'string' ? value.trim().toUpperCase() : value;
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 export class CreatePortalInvitationDto {
   @IsEmail()
@@ -22,6 +26,17 @@ export class PortalInvitationTokenDto {
   @IsString()
   @Length(20, 200)
   token!: string;
+}
+
+/** Portal statements accept the same optional ISO date window as the internal endpoint. */
+export class PortalStatementQueryDto {
+  @IsOptional()
+  @Matches(ISO_DATE)
+  from?: string;
+
+  @IsOptional()
+  @Matches(ISO_DATE)
+  to?: string;
 }
 
 export class PortalProfileAddressDto {
@@ -55,7 +70,7 @@ export class PortalProfileAddressDto {
   postalCode?: string;
   @IsString()
   @Length(2, 2)
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim().toUpperCase() : value))
+  @Transform(upper)
   countryCode!: string;
   @IsOptional()
   isDefault?: boolean;

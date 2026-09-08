@@ -46,6 +46,7 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react
 import { ApiError, apiRequest } from '../lib/api';
 import { formValue } from '../lib/forms';
 import { hasPermission, useWorkspace } from '../lib/workspace';
+import { TransactionCollaboration } from './transaction-collaboration';
 
 type AccountResponse = { data: LedgerAccount[] };
 type JournalListResponse = { data: JournalSummary[] };
@@ -845,6 +846,18 @@ export function JournalEditorPage({ journalId }: { journalId?: string }) {
             <FieldMessage error>Debits and credits must balance before posting.</FieldMessage>
           ) : null}
         </Card>
+        {organizationId && journalId ? (
+          <TransactionCollaboration
+            organizationId={organizationId}
+            targetType="JOURNAL"
+            targetId={journalId}
+            canComment={hasPermission(organization, 'collaboration.comments.create')}
+            canUpload={
+              hasPermission(organization, 'collaboration.attachments.upload') &&
+              hasPermission(organization, 'journals.create')
+            }
+          />
+        ) : null}
       </div>
     </>
   );

@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { AuditAction } from '@prisma/client';
+import { AuditAction, type CollaborationTargetType } from '@prisma/client';
 
 import type { PublicUser } from '../auth/auth.service.js';
 import { PrismaService } from '../database/prisma.service.js';
@@ -12,15 +12,15 @@ import { writeAuditEvent } from '../organizations/audit-event.js';
 import type { OrganizationContext } from '../organizations/organization-context.js';
 import type { PortalContext } from '../portals/portal-context.js';
 import type { CreateCommentDto } from './collaboration.dto.js';
-import { requireInternalTarget, requirePortalTarget, targetDefinition } from './target-registry.js';
+import { requireInternalTarget, requirePortalTarget } from './target-registry.js';
 
 @Injectable()
 export class CollaborationService {
   constructor(private readonly prisma: PrismaService) {}
 
   async listCommentsInternal(context: OrganizationContext, type: string, id: string) {
-    await requireInternalTarget(this.prisma, context, type, id, 'view');
-    return this.listComments(context.id, type, id, false);
+    const target = await requireInternalTarget(this.prisma, context, type, id, 'view');
+    return this.listComments(context.id, target.targetType, id, false);
   }
 
   async requireInternalTarget(
@@ -51,19 +51,19 @@ export class CollaborationService {
     ) {
       throw new NotFoundException('Collaboration target not found.');
     }
-    return this.createComment(context.id, type, id, input.body, visibility, user.id);
+    return this.createComment(context.id, target.targetType, id, input.body, visibility, user.id);
   }
 
   async listCommentsPortal(portal: PortalContext, type: string, id: string) {
-    await requirePortalTarget(this.prisma, portal, type, id);
-    return this.listComments(portal.organizationId, type, id, true);
+    const targetType = await requirePortalTarget(this.prisma, portal, type, id);
+    return this.listComments(portal.organizationId, targetType, id, true);
   }
 
   async addCommentPortal(portal: PortalContext, type: string, id: string, input: CreateCommentDto) {
-    await requirePortalTarget(this.prisma, portal, type, id);
+    const targetType = await requirePortalTarget(this.prisma, portal, type, id);
     return this.createComment(
       portal.organizationId,
-      type,
+      targetType,
       id,
       input.body,
       'CUSTOMER',
@@ -73,25 +73,25 @@ export class CollaborationService {
   }
 
   async activity(context: OrganizationContext, type: string, id: string, cursor?: string) {
-    await requireInternalTarget(this.prisma, context, type, id, 'view');
-    return this.listActivity(context.id, type, id, false, cursor);
+    const target = await requireInternalTarget(this.prisma, context, type, id, 'view');
+    return this.listActivity(context.id, target.targetType, id, false, cursor);
   }
 
   async portalActivity(portal: PortalContext, type: string, id: string, cursor?: string) {
-    await requirePortalTarget(this.prisma, portal, type, id);
-    return this.listActivity(portal.organizationId, type, id, true, cursor);
+    const targetType = await requirePortalTarget(this.prisma, portal, type, id);
+    return this.listActivity(portal.organizationId, targetType, id, true, cursor);
   }
 
   private async createComment(
     organizationId: string,
-    type: string,
+    type: CollaborationTargetType,
     id: string,
     body: string,
     visibility: 'INTERNAL' | 'CUSTOMER',
     userId: string,
     portalUserId?: string,
   ) {
-    return this.prisma.$transaction(async (tx: any) => {
+    return this.prisma.$transaction(async (tx) => {
       const comment = await tx.comment.create({
         data: {
           organizationId,
@@ -139,11 +139,11 @@ export class CollaborationService {
 
   private async listComments(
     organizationId: string,
-    type: string,
+    type: CollaborationTargetType,
     id: string,
     customerOnly: boolean,
   ) {
-    const comments = await (this.prisma as any).comment.findMany({
+    const comments = await this.prisma.comment.findMany({
       where: {
         organizationId,
         targetType: type,
@@ -153,7 +153,7 @@ export class CollaborationService {
       include: { author: { select: { displayName: true } } },
       orderBy: { createdAt: 'asc' },
     });
-    return comments.map((comment: any) => ({
+    return comments.map((comment) => ({
       id: comment.id,
       body: comment.body,
       visibility: comment.visibility,
@@ -164,13 +164,13 @@ export class CollaborationService {
 
   private async listActivity(
     organizationId: string,
-    type: string,
+    type: CollaborationTargetType,
     id: string,
     customerOnly: boolean,
     cursor?: string,
   ) {
     const parsed = cursor ? decodeCursor(cursor) : undefined;
-    const rows = await (this.prisma as any).activity.findMany({
+    const rows = await this.prisma.activity.findMany({
       where: {
         organizationId,
         targetType: type,
@@ -190,7 +190,7 @@ export class CollaborationService {
     });
     const page = rows.slice(0, 50);
     return {
-      data: page.map((row: any) => ({
+      data: page.map((row) => ({
         id: row.id,
         kind: row.kind,
         eventKey: row.eventKey,
@@ -198,12 +198,17 @@ export class CollaborationService {
         occurredAt: row.occurredAt.toISOString(),
         metadata: row.metadata,
       })),
-      nextCursor: rows.length > 50 ? encodeCursor(page.at(-1)) : null,
+      // `page` is non-empty whenever a further row exists, so the last entry is the cursor.
+      nextCursor: rows.length > 50 && page.length > 0 ? encodeCursor(page[page.length - 1]!) : null,
     };
   }
 }
 
-function encodeCursor(row: any) {
+/**
+ * The cursor is the sort key itself -- the timestamp plus the row id that breaks ties -- so paging
+ * stays stable when rows share a timestamp and when new activity lands between pages.
+ */
+function encodeCursor(row: { occurredAt: Date; id: string }) {
   return Buffer.from(
     JSON.stringify({ occurredAt: row.occurredAt.toISOString(), id: row.id }),
   ).toString('base64url');
@@ -211,10 +216,16 @@ function encodeCursor(row: any) {
 
 function decodeCursor(value: string): { occurredAt: Date; id: string } {
   try {
-    const parsed = JSON.parse(Buffer.from(value, 'base64url').toString('utf8'));
-    if (typeof parsed.id !== 'string' || Number.isNaN(Date.parse(parsed.occurredAt)))
+    const parsed: unknown = JSON.parse(Buffer.from(value, 'base64url').toString('utf8'));
+    if (typeof parsed !== 'object' || parsed === null) throw new Error('invalid');
+    const { id, occurredAt } = parsed as { id?: unknown; occurredAt?: unknown };
+    if (
+      typeof id !== 'string' ||
+      typeof occurredAt !== 'string' ||
+      Number.isNaN(Date.parse(occurredAt))
+    )
       throw new Error('invalid');
-    return { id: parsed.id, occurredAt: new Date(parsed.occurredAt) };
+    return { id, occurredAt: new Date(occurredAt) };
   } catch {
     throw new BadRequestException('Invalid activity cursor.');
   }
