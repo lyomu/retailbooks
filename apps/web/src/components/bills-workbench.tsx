@@ -33,6 +33,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { ApiError, apiRequest, apiUpload } from '../lib/api';
 import { hasPermission, useWorkspace } from '../lib/workspace';
+import { TransactionCollaboration } from './transaction-collaboration';
 
 type BillListResponse = { data: Bill[] };
 type BillResponse = { data: Bill };
@@ -769,6 +770,13 @@ export function BillEditorPage({ billId }: { billId?: string }) {
               <span className="rb-table-secondary">No attachments yet.</span>
             )}
           </Card>
+        ) : null}
+        {billId && organizationId ? (
+          <TransactionCollaboration
+            organizationId={organizationId}
+            targetType="BILL"
+            targetId={billId}
+          />
         ) : null}
       </div>
     </>

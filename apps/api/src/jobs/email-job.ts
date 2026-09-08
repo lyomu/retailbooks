@@ -4,6 +4,7 @@ export const EMAIL_JOB_NAMES = {
   verification: 'verification',
   passwordReset: 'password-reset',
   organizationInvitation: 'organization-invitation',
+  portalInvitation: 'portal-invitation',
   invoiceSend: 'invoice.send',
   creditNoteSend: 'credit_note.send',
   quoteSend: 'quote.send',

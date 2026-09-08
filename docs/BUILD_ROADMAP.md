@@ -690,36 +690,44 @@ Build spec §13; blueprint §13.
 
 ### Data model
 
-- [ ] `PortalUser` / customer-scoped access grant (distinct from `OrganizationMember`)
-- [ ] `Comment` (internal vs customer-visible flag)
-- [ ] `Attachment` (already implied by other modules; centralize upload/download/permission/audit here)
-- [ ] Unified `Activity` timeline entity spanning status/email/approval/accounting/user actions
+- [x] `PortalUser` / customer-scoped access grant (distinct from `OrganizationMember`)
+- [x] `Comment` (internal vs customer-visible flag)
+- [x] `Attachment` centralized with visibility, portal attribution, signed downloads, and audit data
+- [x] Unified `Activity` projection spanning recognised status/email/approval/accounting/user actions
 
 ### Backend/API
 
-- [ ] Customer Portal: view/download quotes, orders (where exposed), invoices, credit notes,
-      statements, receipts; accept/decline quotes; update permitted profile fields; no online checkout
+- [x] Customer Portal API: scoped documents, signed PDF downloads, statements, quote decisions,
+      comments/files, and permitted customer-profile fields; no online checkout
 - [ ] Accountant Access: dedicated role, multi-organization switcher (extend the existing
       `organization-switcher.tsx`, currently scoped to internal member org-switching), journals/
       reconciliation/reports/close permissions
-- [ ] Comments: internal by default; explicit customer-visible flag
-- [ ] Attachments: upload/download with permission checks and audit trail
-- [ ] Activity: unified timeline merging status, email, approval, accounting, and user-action events
+- [x] Comments: internal by default; explicit customer-visible flag
+- [x] Attachments: upload/download with permission checks and audit trail
+- [x] Activity: unified timeline projection with stable cursor pagination
 
 ### UI
 
-- [ ] Customer-facing portal shell (separate auth/branding surface from the internal app)
-- [ ] Portal document views: quotes (accept/decline), invoices, credit notes, statements
+- [x] Customer-facing portal shell (separate auth/branding surface from the internal app)
+- [ ] Finish portal document-detail screens, quote decision controls, statement detail/export, and
+      address editing. The overview supports account switching, downloads, a statement balance, and
+      basic profile editing.
 - [ ] Accountant multi-org switcher and scoped accounting/close screens
-- [ ] Comments panel on transaction detail screens (internal/customer-visible toggle)
-- [ ] Attachments panel on transaction detail screens
-- [ ] Activity timeline component on transaction detail screens
+- [ ] Roll the reusable Comments/Files/Activity component out to every current transaction-detail
+      screen, with internal/customer-visible controls where eligible. It is currently integrated on
+      Bill detail.
 
 ### Tests/acceptance
 
-- [ ] Portal user can only ever see their own organization's documents (tenant + contact-level isolation)
-- [ ] Customer-visible comments never leak internal-only comments
-- [ ] Accountant role can switch between multiple client organizations without privilege leakage
+- [ ] Add and pass the dedicated portal boundary matrix: tenant/contact isolation across documents,
+      PDFs, statements, comments, files, activity, and shared identities.
+- [ ] Add and pass customer-visible comment/attachment filtering, lifecycle, invitation,
+      revocation, rate-limit, download-authorization, cursor, and quote-concurrency coverage.
+- [ ] Add and pass accountant multi-client switching/no-cached-data-leakage coverage.
+- [ ] Repair and pass the managed-server Playwright gate, then complete keyboard, responsive,
+      visual-baseline, and desktop/mobile review.
+- [ ] Complete integration, reverse-drift/replay, production-build, formatter/lint/typecheck, and
+      frontend design-detector evidence; then roll Phase 11 into the execution plan and handover.
 
 ---
 

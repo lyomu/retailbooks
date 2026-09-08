@@ -61,6 +61,6 @@ import { StatementsService } from './statements.service.js';
     StatementsService,
   ],
   // Exported so Projects can bill through the one invoice path rather than forking a second one.
-  exports: [InvoicesService, DocumentRenderingService, RecurringInvoicesService],
+  exports: [InvoicesService, DocumentRenderingService, RecurringInvoicesService, StatementsService],
 })
 export class SalesModule {}

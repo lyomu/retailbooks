@@ -159,6 +159,11 @@ export const PERMISSION_KEYS = [
   'automation.jobs.retry',
   'notifications.view',
   'notifications.manage',
+  'portal.access.manage',
+  'collaboration.comments.create',
+  'collaboration.attachments.upload',
+  'collaboration.customer_visibility.manage',
+  'collaboration.activity.view',
 ] as const;
 
 export type PermissionKey = (typeof PERMISSION_KEYS)[number];
@@ -186,7 +191,8 @@ export interface PermissionDefinition {
     | 'Banking'
     | 'Inventory'
     | 'Projects'
-    | 'Automation';
+    | 'Automation'
+    | 'Collaboration';
   /**
    * Permanently OWNER-only. No role -- system or custom -- can hold a protected key; there is no
    * grant path for it anywhere, which is the entire privilege-escalation defence.
@@ -1265,6 +1271,41 @@ export const PERMISSION_CATALOG: readonly PermissionDefinition[] = Object.freeze
     label: 'Manage notification preferences',
     description: 'Manage personal in-app and email notification preferences.',
     group: 'Automation',
+    protected: false,
+  },
+  {
+    key: 'portal.access.manage',
+    label: 'Manage customer portal access',
+    description: 'Invite, resend, inspect, and revoke customer portal access grants.',
+    group: 'Collaboration',
+    protected: false,
+  },
+  {
+    key: 'collaboration.comments.create',
+    label: 'Add internal comments',
+    description: 'Add append-only comments to transaction collaboration timelines.',
+    group: 'Collaboration',
+    protected: false,
+  },
+  {
+    key: 'collaboration.attachments.upload',
+    label: 'Upload collaboration files',
+    description: 'Attach supported files to transactions the user can manage.',
+    group: 'Collaboration',
+    protected: false,
+  },
+  {
+    key: 'collaboration.customer_visibility.manage',
+    label: 'Share collaboration with customers',
+    description: 'Mark eligible sales comments and files as visible in the customer portal.',
+    group: 'Collaboration',
+    protected: false,
+  },
+  {
+    key: 'collaboration.activity.view',
+    label: 'View collaboration activity',
+    description: 'View the transaction activity timeline within resources the user can access.',
+    group: 'Collaboration',
     protected: false,
   },
 ]);

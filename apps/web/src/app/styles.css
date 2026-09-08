@@ -1074,6 +1074,306 @@ a.rb-nav-item:hover {
   background: hsl(var(--rb-muted));
 }
 
+.rb-switcher-search {
+  display: block;
+  padding: 0.35rem 0.5rem 0.55rem;
+}
+
+.rb-switcher-search input {
+  width: 100%;
+  min-height: 2rem;
+  padding: 0.35rem 0.55rem;
+  color: hsl(var(--rb-foreground));
+  background: hsl(var(--rb-muted));
+  border: 1px solid hsl(var(--rb-border));
+  border-radius: 0.5rem;
+}
+
+.rb-switcher-search input:focus-visible {
+  outline: 2px solid hsl(var(--rb-primary));
+  outline-offset: 1px;
+}
+
+/* Customer portal: a deliberately quieter, task-led shell that shares the product tokens without
+   reproducing the internal accounting workbench or exposing its navigation vocabulary. */
+.rb-portal {
+  width: min(100%, 74rem);
+  min-height: 100dvh;
+  margin: 0 auto;
+  padding: clamp(1rem, 3vw, 2.5rem);
+  color: hsl(var(--rb-foreground));
+}
+
+.rb-portal__header,
+.rb-portal__welcome,
+.rb-portal__section--split {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.rb-portal__header {
+  min-height: 3rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid hsl(var(--rb-border));
+}
+
+.rb-portal__brand,
+.rb-portal__signout,
+.rb-portal__nav a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: inherit;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.rb-portal__brand svg {
+  color: hsl(var(--rb-primary));
+}
+.rb-portal__signout {
+  color: hsl(var(--rb-muted-foreground));
+  font-size: 0.875rem;
+}
+
+.rb-portal__welcome {
+  padding: clamp(2rem, 6vw, 4.5rem) 0 2rem;
+  align-items: end;
+}
+
+.rb-portal__kicker {
+  margin: 0 0 0.65rem;
+  color: hsl(var(--rb-primary));
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.rb-portal__welcome h1,
+.rb-portal__section h2,
+.rb-portal-state h1 {
+  margin: 0;
+  letter-spacing: -0.025em;
+}
+.rb-portal__welcome h1 {
+  font-size: clamp(2rem, 5vw, 3.5rem);
+  max-width: 16ch;
+}
+.rb-portal__welcome p,
+.rb-portal__section p {
+  color: hsl(var(--rb-muted-foreground));
+  line-height: 1.55;
+}
+
+.rb-portal__switch {
+  display: grid;
+  gap: 0.35rem;
+  color: hsl(var(--rb-muted-foreground));
+  font-size: 0.8rem;
+}
+.rb-portal__switch select {
+  min-height: 2.5rem;
+  min-width: 16rem;
+  padding: 0 0.65rem;
+  color: hsl(var(--rb-foreground));
+  background: hsl(var(--rb-card));
+  border: 1px solid hsl(var(--rb-border));
+  border-radius: 0.5rem;
+}
+
+.rb-portal__nav {
+  display: flex;
+  gap: 1.25rem;
+  padding: 1rem 0;
+  border-block: 1px solid hsl(var(--rb-border));
+  overflow-x: auto;
+}
+.rb-portal__nav a {
+  flex: none;
+  color: hsl(var(--rb-muted-foreground));
+  font-size: 0.9rem;
+}
+.rb-portal__nav a:hover {
+  color: hsl(var(--rb-primary));
+}
+
+.rb-portal__section {
+  padding: clamp(1.75rem, 5vw, 3.25rem) 0;
+  border-bottom: 1px solid hsl(var(--rb-border));
+}
+.rb-portal__section-heading h2,
+.rb-portal__section--split h2 {
+  font-size: 1.25rem;
+}
+.rb-portal__section-heading p {
+  margin: 0.35rem 0 1.5rem;
+  font-size: 0.9rem;
+}
+.rb-portal__empty {
+  padding: 2rem 0;
+}
+.rb-portal__table-wrap {
+  overflow-x: auto;
+}
+.rb-portal__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+.rb-portal__table th {
+  color: hsl(var(--rb-muted-foreground));
+  font-weight: 600;
+  text-align: left;
+}
+.rb-portal__table th,
+.rb-portal__table td {
+  padding: 0.85rem 0.6rem;
+  border-bottom: 1px solid hsl(var(--rb-border));
+  white-space: nowrap;
+}
+.rb-portal__table td small {
+  display: block;
+  margin-top: 0.2rem;
+  color: hsl(var(--rb-muted-foreground));
+  text-transform: capitalize;
+}
+.rb-number {
+  text-align: right !important;
+  font-variant-numeric: tabular-nums;
+}
+.rb-portal__status {
+  color: hsl(var(--rb-primary));
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+.rb-portal__link,
+.rb-portal-state a,
+.rb-portal-state button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.5rem;
+  padding: 0.5rem 0.85rem;
+  color: hsl(var(--rb-primary-foreground));
+  background: hsl(var(--rb-primary));
+  border: 0;
+  border-radius: 0.5rem;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+.rb-portal__link:focus-visible,
+.rb-portal-state a:focus-visible,
+.rb-portal-state button:focus-visible {
+  outline: 3px solid hsl(var(--rb-ring));
+  outline-offset: 3px;
+}
+.rb-portal-state {
+  display: grid;
+  min-height: 100dvh;
+  max-width: 34rem;
+  margin: 0 auto;
+  place-content: center;
+  gap: 1rem;
+  padding: 2rem;
+  text-align: center;
+}
+.rb-portal-state > svg {
+  width: 2.5rem;
+  height: 2.5rem;
+  margin: 0 auto;
+  color: hsl(var(--rb-primary));
+}
+.rb-portal-state p {
+  margin: 0;
+  color: hsl(var(--rb-muted-foreground));
+  line-height: 1.55;
+}
+.rb-portal-state a,
+.rb-portal-state button {
+  justify-self: center;
+}
+
+@media (max-width: 42rem) {
+  .rb-portal__welcome,
+  .rb-portal__section--split {
+    align-items: start;
+    flex-direction: column;
+  }
+  .rb-portal__switch,
+  .rb-portal__switch select {
+    width: 100%;
+  }
+  .rb-portal__table th:nth-child(3),
+  .rb-portal__table td:nth-child(3) {
+    display: none;
+  }
+}
+
+.rb-collaboration {
+  margin-top: var(--rb-space-6);
+  padding-top: var(--rb-space-5);
+  border-top: 1px solid hsl(var(--rb-border));
+}
+.rb-collaboration__tabs {
+  display: flex;
+  gap: 0.25rem;
+  border-bottom: 1px solid hsl(var(--rb-border));
+}
+.rb-collaboration__tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 2.5rem;
+  padding: 0 0.75rem;
+  color: hsl(var(--rb-muted-foreground));
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.rb-collaboration__tabs button[aria-selected='true'] {
+  color: hsl(var(--rb-primary));
+  border-bottom-color: hsl(var(--rb-primary));
+}
+.rb-collaboration__comments {
+  display: grid;
+  gap: 0.75rem;
+  padding-top: 1rem;
+}
+.rb-collaboration__comments article {
+  padding: 0.75rem;
+  background: hsl(var(--rb-muted));
+  border-radius: 0.6rem;
+}
+.rb-collaboration__comments article p {
+  margin: 0.3rem 0;
+}
+.rb-collaboration__comments time {
+  color: hsl(var(--rb-muted-foreground));
+  font-size: 0.8rem;
+}
+.rb-collaboration textarea {
+  width: 100%;
+  min-height: 5rem;
+  padding: 0.65rem;
+  color: hsl(var(--rb-foreground));
+  background: hsl(var(--rb-card));
+  border: 1px solid hsl(var(--rb-border));
+  border-radius: 0.5rem;
+  font: inherit;
+  resize: vertical;
+}
+.rb-collaboration textarea:focus-visible,
+.rb-collaboration__tabs button:focus-visible {
+  outline: 2px solid hsl(var(--rb-ring));
+  outline-offset: 2px;
+}
+
 .rb-organization-switcher svg {
   width: 1rem;
   height: 1rem;

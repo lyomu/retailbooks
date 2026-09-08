@@ -4,7 +4,8 @@ import { chromium } from 'playwright';
 import { PrismaService } from '../database/prisma.service.js';
 import { StorageService } from '../storage/storage.service.js';
 
-export type RenderableDocumentType = 'INVOICE' | 'CREDIT_NOTE' | 'QUOTE';
+export type RenderableDocumentType =
+  'INVOICE' | 'CREDIT_NOTE' | 'QUOTE' | 'SALES_ORDER' | 'PAYMENT_RECEIVED';
 
 /**
  * Renders a document to PDF once and caches the result as a `DocumentSnapshot` -- a re-send never

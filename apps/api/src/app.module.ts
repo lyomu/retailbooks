@@ -5,6 +5,7 @@ import { APP_FILTER } from '@nestjs/core';
 import { AuthModule } from './auth/auth.module.js';
 import { AutomationModule } from './automation/automation.module.js';
 import { BankingModule } from './banking/banking.module.js';
+import { CollaborationModule } from './collaboration/collaboration.module.js';
 import { ApiExceptionFilter } from './common/api-exception.filter.js';
 import { ObservabilityModule } from './common/logging/observability.module.js';
 import { DatabaseModule } from './database/database.module.js';
@@ -17,6 +18,7 @@ import { ReportingModule } from './reporting/reporting.module.js';
 import { JobsModule } from './jobs/jobs.module.js';
 import { OrganizationsModule } from './organizations/organizations.module.js';
 import { PurchasesModule } from './purchases/purchases.module.js';
+import { PortalsModule } from './portals/portals.module.js';
 import { SalesModule } from './sales/sales.module.js';
 
 @Module({
@@ -28,6 +30,8 @@ import { SalesModule } from './sales/sales.module.js';
     AutomationModule,
     AuthModule,
     OrganizationsModule,
+    CollaborationModule,
+    PortalsModule,
     SalesModule,
     PurchasesModule,
     BankingModule,

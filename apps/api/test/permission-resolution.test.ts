@@ -143,6 +143,11 @@ describe('SYSTEM_ROLE_TEMPLATES', () => {
       'sales.recurring_invoices.view',
       'sales.recurring_invoices.manage',
       'sales.statements.view',
+      'portal.access.manage',
+      'collaboration.comments.create',
+      'collaboration.attachments.upload',
+      'collaboration.customer_visibility.manage',
+      'collaboration.activity.view',
     ]);
   });
 

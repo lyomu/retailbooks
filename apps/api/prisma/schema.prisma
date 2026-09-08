@@ -327,6 +327,11 @@ model User {
   workflowRulesCreated             WorkflowRule[]             @relation("WorkflowRuleCreatedBy")
   scheduledJobsCreated             ScheduledJob[]             @relation("ScheduledJobCreatedBy")
   notifications                    Notification[]             @relation("NotificationRecipient")
+  portalUsers                      PortalUser[]               @relation("PortalUserUser")
+  portalInvitationsSent            PortalInvitation[]         @relation("PortalInvitationInvitedBy")
+  portalInvitationsAccepted        PortalInvitation[]         @relation("PortalInvitationAcceptedBy")
+  commentsAuthored                 Comment[]                  @relation("CommentAuthor")
+  activitiesAuthored               Activity[]                 @relation("ActivityActor")
 
   @@map("users")
 }
@@ -401,6 +406,7 @@ model AuditEvent {
   occurredAt     DateTime      @default(now()) @map("occurred_at") @db.Timestamptz(6)
   actor          User?         @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  activity       Activity?
 
   @@index([organizationId, occurredAt])
   @@index([organizationId, entityType, entityId])
@@ -540,6 +546,10 @@ model Organization {
   scheduledReports              ScheduledReport[]
   notifications                 Notification[]
   notificationPreferences       NotificationPreference[]
+  portalUsers                  PortalUser[]
+  portalInvitations            PortalInvitation[]
+  comments                     Comment[]
+  activities                   Activity[]
 
   @@index([createdByUserId])
   @@index([status])
@@ -1051,6 +1061,8 @@ model Contact {
   recurringInvoiceTemplates RecurringInvoiceTemplate[]
   openingBalancePartyLines  OpeningBalancePartyLine[]
   projects                  Project[]
+  portalUsers               PortalUser[]
+  portalInvitations         PortalInvitation[]
 
   @@unique([organizationId, displayName])
   @@index([organizationId, status])
@@ -1092,6 +1104,149 @@ model ContactTaxId {
 
   @@index([organizationId, contactId])
   @@map("contact_tax_ids")
+}
+
+enum PortalUserStatus {
+  ACTIVE
+  REVOKED
+}
+
+enum PortalInvitationStatus {
+  PENDING
+  ACCEPTED
+  REVOKED
+  EXPIRED
+}
+
+/// Customer-scoped access to the portal. This is deliberately not an OrganizationMember: a portal
+/// user cannot inherit internal permissions or reach arbitrary organization records.
+model PortalUser {
+  id              String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId  String           @map("organization_id") @db.Uuid
+  contactId       String           @map("contact_id") @db.Uuid
+  userId          String           @map("user_id") @db.Uuid
+  status          PortalUserStatus @default(ACTIVE)
+  invitedByUserId String           @map("invited_by_user_id") @db.Uuid
+  activatedAt     DateTime         @default(now()) @map("activated_at") @db.Timestamptz(6)
+  revokedAt       DateTime?        @map("revoked_at") @db.Timestamptz(6)
+  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization    Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  contact         Contact          @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  user            User             @relation("PortalUserUser", fields: [userId], references: [id], onDelete: Cascade)
+  invitations     PortalInvitation[]
+  attachments     Attachment[]
+  comments        Comment[]
+  activities      Activity[]
+
+  @@unique([organizationId, contactId, userId])
+  @@index([userId, status])
+  @@index([organizationId, contactId, status])
+  @@map("portal_users")
+}
+
+model PortalInvitation {
+  id               String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId   String                 @map("organization_id") @db.Uuid
+  contactId        String                 @map("contact_id") @db.Uuid
+  email            String                 @db.Citext
+  tokenHash        String                 @unique @map("token_hash") @db.Char(64)
+  status           PortalInvitationStatus @default(PENDING)
+  invitedByUserId  String                 @map("invited_by_user_id") @db.Uuid
+  acceptedByUserId String?                @map("accepted_by_user_id") @db.Uuid
+  portalUserId     String?                @map("portal_user_id") @db.Uuid
+  expiresAt        DateTime               @map("expires_at") @db.Timestamptz(6)
+  acceptedAt       DateTime?              @map("accepted_at") @db.Timestamptz(6)
+  revokedAt        DateTime?              @map("revoked_at") @db.Timestamptz(6)
+  createdAt        DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime               @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization     Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  contact          Contact                @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  invitedBy        User                   @relation("PortalInvitationInvitedBy", fields: [invitedByUserId], references: [id], onDelete: Restrict)
+  acceptedBy       User?                  @relation("PortalInvitationAcceptedBy", fields: [acceptedByUserId], references: [id], onDelete: SetNull)
+  portalUser       PortalUser?            @relation(fields: [portalUserId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, contactId, status])
+  @@index([email, status])
+  @@index([expiresAt])
+  @@map("portal_invitations")
+}
+
+enum CollaborationVisibility {
+  INTERNAL
+  CUSTOMER
+}
+
+enum CollaborationTargetType {
+  QUOTE
+  SALES_ORDER
+  INVOICE
+  CREDIT_NOTE
+  PAYMENT_RECEIVED
+  PURCHASE_ORDER
+  BILL
+  EXPENSE
+  VENDOR_CREDIT
+  PAYMENT_MADE
+  JOURNAL
+  OPENING_BALANCE_BATCH
+  BANK_TRANSACTION
+  TRANSFER
+  RECONCILIATION
+  INVENTORY_ADJUSTMENT
+  STOCK_MOVEMENT
+  PROJECT
+  TIME_ENTRY
+}
+
+enum ActivityKind {
+  STATUS
+  EMAIL
+  APPROVAL
+  ACCOUNTING
+  COMMENT
+  ATTACHMENT
+  USER_ACTION
+}
+
+model Comment {
+  id           String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String                 @map("organization_id") @db.Uuid
+  targetType   CollaborationTargetType @map("target_type")
+  targetId     String                  @map("target_id") @db.Uuid
+  body         String                  @db.VarChar(4000)
+  visibility   CollaborationVisibility @default(INTERNAL)
+  authorUserId String                  @map("author_user_id") @db.Uuid
+  portalUserId String?                 @map("portal_user_id") @db.Uuid
+  createdAt    DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  organization Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  author       User                     @relation("CommentAuthor", fields: [authorUserId], references: [id], onDelete: Restrict)
+  portalUser   PortalUser?              @relation(fields: [portalUserId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, targetType, targetId, createdAt])
+  @@map("comments")
+}
+
+model Activity {
+  id           String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String                 @map("organization_id") @db.Uuid
+  targetType   CollaborationTargetType @map("target_type")
+  targetId     String                  @map("target_id") @db.Uuid
+  kind         ActivityKind
+  visibility   CollaborationVisibility @default(INTERNAL)
+  eventKey     String                  @map("event_key") @db.VarChar(120)
+  metadata     Json                    @default("{}") @db.JsonB
+  actorUserId  String?                 @map("actor_user_id") @db.Uuid
+  portalUserId String?                 @map("portal_user_id") @db.Uuid
+  auditEventId String?                 @unique @map("audit_event_id") @db.Uuid
+  occurredAt   DateTime                @default(now()) @map("occurred_at") @db.Timestamptz(6)
+  organization Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  actor        User?                    @relation("ActivityActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+  portalUser   PortalUser?              @relation(fields: [portalUserId], references: [id], onDelete: SetNull)
+  auditEvent   AuditEvent?              @relation(fields: [auditEventId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, targetType, targetId, occurredAt])
+  @@map("activities")
 }
 
 model Vendor {
@@ -1730,6 +1885,7 @@ model SalesOrder {
   subtotalMinor      BigInt           @default(0) @map("subtotal_minor") @db.BigInt
   totalMinor         BigInt           @default(0) @map("total_minor") @db.BigInt
   convertedInvoiceId String?          @unique @map("converted_invoice_id") @db.Uuid
+  portalVisibleAt    DateTime?        @map("portal_visible_at") @db.Timestamptz(6)
   createdByUserId    String           @map("created_by_user_id") @db.Uuid
   createdAt          DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt          DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -1742,6 +1898,7 @@ model SalesOrder {
   @@unique([organizationId, orderNumber])
   @@index([organizationId, status, issueDate])
   @@index([organizationId, contactId])
+  @@index([organizationId, contactId, portalVisibleAt])
   @@map("sales_orders")
 }
 
@@ -2022,9 +2179,25 @@ model BillLine {
 }
 
 enum AttachmentEntityType {
+  QUOTE
+  SALES_ORDER
+  INVOICE
+  CREDIT_NOTE
+  PAYMENT_RECEIVED
+  PURCHASE_ORDER
   BILL
   EXPENSE
+  VENDOR_CREDIT
+  PAYMENT_MADE
+  JOURNAL
+  OPENING_BALANCE_BATCH
+  BANK_TRANSACTION
+  TRANSFER
+  RECONCILIATION
   INVENTORY_ADJUSTMENT
+  STOCK_MOVEMENT
+  PROJECT
+  TIME_ENTRY
 }
 
 /// Generic polymorphic attachment (entityType + entityId, no FK relation to the entity tables --
@@ -2041,9 +2214,12 @@ model Attachment {
   storageKey       String               @map("storage_key") @db.VarChar(500)
   sizeBytes        Int                  @map("size_bytes")
   uploadedByUserId String               @map("uploaded_by_user_id") @db.Uuid
+  visibility       CollaborationVisibility @default(INTERNAL)
+  portalUserId     String?              @map("portal_user_id") @db.Uuid
   createdAt        DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
   organization     Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   uploadedBy       User                 @relation("AttachmentUploadedBy", fields: [uploadedByUserId], references: [id], onDelete: Restrict)
+  portalUser       PortalUser?          @relation(fields: [portalUserId], references: [id], onDelete: SetNull)
 
   @@index([organizationId, entityType, entityId])
   @@map("attachments")

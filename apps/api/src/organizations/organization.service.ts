@@ -106,7 +106,7 @@ export class OrganizationService {
       select: {
         joinedAt: true,
         role: {
-          select: { name: true, permissions: { select: { permissionKey: true } } },
+          select: { key: true, name: true, permissions: { select: { permissionKey: true } } },
         },
         organization: {
           select: {
@@ -126,6 +126,7 @@ export class OrganizationService {
     const organizations = memberships.map((membership) => ({
       ...membership.organization,
       role: membership.role.name,
+      roleKey: membership.role.key,
       joinedAt: membership.joinedAt.toISOString(),
       permissions: membership.role.permissions.map((permission) => permission.permissionKey),
     }));

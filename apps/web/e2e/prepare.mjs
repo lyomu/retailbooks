@@ -17,7 +17,8 @@ runNpm(['exec', '--workspace', '@retailbooks/api', '--', 'prisma', 'migrate', 'd
 await resetDatabase();
 await clearEmailQueue();
 await clearAuthRateLimits();
-runNpm(['run', 'db:seed', '--workspace', '@retailbooks/api']);
+runNode([resolve(repoRoot, 'node_modules/@nestjs/cli/bin/nest.js'), 'build'], apiRoot());
+runNode(['dist/prisma/seed.js'], apiRoot());
 
 async function createDatabase() {
   const admin = new Client({ connectionString: MAINTENANCE_URL });
@@ -64,8 +65,10 @@ async function clearAuthRateLimits() {
   const client = createClient({ url: 'redis://127.0.0.1:56379' });
   await client.connect();
   try {
-    for await (const key of client.scanIterator({ MATCH: 'auth:*', COUNT: 200 })) {
-      await client.del(key);
+    for await (const keys of client.scanIterator({ MATCH: 'auth:*', COUNT: 200 })) {
+      // node-redis v5 yields batches; invoking DEL with an empty batch is rejected by Redis.
+      const batch = Array.isArray(keys) ? keys : [keys];
+      if (batch.length > 0) await client.del(batch);
     }
   } finally {
     await client.quit();
@@ -85,4 +88,22 @@ function runNpm(args) {
     shell: process.platform === 'win32',
     stdio: 'inherit',
   });
+}
+
+function runNode(args, cwd) {
+  execFileSync(process.execPath, args, {
+    cwd,
+    env: {
+      ...process.env,
+      DATABASE_URL,
+      NODE_ENV: 'test',
+      QUEUE_PREFIX,
+      WEB_APP_URL: 'http://127.0.0.1:3300',
+    },
+    stdio: 'inherit',
+  });
+}
+
+function apiRoot() {
+  return resolve(repoRoot, 'apps/api');
 }

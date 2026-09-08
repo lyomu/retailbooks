@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { AuditAction, type AttachmentEntityType } from '@prisma/client';
 
 import type { PublicUser } from '../auth/auth.service.js';
@@ -47,10 +47,13 @@ export class AttachmentsService {
     entityId: string,
     file: UploadedFileLike,
     metadata: RequestMetadata,
+    options?: { visibility?: 'INTERNAL' | 'CUSTOMER'; portalUserId?: string },
   ) {
     if (file.size > MAX_ATTACHMENT_BYTES) {
       throw new BadRequestException('Attachment exceeds the 15MB size limit.');
     }
+    validateAttachment(file);
+    const visibility = options?.portalUserId ? 'CUSTOMER' : (options?.visibility ?? 'INTERNAL');
     const storageKey = `${context.id}/${entityType.toLowerCase()}/${entityId}/${randomUUID()}-${safeKeySegment(file.originalname)}`;
 
     await this.storage.ensureBucket();
@@ -67,6 +70,8 @@ export class AttachmentsService {
           storageKey,
           sizeBytes: file.size,
           uploadedByUserId: user.id,
+          visibility,
+          portalUserId: options?.portalUserId ?? null,
         },
       });
       await writeAuditEvent(tx, {
@@ -76,8 +81,21 @@ export class AttachmentsService {
         entityType: entityType.toLowerCase(),
         entityId,
         action: AuditAction.CREATE,
-        after: { filename: file.originalname, sizeBytes: file.size },
+        after: { filename: file.originalname, sizeBytes: file.size, visibility },
         ipHash: metadata.ipHash,
+      });
+      await (tx as any).activity.create({
+        data: {
+          organizationId: context.id,
+          targetType: entityType,
+          targetId: entityId,
+          kind: 'ATTACHMENT',
+          visibility,
+          eventKey: 'attachments.uploaded',
+          actorUserId: user.id,
+          portalUserId: options?.portalUserId ?? null,
+          metadata: { attachmentId: created.id, filename: file.originalname },
+        },
       });
       return created;
     });
@@ -93,9 +111,50 @@ export class AttachmentsService {
     return Promise.all(
       attachments.map(async (attachment) => ({
         ...summarize(attachment),
-        downloadUrl: await this.storage.getSignedDownloadUrl(attachment.storageKey),
+        // Listing never authorizes a download. A dedicated, re-authorized endpoint issues the
+        // short-lived URL only after target access has been checked again.
       })),
     );
+  }
+
+  async download(
+    organizationId: string,
+    entityType: AttachmentEntityType,
+    entityId: string,
+    attachmentId: string,
+  ) {
+    const attachment = await this.prisma.attachment.findFirst({
+      where: { id: attachmentId, organizationId, entityType, entityId },
+    });
+    if (!attachment) throw new NotFoundException('Attachment not found.');
+    return {
+      id: attachment.id,
+      downloadUrl: await this.storage.getSignedDownloadUrl(attachment.storageKey, 300),
+    };
+  }
+
+  async listCustomer(organizationId: string, entityType: AttachmentEntityType, entityId: string) {
+    const attachments = await this.prisma.attachment.findMany({
+      where: { organizationId, entityType, entityId, visibility: 'CUSTOMER' },
+      orderBy: [{ createdAt: 'desc' }],
+    });
+    return attachments.map(summarize);
+  }
+
+  async downloadCustomer(
+    organizationId: string,
+    entityType: AttachmentEntityType,
+    entityId: string,
+    attachmentId: string,
+  ) {
+    const attachment = await this.prisma.attachment.findFirst({
+      where: { id: attachmentId, organizationId, entityType, entityId, visibility: 'CUSTOMER' },
+    });
+    if (!attachment) throw new NotFoundException('Attachment not found.');
+    return {
+      id: attachment.id,
+      downloadUrl: await this.storage.getSignedDownloadUrl(attachment.storageKey, 300),
+    };
   }
 }
 
@@ -128,4 +187,43 @@ function summarize(attachment: {
     sizeBytes: attachment.sizeBytes,
     createdAt: attachment.createdAt.toISOString(),
   };
+}
+
+const SUPPORTED_TYPES: Record<string, readonly string[]> = {
+  pdf: ['application/pdf'],
+  png: ['image/png'],
+  jpg: ['image/jpeg'],
+  jpeg: ['image/jpeg'],
+  csv: ['text/csv', 'application/csv'],
+  xlsx: ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
+  docx: ['application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+  txt: ['text/plain'],
+};
+
+function validateAttachment(file: UploadedFileLike): void {
+  const extension = file.originalname.split('.').pop()?.toLowerCase();
+  if (!extension || !SUPPORTED_TYPES[extension]?.includes(file.mimetype)) {
+    throw new BadRequestException(
+      'Only PDF, image, CSV, XLSX, DOCX, and plain-text attachments are supported.',
+    );
+  }
+  const bytes = file.buffer;
+  const starts = (signature: number[]) => signature.every((byte, index) => bytes[index] === byte);
+  const zip = starts([0x50, 0x4b, 0x03, 0x04]);
+  const valid =
+    (extension === 'pdf' && starts([0x25, 0x50, 0x44, 0x46])) ||
+    (extension === 'png' && starts([0x89, 0x50, 0x4e, 0x47])) ||
+    ((extension === 'jpg' || extension === 'jpeg') && starts([0xff, 0xd8, 0xff])) ||
+    ((extension === 'xlsx' || extension === 'docx') && zip) ||
+    (extension === 'csv' && isText(bytes)) ||
+    (extension === 'txt' && isText(bytes));
+  if (!valid) throw new BadRequestException('The file contents do not match its declared type.');
+}
+
+function isText(bytes: Buffer): boolean {
+  const sample = bytes.subarray(0, Math.min(bytes.length, 8_192));
+  return (
+    !sample.includes(0) &&
+    sample.every((byte) => byte === 9 || byte === 10 || byte === 13 || byte >= 32)
+  );
 }

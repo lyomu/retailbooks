@@ -228,6 +228,11 @@ export const permissionKeySchema = z.enum([
   'automation.jobs.retry',
   'notifications.view',
   'notifications.manage',
+  'portal.access.manage',
+  'collaboration.comments.create',
+  'collaboration.attachments.upload',
+  'collaboration.customer_visibility.manage',
+  'collaboration.activity.view',
 ]);
 
 export const REPORT_KEYS = [
@@ -375,6 +380,8 @@ export const organizationSummarySchema = z.object({
   baseCurrency: z.string().length(3),
   /** The member's role name, e.g. "Administrator" or a custom role's name -- already display-ready. */
   role: z.string().min(1),
+  /** Stable role identifier for context labels and permission-aware navigation. */
+  roleKey: z.string().min(1),
   joinedAt: z.iso.datetime(),
   permissions: z.array(permissionKeySchema),
 });
@@ -1313,6 +1320,68 @@ export const attachmentSchema = z.object({
   contentType: z.string().min(1),
   sizeBytes: z.number().int(),
   createdAt: z.iso.datetime(),
+});
+
+export const collaborationVisibilitySchema = z.enum(['INTERNAL', 'CUSTOMER']);
+export const collaborationTargetTypeSchema = z.enum([
+  'QUOTE',
+  'SALES_ORDER',
+  'INVOICE',
+  'CREDIT_NOTE',
+  'PAYMENT_RECEIVED',
+  'PURCHASE_ORDER',
+  'BILL',
+  'EXPENSE',
+  'VENDOR_CREDIT',
+  'PAYMENT_MADE',
+  'JOURNAL',
+  'OPENING_BALANCE_BATCH',
+  'BANK_TRANSACTION',
+  'TRANSFER',
+  'RECONCILIATION',
+  'INVENTORY_ADJUSTMENT',
+  'STOCK_MOVEMENT',
+  'PROJECT',
+  'TIME_ENTRY',
+]);
+export const portalInvitationSchema = z.object({
+  id: z.uuid(),
+  email: z.email(),
+  status: z.enum(['PENDING', 'ACCEPTED', 'REVOKED', 'EXPIRED']),
+  expiresAt: z.iso.datetime(),
+  createdAt: z.iso.datetime(),
+  revokedAt: z.iso.datetime().nullable(),
+});
+export const portalAccountSchema = z.object({
+  id: z.uuid(),
+  organizationName: z.string().min(1),
+  customerName: z.string().min(1),
+});
+export const portalDocumentSchema = z.object({
+  id: z.uuid(),
+  type: z.enum(['QUOTE', 'SALES_ORDER', 'INVOICE', 'CREDIT_NOTE', 'PAYMENT_RECEIVED']),
+  number: z.string().nullable(),
+  status: z.string(),
+  issueDate: z.iso.datetime().nullable(),
+  dueDate: z.iso.datetime().nullable(),
+  currency: z.string().length(3),
+  totalMinor: z.string(),
+  exposedAt: z.iso.datetime(),
+});
+export const commentSchema = z.object({
+  id: z.uuid(),
+  body: z.string(),
+  visibility: collaborationVisibilitySchema,
+  author: z.string(),
+  createdAt: z.iso.datetime(),
+});
+export const activitySchema = z.object({
+  id: z.uuid(),
+  kind: z.string(),
+  eventKey: z.string(),
+  visibility: collaborationVisibilitySchema,
+  occurredAt: z.iso.datetime(),
+  metadata: z.unknown(),
 });
 
 export const attachmentListResponseSchema = z.object({
@@ -2422,6 +2491,13 @@ export type SaveOpeningBalanceBatchDto = z.infer<typeof saveOpeningBalanceBatchD
 export type Attachment = z.infer<typeof attachmentSchema>;
 export type AttachmentListResponse = z.infer<typeof attachmentListResponseSchema>;
 export type AttachmentResponse = z.infer<typeof attachmentResponseSchema>;
+export type CollaborationVisibility = z.infer<typeof collaborationVisibilitySchema>;
+export type CollaborationTargetType = z.infer<typeof collaborationTargetTypeSchema>;
+export type PortalInvitation = z.infer<typeof portalInvitationSchema>;
+export type PortalAccount = z.infer<typeof portalAccountSchema>;
+export type PortalDocument = z.infer<typeof portalDocumentSchema>;
+export type Comment = z.infer<typeof commentSchema>;
+export type Activity = z.infer<typeof activitySchema>;
 
 export type ExpenseCategory = z.infer<typeof expenseCategorySchema>;
 export type ExpenseCategoryListResponse = z.infer<typeof expenseCategoryListResponseSchema>;

@@ -20,8 +20,8 @@ export interface AuditEventInput {
  *
  * Mirrors the in-transaction `event(tx, ...)` helpers already used for SecurityEvent.
  */
-export function writeAuditEvent(tx: Prisma.TransactionClient, input: AuditEventInput) {
-  return tx.auditEvent.create({
+export async function writeAuditEvent(tx: Prisma.TransactionClient, input: AuditEventInput) {
+  const audit = await tx.auditEvent.create({
     data: {
       organizationId: input.organizationId,
       actorUserId: input.actorUserId,
@@ -35,6 +35,68 @@ export function writeAuditEvent(tx: Prisma.TransactionClient, input: AuditEventI
       ipHash: input.ipHash ?? null,
     },
   });
+  // Activity is a read projection of audit history, never the authoritative audit log. Where an
+  // event represents a recognised collaboration target, write it in the same transaction and
+  // bind it uniquely to its source audit event. Comments/files own richer activity rows below, so
+  // they are intentionally excluded from this generic projection.
+  const targetType = toCollaborationTarget(input.entityType);
+  if (
+    targetType &&
+    input.entityId &&
+    !input.eventKey.startsWith('attachments.') &&
+    !input.eventKey.startsWith('collaboration.comment_')
+  ) {
+    await (tx as any).activity.create({
+      data: {
+        organizationId: input.organizationId,
+        targetType,
+        targetId: input.entityId,
+        kind: activityKind(input.eventKey),
+        visibility: 'INTERNAL',
+        eventKey: input.eventKey,
+        metadata: input.metadata ?? {},
+        actorUserId: input.actorUserId,
+        auditEventId: audit.id,
+        occurredAt: audit.occurredAt,
+      },
+    });
+  }
+  return audit;
+}
+
+const COLLABORATION_TARGETS: Record<string, string> = {
+  quote: 'QUOTE',
+  sales_order: 'SALES_ORDER',
+  invoice: 'INVOICE',
+  credit_note: 'CREDIT_NOTE',
+  payment_received: 'PAYMENT_RECEIVED',
+  purchase_order: 'PURCHASE_ORDER',
+  bill: 'BILL',
+  expense: 'EXPENSE',
+  vendor_credit: 'VENDOR_CREDIT',
+  payment_made: 'PAYMENT_MADE',
+  journal: 'JOURNAL',
+  opening_balance_batch: 'OPENING_BALANCE_BATCH',
+  bank_transaction: 'BANK_TRANSACTION',
+  transfer: 'TRANSFER',
+  reconciliation: 'RECONCILIATION',
+  inventory_adjustment: 'INVENTORY_ADJUSTMENT',
+  stock_movement: 'STOCK_MOVEMENT',
+  project: 'PROJECT',
+  time_entry: 'TIME_ENTRY',
+};
+
+function toCollaborationTarget(entityType: string): string | undefined {
+  return COLLABORATION_TARGETS[entityType];
+}
+
+function activityKind(eventKey: string): string {
+  if (eventKey.includes('approval')) return 'APPROVAL';
+  if (eventKey.includes('sent') || eventKey.includes('email')) return 'EMAIL';
+  if (eventKey.includes('posted') || eventKey.includes('issued') || eventKey.includes('allocated'))
+    return 'ACCOUNTING';
+  if (eventKey.includes('created') || eventKey.includes('updated')) return 'USER_ACTION';
+  return 'STATUS';
 }
 
 export interface FieldDiff {

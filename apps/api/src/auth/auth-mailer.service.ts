@@ -73,6 +73,30 @@ export class AuthMailerService {
     });
   }
 
+  async sendPortalInvitation(invitation: {
+    email: string;
+    organizationName: string;
+    customerName: string;
+    inviterName: string;
+    token: string;
+    expiresAt: Date;
+  }): Promise<void> {
+    const url = `${this.webUrl}/portal/accept-invitation?token=${encodeURIComponent(invitation.token)}`;
+    const expiry = invitation.expiresAt.toISOString().slice(0, 10);
+    await this.send(EMAIL_JOB_NAMES.portalInvitation, {
+      to: invitation.email,
+      subject: `View your ${invitation.organizationName} documents on RetailBooks`,
+      text: `${invitation.inviterName} invited you to access ${invitation.customerName}'s customer portal for ${invitation.organizationName}.\n\nOpen your portal:\n${url}\n\nThis link expires on ${expiry} and can only be used once.`,
+      html: this.template(
+        `Your ${invitation.organizationName} portal`,
+        `${escapeHtml(invitation.inviterName)} invited you to view documents for ${escapeHtml(invitation.customerName)}.`,
+        'Open customer portal',
+        url,
+        `This link expires on ${expiry} and can only be used once.`,
+      ),
+    });
+  }
+
   private async send(name: EmailJobName, message: EmailDeliveryJob): Promise<void> {
     try {
       await this.emailQueue.enqueue(name, message);

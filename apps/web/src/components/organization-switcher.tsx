@@ -11,7 +11,7 @@ import {
 } from '@retailbooks/ui';
 import { Building2, Check, ChevronDown, Plus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { apiRequest } from '../lib/api';
 import { organizationDisplayName } from '../lib/workspace';
@@ -27,6 +27,16 @@ export function OrganizationSwitcher({
 }) {
   const router = useRouter();
   const [switching, setSwitching] = useState<string | null>(null);
+  const [query, setQuery] = useState('');
+  const visibleOrganizations = useMemo(
+    () =>
+      organizations.filter((organization) =>
+        `${organizationDisplayName(organization)} ${organization.role} ${organization.roleKey}`
+          .toLocaleLowerCase()
+          .includes(query.trim().toLocaleLowerCase()),
+      ),
+    [organizations, query],
+  );
 
   const label = activeOrganization
     ? organizationDisplayName(activeOrganization)
@@ -43,6 +53,9 @@ export function OrganizationSwitcher({
       if (organization.status === 'DRAFT') {
         router.push('/onboarding');
       } else {
+        // A hard destination prevents a just-switched workspace from retaining a resource route
+        // or stale client view that belonged to the prior organization.
+        router.push('/');
         router.refresh();
       }
     } finally {
@@ -65,10 +78,22 @@ export function OrganizationSwitcher({
       </DropdownTrigger>
       <DropdownContent align="start">
         <DropdownLabel>Organizations</DropdownLabel>
+        {organizations.length > 6 ? (
+          <label className="rb-switcher-search">
+            <span className="rb-visually-hidden">Search organizations</span>
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search clients"
+            />
+          </label>
+        ) : null}
         {organizations.length === 0 ? (
           <DropdownItem disabled>No organizations yet</DropdownItem>
+        ) : visibleOrganizations.length === 0 ? (
+          <DropdownItem disabled>No matching organizations</DropdownItem>
         ) : (
-          organizations.map((organization) => (
+          visibleOrganizations.map((organization) => (
             <DropdownItem
               key={organization.id}
               disabled={switching !== null}
@@ -78,7 +103,7 @@ export function OrganizationSwitcher({
                 <span className="rb-switcher-option__copy">
                   <strong>{organizationDisplayName(organization)}</strong>
                   <small>
-                    {organization.role}
+                    {organization.role} · {organization.roleKey.toLocaleLowerCase()}
                     {organization.status === 'DRAFT' ? ' · setup unfinished' : ''}
                   </small>
                 </span>
