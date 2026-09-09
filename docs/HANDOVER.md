@@ -4,15 +4,16 @@
 double-entry accounting & invoicing web platform (monorepo: `apps/api` NestJS, `apps/web` Next.js,
 `packages/*` shared libs).
 
-**Last refreshed:** 2026-09-08 (Phase 11 implementation complete, verification partial — not closed).
+**Last refreshed:** 2026-09-09 (Phases 11 and 12 implemented, verification partial — not closed).
 
 ## 1. Where things stand
 
-Eleven of fourteen phases have code. Nine meet the roadmap's "done and verified" bar (Phase 1
+Twelve of fourteen phases have code. Nine meet the roadmap's "done and verified" bar (Phase 1
 remains functionally complete with explicitly tracked hardening debt). Phase 10 closed on
 2026-09-05 with a green whole-repo gate and named tracked debt. **Phase 11 has complete
-implementation and partial verification as of 2026-09-08; it is not closed** — the gates it still
-owes are listed below and enumerated in `docs/PHASE11_TODO.md`.
+implementation and partial verification as of 2026-09-08; Phase 12 has complete implementation and
+partial verification as of 2026-09-09. Neither is closed** — their open gates are enumerated in
+`docs/PHASE11_TODO.md` and `docs/PHASE12_TODO.md`.
 
 | Phase                      | State                                                                                                     |
 | -------------------------- | --------------------------------------------------------------------------------------------------------- |
@@ -27,7 +28,8 @@ owes are listed below and enumerated in `docs/PHASE11_TODO.md`.
 | 9 Reporting                | Complete and verified (9A–9F)                                                                             |
 | 10 Automation & Approvals  | Complete and verified (10A–10I), 64/76 checklist items; tracked debt named in `PHASE10_TODO.md` and below |
 | 11 Portals & Collaboration | **Implemented, partially verified — not closed.** Ledger in `PHASE11_TODO.md`                             |
-| 12–14                      | No code                                                                                                   |
+| 12 Platform Admin          | **Implemented, partially verified — not closed.** Ledger in `PHASE12_TODO.md`                             |
+| 13–14                      | No code                                                                                                   |
 
 **The plan is `docs/EXECUTION_PLAN.md`.** It sequenced the verification debt (Stages 0–4) and
 Phases 7–10 (Stages 5–8), and records three decisions (D1 ledger dimensions, D2 report query
@@ -36,7 +38,9 @@ strategy, D3 country-pack DB model). All three are decided; D1 is implemented.
 record including its tracked-debt list; `docs/PHASE10_TEST_PLAN.md` documents how its remaining
 test coverage was executed. Stage 9 (Phase 11) is open: implementation is complete and its own
 acceptance suites pass, but the whole-repository gate has not been captured. Phases 12–14 (platform
-admin, AI, cross-module scenarios) have no code.
+acceptance suites pass, but the whole-repository gate has not been captured. Stage 10 (Phase 12)
+has complete implementation and a green smoke/static/build pass, with automated acceptance debt
+still open. Phases 13–14 (AI and cross-module scenarios) have no code.
 
 ### What is genuinely open, in priority order
 
@@ -46,22 +50,26 @@ admin, AI, cross-module scenarios) have no code.
    builds, any Playwright run at all, visual review, the design detector, and drift/replay.
    `docs/PHASE11_TODO.md` holds the evidence ledger and a three-step "what to run first" list.
    Nothing there should be promoted to verified without captured output.
-2. **Phases 12–14 have no code.** Platform Admin (12), AI (13), and the pre-release cross-module
-   scenarios (14) are roadmap sections only. The §18.1 quote-through-payment chain remains the
+2. **Phase 12 owes automated acceptance coverage.** Platform Admin is implemented and passed an
+   18/18 real-database smoke check plus typecheck, build, lint, format, and design gates. The named
+   boundary, bootstrap, tenant-data exclusion, suspension, resolver, audit, analytics, and console
+   E2E suites remain unchecked in `docs/PHASE12_TODO.md`; do not call the phase closed until they run.
+3. **Phases 13–14 have no code.** AI (13) and the pre-release cross-module scenarios (14) are
+   roadmap sections only. The §18.1 quote-through-payment chain remains the
    named end-to-end gap: banking import/match/reconcile are covered in isolation, but not the full
    chain from quote through acceptance, invoice, partial and final payment, to P&L/AR/GL
    agreement.
-3. **Phase 10 tracked debt**, each named on its own unchecked bullet in `docs/PHASE10_TODO.md`: the
+4. **Phase 10 tracked debt**, each named on its own unchecked bullet in `docs/PHASE10_TODO.md`: the
    10H approval edge-case tests (multi-level ordering, criteria boundaries, concurrent decisions,
    mid-flight policy edits, revoked permissions), Quote's bespoke approval route as an adapter into
    the policy engine, the two deferred 10F refactors (export streaming, async `202` oversized-PDF
    export), the 10E recurring unification, two 10A contract schemas, 10C's `submitter role`
    condition and state-machine documentation, 10D's field-update action, and 10I's operator docs.
-4. **One ADR 0011 follow-up** remains: validating the environment once at startup
+5. **One ADR 0011 follow-up** remains: validating the environment once at startup
    (`packages/config` is still a stub, and only `SECURITY_PEPPER` asserts itself). The attachment
    content-type allowlist landed with Phase 11 — uploads are now checked for a supported extension,
    a matching declared MIME type, and bytes whose signature agrees with both.
-5. **Stage 4.5–4.8** — visual-regression baselines, the WCAG 2.2 AA review, and the backup/restore
+6. **Stage 4.5–4.8** — visual-regression baselines, the WCAG 2.2 AA review, and the backup/restore
    drill — are folded into Phase 14 by decision, not by drift. See `PHASE1_TODO.md` Milestone 1J.
 
 ### Decided (2026-09-02) — the execution plan's three pre-Phase-7 decisions
@@ -116,6 +124,26 @@ any more (a re-authorized endpoint issues the short-lived link, on the generic r
 Bills/Expenses adapters alike), and the collaboration write routes declare their permissions with
 `@RequirePermission` rather than checking inside the service, so the authorization-boundary matrix
 can see them.
+
+### In progress (2026-09-09) — Phase 12 Platform Admin
+
+**Implementation is complete and partially verified; the automated suites in Milestone 12J are not
+written.** The platform boundary is a database-backed SUPPORT / OPERATIONS / SUPERADMIN hierarchy,
+with the environment allowlist retained only to bootstrap a deployment with zero grants. Mutations
+write a separate atomic `PlatformAuditEvent`; tenant support views expose standing, counts, and
+dates but never financial amounts.
+
+The `/platform` console has its own shell and screens for overview analytics, organizations, users,
+plans and entitlements, feature flags, country packs and tax definitions, jobs, security, and audit.
+Country Packs and Tax Definitions intentionally share `/platform/country-packs`: tax metadata is a
+versioned child of a country-pack draft, so the screen creates versions, edits JSON-backed defaults,
+upserts nested tax versions, and drives publish/deprecate/delete lifecycle without inventing a
+second global entity.
+
+Evidence captured: the original 18/18 smoke script passed against the real dev database; migration
+drift was zero in both directions; repo-wide typecheck, production builds, lint, format check, and
+the Impeccable detector are green. The smoke script was throwaway and is not committed. Phase 12
+remains open until the explicit automated debt in `docs/PHASE12_TODO.md` is paid.
 
 ### Recently closed (2026-09-05) — Phase 10 close-out
 

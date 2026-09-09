@@ -1,4 +1,9 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 
 import { PrismaService } from '../database/prisma.service.js';
 import { writePlatformAudit } from './platform-audit.js';
@@ -120,7 +125,9 @@ export class PlatformCatalogService {
           ...(input.trialDays !== undefined ? { trialDays: input.trialDays } : {}),
           ...(input.priceMinor !== undefined ? { priceMinor: BigInt(input.priceMinor) } : {}),
           ...(input.currency !== undefined ? { currency: input.currency } : {}),
-          ...(input.billingInterval !== undefined ? { billingInterval: input.billingInterval } : {}),
+          ...(input.billingInterval !== undefined
+            ? { billingInterval: input.billingInterval }
+            : {}),
           ...(input.sortOrder !== undefined ? { sortOrder: input.sortOrder } : {}),
         },
       });
@@ -168,7 +175,11 @@ export class PlatformCatalogService {
         targetType: 'plan_entitlement',
         targetId: entitlement.id,
         before: before ?? undefined,
-        after: { key: entitlement.key, enabled: entitlement.enabled, limitValue: entitlement.limitValue },
+        after: {
+          key: entitlement.key,
+          enabled: entitlement.enabled,
+          limitValue: entitlement.limitValue,
+        },
         ipHash,
       });
       return {

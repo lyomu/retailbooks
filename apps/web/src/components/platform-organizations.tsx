@@ -10,7 +10,12 @@ import Link from 'next/link';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 
 import { ApiError, apiRequest } from '../lib/api';
-import { platformQuery, platformRoleAtLeast, usePlatformSession, type Paginated } from '../lib/platform';
+import {
+  platformQuery,
+  platformRoleAtLeast,
+  usePlatformSession,
+  type Paginated,
+} from '../lib/platform';
 import { PlatformPage } from './platform-shell';
 
 type Detail = PlatformOrganization & {

@@ -290,45 +290,61 @@ export class PlatformOperationsService {
       this.prisma.organization.count({ where: { onboardingCompletedAt: { not: null } } }),
       this.prisma.organization.groupBy({ by: ['countryCode'], _count: { _all: true } }),
       this.prisma.organizationSubscription.groupBy({ by: ['planId'], _count: { _all: true } }),
-      distinctOrganizations(this.prisma.invoice.findMany({
-        where: { status: { not: 'DRAFT' } },
-        select: { organizationId: true },
-        distinct: ['organizationId'],
-      })),
-      distinctOrganizations(this.prisma.reconciliation.findMany({
-        select: { organizationId: true },
-        distinct: ['organizationId'],
-      })),
-      distinctOrganizations(this.prisma.inventoryAdjustment.findMany({
-        select: { organizationId: true },
-        distinct: ['organizationId'],
-      })),
-      distinctOrganizations(this.prisma.project.findMany({
-        select: { organizationId: true },
-        distinct: ['organizationId'],
-      })),
-      distinctOrganizations(this.prisma.portalUser.findMany({
-        where: { status: 'ACTIVE' },
-        select: { organizationId: true },
-        distinct: ['organizationId'],
-      })),
-      distinctOrganizations(this.prisma.scheduledJob.findMany({
-        select: { organizationId: true },
-        distinct: ['organizationId'],
-      })),
+      distinctOrganizations(
+        this.prisma.invoice.findMany({
+          where: { status: { not: 'DRAFT' } },
+          select: { organizationId: true },
+          distinct: ['organizationId'],
+        }),
+      ),
+      distinctOrganizations(
+        this.prisma.reconciliation.findMany({
+          select: { organizationId: true },
+          distinct: ['organizationId'],
+        }),
+      ),
+      distinctOrganizations(
+        this.prisma.inventoryAdjustment.findMany({
+          select: { organizationId: true },
+          distinct: ['organizationId'],
+        }),
+      ),
+      distinctOrganizations(
+        this.prisma.project.findMany({
+          select: { organizationId: true },
+          distinct: ['organizationId'],
+        }),
+      ),
+      distinctOrganizations(
+        this.prisma.portalUser.findMany({
+          where: { status: 'ACTIVE' },
+          select: { organizationId: true },
+          distinct: ['organizationId'],
+        }),
+      ),
+      distinctOrganizations(
+        this.prisma.scheduledJob.findMany({
+          select: { organizationId: true },
+          distinct: ['organizationId'],
+        }),
+      ),
       // Retention proxy: a tenant whose audit trail shows activity in the window. Audit rows are
       // written for every state change, so they are the closest thing to a usage heartbeat that
       // already exists, and counting them needs no financial data.
-      distinctOrganizations(this.prisma.auditEvent.findMany({
-        where: { occurredAt: { gte: thirtyDaysAgo }, organizationId: { not: null } },
-        select: { organizationId: true },
-        distinct: ['organizationId'],
-      })),
-      distinctOrganizations(this.prisma.auditEvent.findMany({
-        where: { occurredAt: { gte: ninetyDaysAgo }, organizationId: { not: null } },
-        select: { organizationId: true },
-        distinct: ['organizationId'],
-      })),
+      distinctOrganizations(
+        this.prisma.auditEvent.findMany({
+          where: { occurredAt: { gte: thirtyDaysAgo }, organizationId: { not: null } },
+          select: { organizationId: true },
+          distinct: ['organizationId'],
+        }),
+      ),
+      distinctOrganizations(
+        this.prisma.auditEvent.findMany({
+          where: { occurredAt: { gte: ninetyDaysAgo }, organizationId: { not: null } },
+          select: { organizationId: true },
+          distinct: ['organizationId'],
+        }),
+      ),
     ]);
 
     const plans = await this.prisma.plan.findMany({ select: { id: true, key: true, name: true } });

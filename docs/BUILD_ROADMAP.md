@@ -749,40 +749,44 @@ Build spec §13; blueprint §13.
 
 Build spec §14; blueprint §14.
 
+**Status: implementation complete, verification partial (2026-09-09).** The 18/18 real-database
+smoke pass and static/build gates are green. Automated acceptance coverage remains deferred and
+unchecked in `docs/PHASE12_TODO.md` Milestone 12J, so the phase is not closed.
+
 ### Data model
 
-- [ ] `Plan`/`Entitlement` (feature flags, limits, trial state, future billing fields)
-- [ ] `FeatureFlag` with global/country/plan/tenant targeting
-- [ ] Platform-level views over `Organization`, `User`, `SecurityEvent` (cross-tenant, admin-only)
+- [x] `Plan`/`Entitlement` (feature flags, limits, trial state, future billing fields)
+- [x] `FeatureFlag` with global/country/plan/tenant targeting
+- [x] Platform-level views over `Organization`, `User`, `SecurityEvent` (cross-tenant, admin-only)
 
 ### Backend/API
 
-- [ ] Organizations admin: search/filter by status/country/plan/usage/owner/created date;
+- [x] Organizations admin: search/filter by status/country/plan/usage/owner/created date;
       suspend/reactivate with safeguards
-- [ ] Users admin: account status, memberships, security/support metadata
-- [ ] Plans & Entitlements: feature flags, limits, trial, future billing fields — no payment billing
+- [x] Users admin: account status, memberships, security/support metadata
+- [x] Plans & Entitlements: feature flags, limits, trial, future billing fields — no payment billing
       integration required for V1
-- [ ] Country Packs admin: create/version/publish/deprecate (built on Phase 8's `CountryPack` model)
-- [ ] Tax Definitions admin: manage versioned global/local tax metadata
-- [ ] Feature Flags admin: global/country/plan/tenant targeting
-- [ ] Jobs admin: queue health, failed recurring jobs/imports/PDF/email jobs, retry controls
-- [ ] Security Events admin: admin actions, privilege changes, suspicious events across all tenants
-- [ ] Product Analytics: activation, first invoice, reconciliation use, retention/module adoption
-- [ ] Support tooling: read-only access preferred; if impersonation is implemented, require explicit
+- [x] Country Packs admin: create/version/publish/deprecate (built on Phase 8's `CountryPack` model)
+- [x] Tax Definitions admin: manage versioned global/local tax metadata
+- [x] Feature Flags admin: global/country/plan/tenant targeting
+- [x] Jobs admin: queue health, failed recurring jobs/imports/PDF/email jobs, retry controls
+- [x] Security Events admin: admin actions, privilege changes, suspicious events across all tenants
+- [x] Product Analytics: activation, first invoice, reconciliation use, retention/module adoption
+- [x] Support tooling: read-only access preferred; if impersonation is implemented, require explicit
       authorization, banner, reason, expiry, and audit
 
 ### UI
 
-- [ ] Platform-admin console (separate from tenant app; superadmin-only auth boundary)
-- [ ] Organizations management screen
-- [ ] Users management screen
-- [ ] Plans & Entitlements screen
-- [ ] Country Packs management screen
-- [ ] Tax Definitions management screen
-- [ ] Feature Flags management screen
-- [ ] Jobs/queue health dashboard (extends existing `health.controller.ts`)
-- [ ] Security Events dashboard
-- [ ] Product Analytics dashboard
+- [x] Platform-admin console (separate from tenant app; role-tiered platform auth boundary)
+- [x] Organizations management screen
+- [x] Users management screen
+- [x] Plans & Entitlements screen
+- [x] Country Packs management screen — consolidated at `/platform/country-packs`
+- [x] Tax Definitions management screen — the same workbench, matching the nested version model
+- [x] Feature Flags management screen
+- [x] Jobs/queue health dashboard (extends existing `health.controller.ts`)
+- [x] Security Events dashboard
+- [x] Product Analytics dashboard
 
 ### Tests/acceptance
 

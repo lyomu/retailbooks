@@ -8,16 +8,17 @@ import {
   Param,
   Patch,
   Post,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 
+import { AuthService } from '../auth/auth.service.js';
+import { requestMetadata } from '../auth/request-context.js';
 import { SessionGuard } from '../auth/session.guard.js';
 import { CountryPackAdminService } from './country-pack.admin.service.js';
 import { CreateCountryPackDto, UpdateCountryPackDto } from './country-pack.dto.js';
 import { CountryPackStore } from './country-pack.store.js';
-import {
-  RequirePlatformRole,
-} from '../platform/platform-context.js';
+import { RequirePlatformRole, type PlatformRequest } from '../platform/platform-context.js';
 import { PlatformGuard } from '../platform/platform.guard.js';
 
 /**
@@ -34,7 +35,12 @@ export class CountryPacksController {
   constructor(
     private readonly store: CountryPackStore,
     private readonly admin: CountryPackAdminService,
+    private readonly auth: AuthService,
   ) {}
+
+  private ipHash(request: PlatformRequest): string | null {
+    return requestMetadata(request, this.auth.pepper).ipHash;
+  }
 
   @Get()
   async listPublished() {
@@ -59,8 +65,10 @@ export class CountryPacksController {
   @HttpCode(201)
   @UseGuards(PlatformGuard)
   @RequirePlatformRole('SUPERADMIN')
-  async createDraft(@Body() input: CreateCountryPackDto) {
-    return { data: await this.admin.createDraft(input) };
+  async createDraft(@Body() input: CreateCountryPackDto, @Req() request: PlatformRequest) {
+    return {
+      data: await this.admin.createDraft(request.platform, input, this.ipHash(request)),
+    };
   }
 
   @Patch(':code/versions/:version')
@@ -70,31 +78,56 @@ export class CountryPacksController {
     @Param('code') code: string,
     @Param('version') version: string,
     @Body() input: UpdateCountryPackDto,
+    @Req() request: PlatformRequest,
   ) {
-    return { data: await this.admin.updateDraft(code, version, input) };
+    return {
+      data: await this.admin.updateDraft(
+        request.platform,
+        code,
+        version,
+        input,
+        this.ipHash(request),
+      ),
+    };
   }
 
   @Post(':code/versions/:version/publish')
   @HttpCode(200)
   @UseGuards(PlatformGuard)
   @RequirePlatformRole('SUPERADMIN')
-  async publish(@Param('code') code: string, @Param('version') version: string) {
-    return { data: await this.admin.publish(code, version) };
+  async publish(
+    @Param('code') code: string,
+    @Param('version') version: string,
+    @Req() request: PlatformRequest,
+  ) {
+    return {
+      data: await this.admin.publish(request.platform, code, version, this.ipHash(request)),
+    };
   }
 
   @Post(':code/versions/:version/deprecate')
   @HttpCode(200)
   @UseGuards(PlatformGuard)
   @RequirePlatformRole('SUPERADMIN')
-  async deprecate(@Param('code') code: string, @Param('version') version: string) {
-    return { data: await this.admin.deprecate(code, version) };
+  async deprecate(
+    @Param('code') code: string,
+    @Param('version') version: string,
+    @Req() request: PlatformRequest,
+  ) {
+    return {
+      data: await this.admin.deprecate(request.platform, code, version, this.ipHash(request)),
+    };
   }
 
   @Delete(':code/versions/:version')
   @UseGuards(PlatformGuard)
   @RequirePlatformRole('SUPERADMIN')
-  async deleteDraft(@Param('code') code: string, @Param('version') version: string) {
-    await this.admin.deleteDraft(code, version);
+  async deleteDraft(
+    @Param('code') code: string,
+    @Param('version') version: string,
+    @Req() request: PlatformRequest,
+  ) {
+    await this.admin.deleteDraft(request.platform, code, version, this.ipHash(request));
     return { data: { deleted: true } };
   }
 }

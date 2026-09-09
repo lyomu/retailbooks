@@ -51,7 +51,11 @@ export class PlatformTenantsService {
             createdAt: {
               ...(query.createdFrom ? { gte: new Date(`${query.createdFrom}T00:00:00.000Z`) } : {}),
               ...(query.createdTo
-                ? { lt: new Date(new Date(`${query.createdTo}T00:00:00.000Z`).getTime() + 86_400_000) }
+                ? {
+                    lt: new Date(
+                      new Date(`${query.createdTo}T00:00:00.000Z`).getTime() + 86_400_000,
+                    ),
+                  }
                 : {}),
             },
           }
@@ -177,21 +181,29 @@ export class PlatformTenantsService {
    * than being folded into a generic "organization stats" query someone could widen later.
    */
   private async usage(organizationId: string) {
-    const [invoices, firstInvoice, bills, journals, reconciliations, projects, adjustments, portalUsers] =
-      await Promise.all([
-        this.prisma.invoice.count({ where: { organizationId, status: { not: 'DRAFT' } } }),
-        this.prisma.invoice.findFirst({
-          where: { organizationId, issueDate: { not: null } },
-          orderBy: { issueDate: 'asc' },
-          select: { issueDate: true },
-        }),
-        this.prisma.bill.count({ where: { organizationId } }),
-        this.prisma.journal.count({ where: { organizationId, status: 'POSTED' } }),
-        this.prisma.reconciliation.count({ where: { organizationId } }),
-        this.prisma.project.count({ where: { organizationId } }),
-        this.prisma.inventoryAdjustment.count({ where: { organizationId } }),
-        this.prisma.portalUser.count({ where: { organizationId, status: 'ACTIVE' } }),
-      ]);
+    const [
+      invoices,
+      firstInvoice,
+      bills,
+      journals,
+      reconciliations,
+      projects,
+      adjustments,
+      portalUsers,
+    ] = await Promise.all([
+      this.prisma.invoice.count({ where: { organizationId, status: { not: 'DRAFT' } } }),
+      this.prisma.invoice.findFirst({
+        where: { organizationId, issueDate: { not: null } },
+        orderBy: { issueDate: 'asc' },
+        select: { issueDate: true },
+      }),
+      this.prisma.bill.count({ where: { organizationId } }),
+      this.prisma.journal.count({ where: { organizationId, status: 'POSTED' } }),
+      this.prisma.reconciliation.count({ where: { organizationId } }),
+      this.prisma.project.count({ where: { organizationId } }),
+      this.prisma.inventoryAdjustment.count({ where: { organizationId } }),
+      this.prisma.portalUser.count({ where: { organizationId, status: 'ACTIVE' } }),
+    ]);
     return {
       issuedInvoices: invoices,
       firstInvoiceAt: firstInvoice?.issueDate?.toISOString() ?? null,
@@ -308,7 +320,10 @@ export class PlatformTenantsService {
           where: { id: organizationId },
           select: { id: true, subscription: { select: { planId: true, status: true } } },
         }),
-        tx.plan.findUnique({ where: { id: input.planId }, select: { id: true, key: true, trialDays: true } }),
+        tx.plan.findUnique({
+          where: { id: input.planId },
+          select: { id: true, key: true, trialDays: true },
+        }),
       ]);
       if (!organization) throw new NotFoundException('Organization not found.');
       if (!plan) throw new NotFoundException('Plan not found.');
@@ -405,7 +420,9 @@ export class PlatformTenantsService {
           select: {
             status: true,
             role: { select: { key: true, name: true } },
-            organization: { select: { id: true, legalName: true, tradingName: true, status: true } },
+            organization: {
+              select: { id: true, legalName: true, tradingName: true, status: true },
+            },
           },
           take: 100,
         },
@@ -458,7 +475,10 @@ export class PlatformTenantsService {
     ipHash: string | null,
   ) {
     return this.prisma.$transaction(async (tx) => {
-      const existing = await tx.user.findUnique({ where: { id: userId }, select: { status: true } });
+      const existing = await tx.user.findUnique({
+        where: { id: userId },
+        select: { status: true },
+      });
       if (!existing) throw new NotFoundException('User not found.');
       if (existing.status === input.status) {
         throw new BadRequestException(`This account is already ${input.status}.`);

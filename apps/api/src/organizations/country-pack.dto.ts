@@ -1,7 +1,16 @@
 import { BadRequestException } from '@nestjs/common';
 import { CountryPackTier, type Prisma } from '@prisma/client';
 import { Transform, Type } from 'class-transformer';
-import { IsArray, IsEnum, IsObject, IsOptional, IsString, Length, Matches } from 'class-validator';
+import {
+  IsArray,
+  IsEnum,
+  IsObject,
+  IsOptional,
+  IsString,
+  Length,
+  Matches,
+  ValidateNested,
+} from 'class-validator';
 
 const trim = ({ value }: { value: unknown }): unknown =>
   typeof value === 'string' ? value.trim() : value;
@@ -29,6 +38,7 @@ const REQUIRED_DEFAULT_KEYS = [
 export class TaxPackInputDto {
   @IsString()
   @Length(1, 24)
+  @Transform(trim)
   version!: string;
 
   @IsString()
@@ -37,15 +47,18 @@ export class TaxPackInputDto {
   name!: string;
 
   @IsArray()
-  rates!: Prisma.InputJsonValue[];
+  @IsObject({ each: true })
+  rates!: Prisma.InputJsonObject[];
 
   @IsOptional()
   @IsArray()
-  registrationFields?: Prisma.InputJsonValue[];
+  @IsObject({ each: true })
+  registrationFields?: Prisma.InputJsonObject[];
 
   @IsOptional()
   @IsArray()
-  exemptions?: Prisma.InputJsonValue[];
+  @IsObject({ each: true })
+  exemptions?: Prisma.InputJsonObject[];
 
   @IsOptional()
   @IsObject()
@@ -53,6 +66,7 @@ export class TaxPackInputDto {
 
   @IsOptional()
   @IsArray()
+  @IsString({ each: true })
   notes?: string[];
 }
 
@@ -86,13 +100,16 @@ export class CreateCountryPackDto {
 
   @IsOptional()
   @IsArray()
+  @IsString({ each: true })
   notes?: string[];
 
   @IsOptional()
   @IsArray()
+  @IsString({ each: true })
   supportedEntityTypes?: string[];
 
   @IsOptional()
+  @ValidateNested()
   @Type(() => TaxPackInputDto)
   taxPack?: TaxPackInputDto;
 }
@@ -115,11 +132,23 @@ export class UpdateCountryPackDto {
 
   @IsOptional()
   @IsArray()
+  @IsString({ each: true })
   notes?: string[];
 
   @IsOptional()
   @IsArray()
+  @IsString({ each: true })
   supportedEntityTypes?: string[];
+
+  /**
+   * Upserted against the draft's tax pack by `version`: a matching version is replaced in place, a
+   * new one is added alongside it. Tax metadata is versioned with the country pack it backs rather
+   * than as an independent global entity, so this is the one place it is ever edited.
+   */
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => TaxPackInputDto)
+  taxPack?: TaxPackInputDto;
 }
 
 export function assertPackDefaultsShape(defaults: Prisma.InputJsonObject): void {

@@ -41,6 +41,46 @@ export const billingIntervalSchema = z.enum(['MONTHLY', 'YEARLY']);
 export const subscriptionStatusSchema = z.enum(['TRIALING', 'ACTIVE', 'PAST_DUE', 'CANCELLED']);
 export const featureFlagStatusSchema = z.enum(['ACTIVE', 'ARCHIVED']);
 export const featureFlagScopeSchema = z.enum(['GLOBAL', 'COUNTRY', 'PLAN', 'ORGANIZATION']);
+export const platformCountryPackStatusSchema = z.enum(['DRAFT', 'PUBLISHED', 'DEPRECATED']);
+export const platformCountryPackTierSchema = z.enum([
+  'TIER_A_REVIEWED',
+  'TIER_B_GENERIC',
+  'TIER_C_BLOCKED',
+]);
+
+const platformJsonObjectSchema = z.record(z.string(), z.unknown());
+
+export const platformTaxPackSchema = z.object({
+  id: z.uuid(),
+  countryPackId: z.uuid(),
+  version: z.string().min(1),
+  name: z.string().min(1),
+  rates: z.array(platformJsonObjectSchema),
+  registrationFields: z.array(platformJsonObjectSchema),
+  exemptions: z.array(platformJsonObjectSchema),
+  reportingMappings: platformJsonObjectSchema,
+  notes: z.array(z.string()),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+});
+
+export const platformCountryPackSchema = z.object({
+  id: z.uuid(),
+  code: z.string().min(2).max(8),
+  version: z.string().min(1).max(24),
+  countryCode: z.string().length(2),
+  name: z.string().min(2).max(120),
+  status: platformCountryPackStatusSchema,
+  tier: platformCountryPackTierSchema,
+  defaults: platformJsonObjectSchema,
+  notes: z.array(z.string()),
+  supportedEntityTypes: z.array(z.string()),
+  publishedAt: z.iso.datetime().nullable(),
+  deprecatedAt: z.iso.datetime().nullable(),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+  taxPacks: z.array(platformTaxPackSchema),
+});
 
 export const platformSessionSchema = z.object({
   userId: z.uuid(),
@@ -3753,6 +3793,10 @@ export type FeatureFlagStatus = z.infer<typeof featureFlagStatusSchema>;
 export type FeatureFlagScope = z.infer<typeof featureFlagScopeSchema>;
 export type FeatureFlagRule = z.infer<typeof featureFlagRuleSchema>;
 export type FeatureFlag = z.infer<typeof featureFlagSchema>;
+export type PlatformCountryPackStatus = z.infer<typeof platformCountryPackStatusSchema>;
+export type PlatformCountryPackTier = z.infer<typeof platformCountryPackTierSchema>;
+export type PlatformTaxPack = z.infer<typeof platformTaxPackSchema>;
+export type PlatformCountryPack = z.infer<typeof platformCountryPackSchema>;
 export type PlatformQueueHealth = z.infer<typeof platformQueueHealthSchema>;
 export type PlatformFailedJob = z.infer<typeof platformFailedJobSchema>;
 export type PlatformSecurityEvent = z.infer<typeof platformSecurityEventSchema>;

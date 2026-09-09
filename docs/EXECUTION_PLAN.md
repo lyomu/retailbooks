@@ -610,6 +610,33 @@ document rendering.
 
 ---
 
+## Stage 10 — Phase 12: Platform Admin
+
+**Status: implementation complete, verification partial (2026-09-09). Not closed.** The grant-backed
+role hierarchy, platform audit, plan and feature catalog, tenant/user support views, operations,
+analytics, and the separate console are implemented. An 18/18 real-database smoke pass plus lint,
+format, typecheck, both builds, and design detection are green; automated Phase 12 acceptance tests
+remain deliberately deferred in `PHASE12_TODO.md` Milestone 12J.
+
+### 12A–12G — Implementation
+
+- [x] Add the platform schema, migration, contracts, bootstrap-only allowlist, and database-backed
+      SUPPORT / OPERATIONS / SUPERADMIN boundary.
+- [x] Add audited tenant and user administration, plan assignment, entitlements, feature flags,
+      queue operations, security events, and amount-free analytics.
+- [x] Bring country packs and nested versioned tax definitions under the same audited superadmin
+      boundary and one combined `/platform/country-packs` workbench.
+- [x] Add the separate `/platform` shell and all roadmap console destinations.
+
+### 12J — Verification debt
+
+- [ ] Add and run the Phase 12 boundary, bootstrap, tenant-data exclusion, suspension, resolution,
+      audit, analytics reconciliation, and console E2E suites listed in `PHASE12_TODO.md`.
+- [ ] Close Phase 12 only after those automated gates are captured and the full Definition of Done
+      below is satisfied.
+
+---
+
 ## Definition of done (every stage above)
 
 From the roadmap's own DoD, reduced to what is actually enforceable per phase:

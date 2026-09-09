@@ -170,7 +170,15 @@ export class EntitlementsService {
       select: {
         key: true,
         defaultEnabled: true,
-        rules: { select: { scope: true, enabled: true, countryCode: true, planId: true, organizationId: true } },
+        rules: {
+          select: {
+            scope: true,
+            enabled: true,
+            countryCode: true,
+            planId: true,
+            organizationId: true,
+          },
+        },
       },
     });
     if (!flag) throw new NotFoundException('Feature flag not found.');

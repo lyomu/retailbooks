@@ -28,7 +28,8 @@ export class PlatformGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
-    if (!request.auth?.user) throw new ForbiddenException('Platform administrator access required.');
+    if (!request.auth?.user)
+      throw new ForbiddenException('Platform administrator access required.');
 
     const resolved = await this.access.resolve(request.auth.user);
     if (!resolved) throw new ForbiddenException('Platform administrator access required.');

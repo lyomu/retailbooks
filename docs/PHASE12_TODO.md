@@ -2,11 +2,13 @@
 
 Durable progress record for Phase 12. `docs/BUILD_ROADMAP.md` remains the scope authority.
 
-**Status:** implementation in progress, **code first with tests deliberately deferred** by explicit
-direction (2026-09-08). Nothing in this file may be read as verified. The test debt this creates is
-recorded as named unchecked items in Milestone 12J rather than left implicit — the execution plan's
-risk register (R6) warns that "code first, tests later" produced Phase 5's debt, and this is an
-informed exception to it, not an oversight.
+**Status:** implementation complete and partially verified (2026-09-09), **code first with automated
+tests deliberately deferred** by explicit direction. The schema and migration have zero drift in
+both directions; an 18/18 real-database smoke pass covered the role hierarchy, bootstrap catalog,
+flag precedence, suspension/reactivation audit, and no-money analytics boundary. API and web
+typecheck, production builds, repo-wide lint, formatting, and the frontend design detector are
+green. The automated test debt remains named and unchecked in Milestone 12J, so Phase 12 is not
+closed to the roadmap's full Definition of Done.
 
 ## Locked decisions
 
@@ -44,48 +46,52 @@ informed exception to it, not an oversight.
 
 ## Milestone 12A - Platform boundary, schema, contracts
 
-- [ ] Add `PlatformAdmin`, `PlatformAuditEvent`, `Plan`, `PlanEntitlement`,
+- [x] Add `PlatformAdmin`, `PlatformAuditEvent`, `Plan`, `PlanEntitlement`,
       `OrganizationSubscription`, `FeatureFlag`, and `FeatureFlagRule` models.
-- [ ] Add organization suspension metadata (who, when, why) and the matching user fields.
-- [ ] Write the Phase 12 migration, including a default plan and the bootstrap grant path.
-- [ ] Replace the environment-only `PlatformAdminGuard` with the grant-backed boundary, keeping the
+- [x] Add organization suspension metadata (who, when, why) and the matching user fields.
+- [x] Write the Phase 12 migration, including a default plan and the bootstrap grant path.
+- [x] Replace the environment-only `PlatformAdminGuard` with the grant-backed boundary, keeping the
       allowlist as a bootstrap-only fallback.
-- [ ] Add `PlatformContext`, the role hierarchy, and a `RequirePlatformRole` decorator.
-- [ ] Add Phase 12 contracts to `@retailbooks/contracts`.
+- [x] Add `PlatformContext`, the role hierarchy, and a `RequirePlatformRole` decorator.
+- [x] Add Phase 12 contracts to `@retailbooks/contracts`.
 
 ## Milestone 12B - Plans, entitlements, feature flags
 
-- [ ] Plan and entitlement CRUD, with plan assignment to an organization.
-- [ ] Feature-flag CRUD and targeting rules across global/country/plan/organization scope.
-- [ ] A deterministic entitlement/flag resolver, and an evaluation-preview endpoint that explains
+- [x] Plan and entitlement CRUD, with plan assignment to an organization.
+- [x] Feature-flag CRUD and targeting rules across global/country/plan/organization scope.
+- [x] A deterministic entitlement/flag resolver, and an evaluation-preview endpoint that explains
       which rule won.
 
 ## Milestone 12C - Organizations and users administration
 
-- [ ] Organization search and filter by status, country, plan, owner, and created date, with usage
+- [x] Organization search and filter by status, country, plan, owner, and created date, with usage
       counters that never expose financial values.
-- [ ] Suspend and reactivate an organization, with a required reason and full platform audit.
-- [ ] User search, detail with memberships and security metadata, and status administration.
+- [x] Suspend and reactivate an organization, with a required reason and full platform audit.
+- [x] User search, detail with memberships and security metadata, and status administration.
 
 ## Milestone 12D - Reference data administration
 
-- [ ] Bring country-pack administration under the platform console and the new role hierarchy.
-- [ ] Tax-definition administration over the versioned tax packs.
+- [x] Bring country-pack administration under the platform console and the new role hierarchy.
+- [x] Tax-definition administration over the versioned tax packs. This intentionally shares the
+      `/platform/country-packs` workbench with country-pack lifecycle management: `TaxPack` is
+      versioned beneath `CountryPack`, so a separate entity and screen would split one operation
+      across two destinations. Draft tax metadata upserts atomically and every reference-data
+      mutation writes a platform audit event.
 
 ## Milestone 12E - Operations
 
-- [ ] Cross-tenant queue health, failed scheduled-job executions, and retry controls.
-- [ ] Cross-tenant security-event feed with severity and actor filtering.
+- [x] Cross-tenant queue health, failed scheduled-job executions, and retry controls.
+- [x] Cross-tenant security-event feed with severity and actor filtering.
 
 ## Milestone 12F - Product analytics
 
-- [ ] Activation, first-invoice, reconciliation-use, module-adoption and retention aggregates,
+- [x] Activation, first-invoice, reconciliation-use, module-adoption and retention aggregates,
       computed without reading financial amounts.
 
 ## Milestone 12G - Platform console UI
 
-- [ ] Separate `/platform` shell with its own auth boundary and navigation.
-- [ ] Organizations, users, plans and entitlements, feature flags, country packs, tax definitions,
+- [x] Separate `/platform` shell with its own auth boundary and navigation.
+- [x] Organizations, users, plans and entitlements, feature flags, country packs, tax definitions,
       jobs, security events, and analytics screens.
 
 ## Milestone 12J - Deferred test debt (owed, not written)
