@@ -114,7 +114,7 @@ describe('platform operations acceptance', () => {
       .get(`${API}/platform/analytics`)
       .set('Cookie', operationsCookie)
       .expect(200);
-    const data = response.body.data as Record<string, unknown>;
+    const { data } = response.body as { data: Record<string, unknown> };
     expect(data.organizations).toMatchObject({
       total: await harness.prisma.organization.count(),
       active: await harness.prisma.organization.count({ where: { status: 'ACTIVE' } }),

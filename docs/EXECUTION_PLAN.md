@@ -612,11 +612,11 @@ document rendering.
 
 ## Stage 10 — Phase 12: Platform Admin
 
-**Status: implementation complete, verification partial (2026-09-09). Not closed.** The grant-backed
-role hierarchy, platform audit, plan and feature catalog, tenant/user support views, operations,
-analytics, and the separate console are implemented. An 18/18 real-database smoke pass plus lint,
-format, typecheck, both builds, and design detection are green; automated Phase 12 acceptance tests
-remain deliberately deferred in `PHASE12_TODO.md` Milestone 12J.
+**Status: complete and verified — closed 2026-09-10.** The grant-backed role hierarchy, platform
+audit, plan and feature catalog, tenant/user support views, operations, analytics, and the
+separate console are implemented. The earlier 18/18 real-database smoke pass, lint, format,
+typecheck, both builds, and design detection are green, and Milestone 12J's automated acceptance
+debt is now paid and captured in `PHASE12_TODO.md`.
 
 ### 12A–12G — Implementation
 
@@ -630,10 +630,13 @@ remain deliberately deferred in `PHASE12_TODO.md` Milestone 12J.
 
 ### 12J — Verification debt
 
-- [ ] Add and run the Phase 12 boundary, bootstrap, tenant-data exclusion, suspension, resolution,
-      audit, analytics reconciliation, and console E2E suites listed in `PHASE12_TODO.md`.
-- [ ] Close Phase 12 only after those automated gates are captured and the full Definition of Done
-      below is satisfied.
+- [x] Add and run the Phase 12 boundary, bootstrap, tenant-data exclusion, suspension, resolution,
+      audit, analytics reconciliation, and console E2E suites listed in `PHASE12_TODO.md`. Captured
+      2026-09-10: 15/15 integration tests across six suites, 3/3 desktop Playwright, zero design
+      detector findings.
+- [x] Close Phase 12 only after those automated gates are captured and the full Definition of Done
+      below is satisfied. Closed with format:check, lint, typecheck, the API and web production
+      builds, and `git diff --check` green.
 
 ---
 

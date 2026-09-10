@@ -111,7 +111,9 @@ describe('platform authorization boundary over HTTP', () => {
         .get(`${API}/platform/me`)
         .set('Cookie', await cookieFor(first.id))
         .expect(200)
-        .then((response) => expect(response.body.data.role).toBe('SUPERADMIN'));
+        .then((response) =>
+          expect((response.body as { data: { role: string } }).data.role).toBe('SUPERADMIN'),
+        );
       await expect(
         harness.prisma.platformAdmin.findUniqueOrThrow({ where: { userId: first.id } }),
       ).resolves.toMatchObject({ role: 'SUPERADMIN', status: 'ACTIVE' });

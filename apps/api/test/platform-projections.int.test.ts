@@ -107,17 +107,32 @@ describe('platform response projections', () => {
 
     for (const [path, cookie] of reads) {
       const response = await harness.http().get(path).set('Cookie', cookie).expect(200);
-      expect(forbiddenTenantFinancialPaths(response.body), path).toEqual([]);
+      expect(forbiddenTenantFinancialPaths(response.body as unknown), path).toEqual([]);
     }
 
     // Plans intentionally carry the global catalogue price, currency, and billing interval. Those
     // fields describe what RetailBooks sells, not a tenant's invoices, journals, or balances.
+    // Truncation between tests also clears the migration-seeded default plan, so seed one here
+    // through the platform API before reading the catalogue.
+    await harness
+      .http()
+      .post(`${API}/platform/plans`)
+      .set('Cookie', superadminCookie)
+      .send({
+        key: 'projection-plan',
+        name: 'Projection plan',
+        priceMinor: '1000',
+        currency: 'USD',
+      })
+      .expect(201);
     await harness
       .http()
       .get(`${API}/platform/plans`)
       .set('Cookie', supportCookie)
       .expect(200)
-      .then((response) => expect(response.body.data[0]).toHaveProperty('priceMinor'));
+      .then((response) =>
+        expect((response.body as { data: unknown[] }).data[0]).toHaveProperty('priceMinor'),
+      );
   });
 
   async function cookieFor(userId: string): Promise<string> {
@@ -140,11 +155,26 @@ function forbiddenTenantFinancialPaths(value: unknown, path = ''): string[] {
   const forbidden: string[] = [];
   for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
     const childPath = path ? `${path}.${key}` : key;
-    if (/^(amount|amountMinor|balance|balanceMinor|debit|debitMinor|credit|creditMinor|total|totalMinor|subtotal|subtotalMinor|paidMinor|dueMinor|outstandingMinor)$/i.test(key)) {
+    // Analytics count aggregates legitimately use `total` for record counts (organizations,
+    // users): the contract types them as non-negative integers and they are not monetary.
+    // Every other bare `total`, and every minor-unit amount key, stays forbidden.
+    const isAnalyticsCountTotal =
+      /^total$/i.test(key) &&
+      /^(data\.)?(organizations|users)$/.test(path) &&
+      typeof child === 'number' &&
+      Number.isInteger(child) &&
+      child >= 0;
+    if (
+      !isAnalyticsCountTotal &&
+      /^(amount|amountMinor|balance|balanceMinor|debit|debitMinor|credit|creditMinor|total|totalMinor|subtotal|subtotalMinor|paidMinor|dueMinor|outstandingMinor)$/i.test(
+        key,
+      )
+    ) {
       forbidden.push(childPath);
     }
     if (/^(invoices|bills|journals|payments|statements|ledgerRows|ledgerAccounts)$/i.test(key)) {
-      if (Array.isArray(child) || (child !== null && typeof child === 'object')) forbidden.push(childPath);
+      if (Array.isArray(child) || (child !== null && typeof child === 'object'))
+        forbidden.push(childPath);
     }
     forbidden.push(...forbiddenTenantFinancialPaths(child, childPath));
   }

@@ -39,8 +39,7 @@ export default defineConfig({
   ],
   webServer: [
     {
-      command:
-        'npm run e2e:prepare --workspace @retailbooks/web && node dist/src/main.js',
+      command: 'npm run e2e:prepare --workspace @retailbooks/web && node apps/api/dist/src/main.js',
       url: 'http://127.0.0.1:3401/api/v1/health',
       reuseExistingServer: !process.env.CI,
       // This command is not just "start the API": it migrates, truncates, drains the queues,

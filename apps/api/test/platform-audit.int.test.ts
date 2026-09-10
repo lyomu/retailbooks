@@ -120,7 +120,7 @@ describe('platform mutation audit coverage', () => {
       .set('Cookie', superadminCookie)
       .send({ key: 'audit-plan', name: 'Audit plan', priceMinor: '1000', currency: 'USD' })
       .expect(201)
-      .then((response) => response.body.data as { id: string });
+      .then((response) => (response.body as { data: { id: string } }).data);
     await harness
       .http()
       .patch(`${API}/platform/plans/${plan.id}`)
@@ -173,7 +173,7 @@ describe('platform mutation audit coverage', () => {
       .set('Cookie', superadminCookie)
       .send({ email: grantCandidateEmail, role: 'SUPPORT', note: 'Audit grant evidence.' })
       .expect(201)
-      .then((response) => response.body.data as { id: string });
+      .then((response) => (response.body as { data: { id: string } }).data);
     await harness
       .http()
       .delete(`${API}/platform/admins/${grant.id}`)
@@ -186,7 +186,7 @@ describe('platform mutation audit coverage', () => {
       .set('Cookie', superadminCookie)
       .send({ key: 'audit.flag', name: 'Audit flag' })
       .expect(201)
-      .then((response) => response.body.data as { id: string });
+      .then((response) => (response.body as { data: { id: string } }).data);
     await harness
       .http()
       .patch(`${API}/platform/feature-flags/${flag.id}`)
@@ -199,7 +199,7 @@ describe('platform mutation audit coverage', () => {
       .set('Cookie', superadminCookie)
       .send({ scope: 'GLOBAL', enabled: false, note: 'Audit rule evidence.' })
       .expect(200)
-      .then((response) => response.body.data as { id: string });
+      .then((response) => (response.body as { data: { id: string } }).data);
     await harness
       .http()
       .delete(`${API}/platform/feature-flags/rules/${rule.id}`)
@@ -220,7 +220,7 @@ describe('platform mutation audit coverage', () => {
       .set('Cookie', superadminCookie)
       .send(countryPack)
       .expect(201)
-      .then((response) => response.body.data as { id: string });
+      .then((response) => (response.body as { data: { id: string } }).data);
     await harness
       .http()
       .patch(`${API}/localization/country-packs/AUDIT/versions/1`)
@@ -239,7 +239,14 @@ describe('platform mutation audit coverage', () => {
         },
       })
       .expect(200)
-      .then((response) => response.body.data.taxPacks.find((row: { version: string }) => row.version === '2') as { id: string });
+      .then((response) => {
+        const taxPacks = (
+          response.body as { data: { taxPacks: { id: string; version: string }[] } }
+        ).data.taxPacks;
+        const second = taxPacks.find((row) => row.version === '2');
+        if (!second) throw new Error('Version 2 tax pack missing from the audit fixture.');
+        return second;
+      });
     await harness
       .http()
       .post(`${API}/localization/country-packs/AUDIT/versions/1/publish`)
@@ -256,7 +263,7 @@ describe('platform mutation audit coverage', () => {
       .set('Cookie', superadminCookie)
       .send(countryPackInput('AUDDEL', '1'))
       .expect(201)
-      .then((response) => response.body.data as { id: string });
+      .then((response) => (response.body as { data: { id: string } }).data);
     await harness
       .http()
       .delete(`${API}/localization/country-packs/AUDDEL/versions/1`)
@@ -281,7 +288,12 @@ describe('platform mutation audit coverage', () => {
         audit('platform.plan_updated', 'plan', plan.id),
         audit('platform.entitlement_updated', 'plan_entitlement', entitlementId),
         audit('platform.entitlement_removed', 'plan_entitlement', entitlementId),
-        audit('platform.plan_assigned', 'organization', organizationId, 'Audit plan assignment evidence.'),
+        audit(
+          'platform.plan_assigned',
+          'organization',
+          organizationId,
+          'Audit plan assignment evidence.',
+        ),
         audit('platform.admin_granted', 'platform_admin', grant.id, 'Audit grant evidence.'),
         audit('platform.admin_revoked', 'platform_admin', grant.id),
         audit('platform.feature_flag_created', 'feature_flag', flag.id),
@@ -347,7 +359,7 @@ describe('platform mutation audit coverage', () => {
       targetType,
       targetId,
       ...(reason === undefined ? {} : { reason }),
-    });
+    }) as unknown;
   }
 
   async function createFailedExecution(): Promise<string> {

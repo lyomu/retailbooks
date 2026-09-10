@@ -12,8 +12,8 @@ async function login(page: Page, email = 'demo.owner@retailbooks.local'): Promis
 
 test.describe('Phase 1 end-to-end journeys', () => {
   test.describe.configure({ mode: 'serial' });
-  test.beforeEach((_fixtures, testInfo) => {
-    test.skip(testInfo.project.name !== 'desktop', 'Mutation journeys run once on desktop.');
+  test.beforeEach(() => {
+    test.skip(test.info().project.name !== 'desktop', 'Mutation journeys run once on desktop.');
   });
 
   test('identity: anti-enumerating recovery, login, and logout', async ({ page }) => {

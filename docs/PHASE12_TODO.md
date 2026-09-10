@@ -2,16 +2,18 @@
 
 Durable progress record for Phase 12. `docs/BUILD_ROADMAP.md` remains the scope authority.
 
-**Status:** implementation complete and partially verified (2026-09-10), **code first with automated
-tests deliberately deferred** by explicit direction. The schema and migration have zero drift in
-both directions; an 18/18 real-database smoke pass covered the role hierarchy, bootstrap catalog,
-flag precedence, suspension/reactivation audit, and no-money analytics boundary. API and web
-typecheck, production builds, repo-wide lint, formatting, and the frontend design detector are
-green. A live browser pass against `/platform/country-packs` exercised draft validation; country-pack
-create/edit/refresh; nested-tax create, replacement, and new-version upsert; delete confirmation and
-cleanup; and the publish, deprecate, immutable-state, and create-version lifecycle. The automated
-test debt remains named and unchecked in Milestone 12J, so Phase 12 is not closed to the roadmap's
-full Definition of Done.
+**Status:** implementation complete and verified — Phase 12 closed (2026-09-10). The schema and
+migration have zero drift in both directions; an 18/18 real-database smoke pass covered the role
+hierarchy, bootstrap catalog, flag precedence, suspension/reactivation audit, and no-money analytics
+boundary. A live browser pass against `/platform/country-packs` exercised draft validation;
+country-pack create/edit/refresh; nested-tax create, replacement, and new-version upsert; delete
+confirmation and cleanup; and the publish, deprecate, immutable-state, and create-version lifecycle —
+that manual pass is preserved unchanged. Milestone 12J's automated debt is now paid with captured
+green evidence: 15/15 integration tests across the six Phase 12 suites (`platform-authorization`,
+`platform-operations`, `country-packs`, `platform-audit`, `platform-projections`,
+`platform-resolution`), a 3/3 desktop Playwright run of the platform-console suite, zero findings
+from the Impeccable detector on the flag-preview UI, and the whole-repo gate (format:check, lint,
+typecheck, API and web production builds, `git diff --check`) all passing.
 
 ## Locked decisions
 
@@ -96,21 +98,44 @@ full Definition of Done.
 - [x] Separate `/platform` shell with its own auth boundary and navigation.
 - [x] Organizations, users, plans and entitlements, feature flags, country packs, tax definitions,
       jobs, security events, and analytics screens.
+- [x] Feature-flag evaluation preview on the flags screen: SUPPORT and above can preview a key
+      against an optional country, plan, or organization and see Enabled/Disabled and the winning
+      scope. Flag mutations remain SUPERADMIN-only.
 
 ## Milestone 12J - Deferred test debt (owed, not written)
 
-Every item here is work Phase 12 would normally carry inside its milestones. It is listed so the
-debt is named rather than discovered later.
+Every item here is work Phase 12 would normally carry inside its milestones. It was listed so the
+debt was named rather than discovered later; all of it is implemented and captured green
+(2026-09-10).
 
-- [ ] Platform boundary matrix: every `platform/*` route refuses a non-admin, and refuses an admin
-      whose role is below the route's requirement.
-- [ ] Bootstrap-path test: the environment allowlist mints a first grant and is then ignored.
-- [ ] "No casual access to tenant financial data": an assertion over the platform controllers that
-      no response projects a monetary column.
-- [ ] Suspend/reactivate leaves tenant data intact and blocks access while suspended.
-- [ ] Feature-flag targeting resolves correctly across all four scopes, including ties and
-      precedence.
-- [ ] Entitlement limits resolve per organization, including unlimited and trial states.
-- [ ] Platform audit is written for every mutating platform action, with the reason preserved.
-- [ ] Analytics aggregates reconcile against directly counted fixtures.
-- [ ] Platform console E2E: sign-in boundary, organization suspension journey, flag targeting.
+- [x] Platform boundary matrix: every `platform/*` route refuses a non-admin, and refuses an admin
+      whose role is below the route's requirement. — `test/platform-authorization.int.test.ts`
+      discovers every platform route, asserts a visible guard and role floor, then drives each
+      route as a non-admin, a SUPPORT, and an OPERATIONS session.
+- [x] Bootstrap-path test: the environment allowlist mints the first database-backed grant and is
+      then ignored — a second allowlisted user is refused with 403 and gets no grant row. — third
+      test in the same file.
+- [x] "No casual access to tenant financial data": an assertion over the platform controllers that
+      no response projects a monetary column. — `test/platform-projections.int.test.ts` walks every
+      platform read surface and fails on any monetary key or financial-row collection, while
+      explicitly permitting the plan catalogue pricing response.
+- [x] Suspend/reactivate leaves tenant data intact and blocks access while suspended. —
+      `test/platform-operations.int.test.ts` asserts tenant data is unchanged and owner access is
+      blocked while suspended and restored after reactivation; the console E2E drives the same
+      journey through the browser.
+- [x] Feature-flag targeting resolves correctly across all four scopes, including ties and
+      precedence. — `test/platform-resolution.int.test.ts`, plus a rule-replacement test proving a
+      repeated GLOBAL write updates in place (same rule ID, one row) and resolves deterministically
+      through both organization resolution and the preview endpoint.
+- [x] Entitlement limits resolve per organization, including unlimited and trial states. — second
+      test in the same file.
+- [x] Platform audit is written for every mutating platform action, with the reason preserved. —
+      `test/platform-audit.int.test.ts` drives every platform mutation over HTTP and checks the
+      `PlatformAuditEvent` actor, grant, event key, target, organization, and reason where supplied.
+- [x] Analytics aggregates reconcile against directly counted fixtures. —
+      `test/platform-operations.int.test.ts` reconciles each aggregate to direct Prisma counts and
+      asserts no monetary fields.
+- [x] Platform console E2E: sign-in boundary, organization suspension journey, flag targeting. —
+      `apps/web/e2e/phase12-platform.spec.ts`, desktop project, 3/3 green: a signed-in tenant user
+      is refused the console, Karibu Retail Demo is suspended and reactivated with owner access
+      restored, and a country-targeted flag resolves through the preview UI as COUNTRY.

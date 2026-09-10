@@ -176,8 +176,11 @@ test.describe('Phase 11 customer portal', () => {
 });
 
 test.describe('Phase 11 internal collaboration', () => {
-  test.beforeEach((_fixtures, testInfo) => {
-    test.skip(testInfo.project.name !== 'desktop', 'Collaboration journeys run once on desktop.');
+  test.beforeEach(() => {
+    test.skip(
+      test.info().project.name !== 'desktop',
+      'Collaboration journeys run once on desktop.',
+    );
   });
 
   test('offers comments, files, and activity on a transaction detail surface', async ({ page }) => {

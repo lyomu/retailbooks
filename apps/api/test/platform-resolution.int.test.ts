@@ -140,20 +140,22 @@ describe('platform entitlement and feature-flag resolution', () => {
       .post(`${API}/platform/feature-flags/${flag.id}/rules`)
       .set('Cookie', superadminCookie)
       .send({ scope: 'GLOBAL', enabled: true, note: 'initial decision' })
-      .expect(200);
+      .expect(200)
+      .then((response) => (response.body as { data: { id: string } }).data);
     const second = await harness
       .http()
       .post(`${API}/platform/feature-flags/${flag.id}/rules`)
       .set('Cookie', superadminCookie)
       .send({ scope: 'GLOBAL', enabled: false, note: 'replacement decision' })
-      .expect(200);
+      .expect(200)
+      .then((response) => (response.body as { data: { id: string } }).data);
 
-    expect(second.body.data.id).toBe(first.body.data.id);
+    expect(second.id).toBe(first.id);
     await expect(
       harness.prisma.featureFlagRule.findMany({ where: { flagId: flag.id, scope: 'GLOBAL' } }),
     ).resolves.toEqual([
       expect.objectContaining({
-        id: first.body.data.id,
+        id: first.id,
         enabled: false,
         note: 'replacement decision',
       }),
@@ -167,7 +169,7 @@ describe('platform entitlement and feature-flag resolution', () => {
       .set('Cookie', superadminCookie)
       .expect(200)
       .then((response) =>
-        expect(response.body.data).toEqual({
+        expect((response.body as { data: Record<string, unknown> }).data).toEqual({
           key: 'repeat.flag',
           enabled: false,
           decidedBy: 'GLOBAL',

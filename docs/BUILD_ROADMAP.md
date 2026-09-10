@@ -749,9 +749,10 @@ Build spec §13; blueprint §13.
 
 Build spec §14; blueprint §14.
 
-**Status: implementation complete, verification partial (2026-09-09).** The 18/18 real-database
-smoke pass and static/build gates are green. Automated acceptance coverage remains deferred and
-unchecked in `docs/PHASE12_TODO.md` Milestone 12J, so the phase is not closed.
+**Status: complete and verified — closed 2026-09-10.** The 18/18 real-database smoke pass,
+static and build gates, and the full Milestone 12J automated acceptance debt (15/15 integration
+tests across six suites, 3/3 desktop console E2E, the design detector, and the whole-repo gate)
+are captured green in `docs/PHASE12_TODO.md`.
 
 ### Data model
 
@@ -790,9 +791,12 @@ unchecked in `docs/PHASE12_TODO.md` Milestone 12J, so the phase is not closed.
 
 ### Tests/acceptance
 
-- [ ] Platform admin has no casual access to tenant financial data (explicit permission/audit boundary)
-- [ ] Suspend/reactivate an organization does not corrupt or leak tenant data
-- [ ] Feature-flag targeting resolves correctly across global/country/plan/tenant scopes
+- [x] Platform admin has no casual access to tenant financial data (explicit permission/audit boundary)
+      — `test/platform-projections.int.test.ts`
+- [x] Suspend/reactivate an organization does not corrupt or leak tenant data —
+      `test/platform-operations.int.test.ts` and the console E2E suspension journey
+- [x] Feature-flag targeting resolves correctly across global/country/plan/tenant scopes —
+      `test/platform-resolution.int.test.ts`
 
 ---
 

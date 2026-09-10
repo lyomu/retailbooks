@@ -26,8 +26,11 @@ function collectBrowserErrors(page: Page): string[] {
 
 test.describe('Phase 12 platform console', () => {
   test.describe.configure({ mode: 'serial' });
-  test.beforeEach((_fixtures, testInfo) => {
-    test.skip(testInfo.project.name !== 'desktop', 'Platform administration runs once on desktop.');
+  test.beforeEach(() => {
+    test.skip(
+      test.info().project.name !== 'desktop',
+      'Platform administration runs once on desktop.',
+    );
   });
 
   test('keeps a signed-in tenant user outside the platform console', async ({ page }) => {
@@ -35,27 +38,50 @@ test.describe('Phase 12 platform console', () => {
     await signIn(page, TENANT_OWNER);
     await page.goto('/platform');
 
-    await expect(page.getByRole('heading', { name: 'You do not have platform access' })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'You do not have platform access' }),
+    ).toBeVisible();
     await expect(page.getByRole('navigation', { name: 'Platform console' })).toHaveCount(0);
-    expect(errors).toEqual([]);
+    // The console resolves the grant with /platform/me, which is a 403 by design for a non-admin,
+    // and Chrome logs every failed network response as a console error. That single expected
+    // message is filtered; any JavaScript exception, other console error, or 5xx still fails.
+    const unexpected = errors.filter(
+      (message) =>
+        message !==
+        'Failed to load resource: the server responded with a status of 403 (Forbidden)',
+    );
+    expect(unexpected).toEqual([]);
   });
 
-  test('suspends and reactivates an organization without leaving it locked out', async ({ page }) => {
+  test('suspends and reactivates an organization without leaving it locked out', async ({
+    page,
+  }) => {
     const errors = collectBrowserErrors(page);
     await signIn(page, PLATFORM_ADMIN);
     await page.goto('/platform/organizations');
 
     await page.getByRole('link', { name: 'Karibu Retail Demo', exact: true }).click();
-    await expect(page.getByRole('heading', { name: 'Karibu Retail Demo', exact: true })).toBeVisible();
+    // The detail page loads its data over the API before rendering the heading, and a cold
+    // platform query can exceed Playwright's 5s default expect timeout.
+    await expect(
+      page.getByRole('heading', { name: 'Karibu Retail Demo', exact: true }),
+    ).toBeVisible({
+      timeout: 15_000,
+    });
     await page.getByLabel('Reason').fill('Phase 12 Playwright suspension check.');
     await page.getByRole('button', { name: 'Suspend organization' }).click();
-    await expect(page.getByRole('status')).toContainText('Organization suspended.');
+    await expect(page.getByRole('status')).toContainText('Organization suspended.', {
+      timeout: 10_000,
+    });
     await expect(page.getByRole('heading', { name: 'Suspended' })).toBeVisible();
     await expect(page.getByText('Phase 12 Playwright suspension check.')).toBeVisible();
 
-    await page.getByLabel('Reason').fill('Phase 12 Playwright reactivation check.');
+    // Reactivation is one confirmation click: the API takes an optional reason and the console
+    // does not collect one, so restoring access is a single action.
     await page.getByRole('button', { name: 'Reactivate' }).click();
-    await expect(page.getByRole('status')).toContainText('Organization reactivated.');
+    await expect(page.getByRole('status')).toContainText('Organization reactivated.', {
+      timeout: 10_000,
+    });
     await expect(page.getByRole('heading', { name: 'Suspended' })).toHaveCount(0);
 
     await page.context().clearCookies();
@@ -72,13 +98,17 @@ test.describe('Phase 12 platform console', () => {
     await page.getByLabel('Key').fill(key);
     await page.getByLabel('Name').fill('Phase 12 browser flag');
     await page.getByRole('button', { name: 'Create flag' }).click();
-    await expect(page.getByRole('status')).toContainText('Feature flag created.');
+    await expect(page.getByRole('status')).toContainText('Feature flag created.', {
+      timeout: 10_000,
+    });
 
     const flag = page.getByRole('region', { name: key });
     await expect(flag).toBeVisible();
+    // Playwright's filter({ has }) needs a page-rooted inner locator: one chained from the
+    // region resolves to nothing (verified against the installed Playwright 1.62).
     const ruleEditor = flag
       .locator('form')
-      .filter({ has: flag.getByRole('button', { name: 'Save rule' }) });
+      .filter({ has: page.getByRole('button', { name: 'Save rule' }) });
     await ruleEditor.getByLabel('Scope').selectOption('COUNTRY');
     await ruleEditor.getByLabel('Country code').fill('KE');
     await ruleEditor.getByRole('button', { name: 'Save rule' }).click();
@@ -86,10 +116,12 @@ test.describe('Phase 12 platform console', () => {
 
     const preview = flag
       .locator('form')
-      .filter({ has: flag.getByRole('button', { name: 'Preview flag' }) });
+      .filter({ has: page.getByRole('button', { name: 'Preview flag' }) });
     await preview.getByLabel('Country code').fill('KE');
     await preview.getByRole('button', { name: 'Preview flag' }).click();
-    await expect(flag.getByRole('status')).toContainText(/Enabled.*decided by country/i);
+    await expect(flag.getByRole('status')).toContainText(/Enabled.*decided by country/i, {
+      timeout: 10_000,
+    });
     expect(errors).toEqual([]);
   });
 });
