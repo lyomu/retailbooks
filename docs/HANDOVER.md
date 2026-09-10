@@ -12,7 +12,7 @@ Twelve of fourteen phases have code. Nine meet the roadmap's "done and verified"
 remains functionally complete with explicitly tracked hardening debt). Phase 10 closed on
 2026-09-05 with a green whole-repo gate and named tracked debt. **Phase 11 has complete
 implementation and partial verification as of 2026-09-08; Phase 12 has complete implementation and
-partial verification as of 2026-09-09. Neither is closed** — their open gates are enumerated in
+partial verification as of 2026-09-10. Neither is closed** — their open gates are enumerated in
 `docs/PHASE11_TODO.md` and `docs/PHASE12_TODO.md`.
 
 | Phase                      | State                                                                                                     |
@@ -142,8 +142,11 @@ second global entity.
 
 Evidence captured: the original 18/18 smoke script passed against the real dev database; migration
 drift was zero in both directions; repo-wide typecheck, production builds, lint, format check, and
-the Impeccable detector are green. The smoke script was throwaway and is not committed. Phase 12
-remains open until the explicit automated debt in `docs/PHASE12_TODO.md` is paid.
+the Impeccable detector are green. A live browser pass on 2026-09-10 covered the Country Packs and
+Tax Definitions editor's draft, nested-tax, persistence, and full lifecycle paths; its published
+fixture was deprecated by design and its successor draft was removed. The smoke script was throwaway
+and is not committed. Phase 12 remains open until the explicit automated debt in
+`docs/PHASE12_TODO.md` is paid.
 
 ### Recently closed (2026-09-05) — Phase 10 close-out
 

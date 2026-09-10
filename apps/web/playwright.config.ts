@@ -40,7 +40,7 @@ export default defineConfig({
   webServer: [
     {
       command:
-        'npm run e2e:prepare --workspace @retailbooks/web && npm run start --workspace @retailbooks/api',
+        'npm run e2e:prepare --workspace @retailbooks/web && node dist/src/main.js',
       url: 'http://127.0.0.1:3401/api/v1/health',
       reuseExistingServer: !process.env.CI,
       // This command is not just "start the API": it migrates, truncates, drains the queues,
@@ -52,7 +52,10 @@ export default defineConfig({
       env: {
         ...process.env,
         API_PORT: '3401',
-        DATABASE_URL: 'postgresql://retailbooks:retailbooks@localhost:55432/retailbooks_e2e',
+        DATABASE_URL: 'postgresql://retailbooks:retailbooks@127.0.0.1:55432/retailbooks_e2e',
+        REDIS_URL: 'redis://127.0.0.1:56379',
+        S3_ENDPOINT: 'http://127.0.0.1:59000',
+        SMTP_HOST: '127.0.0.1',
         NODE_ENV: 'test',
         QUEUE_PREFIX: 'retailbooks-e2e',
         WEB_APP_URL: 'http://127.0.0.1:3300',

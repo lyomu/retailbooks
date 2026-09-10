@@ -2,13 +2,16 @@
 
 Durable progress record for Phase 12. `docs/BUILD_ROADMAP.md` remains the scope authority.
 
-**Status:** implementation complete and partially verified (2026-09-09), **code first with automated
+**Status:** implementation complete and partially verified (2026-09-10), **code first with automated
 tests deliberately deferred** by explicit direction. The schema and migration have zero drift in
 both directions; an 18/18 real-database smoke pass covered the role hierarchy, bootstrap catalog,
 flag precedence, suspension/reactivation audit, and no-money analytics boundary. API and web
 typecheck, production builds, repo-wide lint, formatting, and the frontend design detector are
-green. The automated test debt remains named and unchecked in Milestone 12J, so Phase 12 is not
-closed to the roadmap's full Definition of Done.
+green. A live browser pass against `/platform/country-packs` exercised draft validation; country-pack
+create/edit/refresh; nested-tax create, replacement, and new-version upsert; delete confirmation and
+cleanup; and the publish, deprecate, immutable-state, and create-version lifecycle. The automated
+test debt remains named and unchecked in Milestone 12J, so Phase 12 is not closed to the roadmap's
+full Definition of Done.
 
 ## Locked decisions
 

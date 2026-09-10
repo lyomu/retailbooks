@@ -1,10 +1,10 @@
 'use client';
 
 import type { FeatureFlag, PlatformPlan } from '@retailbooks/contracts';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type FormEvent } from 'react';
 
 import { ApiError, apiRequest } from '../lib/api';
-import { platformRoleAtLeast, usePlatformSession } from '../lib/platform';
+import { platformQuery, platformRoleAtLeast, usePlatformSession } from '../lib/platform';
 import { PlatformPage } from './platform-shell';
 
 export function PlatformPlans() {
@@ -338,6 +338,8 @@ export function PlatformFeatureFlags() {
               </ul>
             )}
 
+            <FlagPreview flagKey={flag.key} />
+
             {canManage ? (
               <>
                 <FlagRuleEditor
@@ -387,6 +389,79 @@ export function PlatformFeatureFlags() {
         ))
       )}
     </PlatformPage>
+  );
+}
+
+function FlagPreview({ flagKey }: { flagKey: string }) {
+  const [countryCode, setCountryCode] = useState('');
+  const [planId, setPlanId] = useState('');
+  const [organizationId, setOrganizationId] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<{ enabled: boolean; decidedBy: string } | null>(null);
+  const [error, setError] = useState('');
+
+  async function preview(event: FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    setError('');
+    setResult(null);
+    try {
+      const response = await apiRequest<{
+        data: { enabled: boolean; decidedBy: string };
+      }>(
+        `/platform/feature-flags/${encodeURIComponent(flagKey)}/preview${platformQuery({
+          countryCode: countryCode.trim().toUpperCase(),
+          planId: planId.trim(),
+          organizationId: organizationId.trim(),
+        })}`,
+      );
+      setResult(response.data);
+    } catch (caught) {
+      setError(caught instanceof ApiError ? caught.message : 'The flag could not be previewed.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <form className="rb-platform__inline-form" onSubmit={(event) => void preview(event)}>
+      <div>
+        <h3>Preview for an audience</h3>
+        <p className="rb-platform__muted">
+          See which rule would apply before changing a tenant&apos;s experience.
+        </p>
+      </div>
+      <label>
+        Country code
+        <input
+          value={countryCode}
+          maxLength={2}
+          placeholder="KE"
+          onChange={(event) => setCountryCode(event.target.value.toUpperCase())}
+        />
+      </label>
+      <label>
+        Plan ID
+        <input value={planId} onChange={(event) => setPlanId(event.target.value)} />
+      </label>
+      <label>
+        Organization ID
+        <input value={organizationId} onChange={(event) => setOrganizationId(event.target.value)} />
+      </label>
+      <button type="submit" disabled={busy}>
+        Preview flag
+      </button>
+      {result ? (
+        <p className="rb-platform__notice" role="status">
+          {result.enabled ? 'Enabled' : 'Disabled'} â€” decided by {result.decidedBy.toLowerCase()}.
+        </p>
+      ) : null}
+      {error ? (
+        <p className="rb-platform__alert" role="alert">
+          {error}
+        </p>
+      ) : null}
+    </form>
   );
 }
 

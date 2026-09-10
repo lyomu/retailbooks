@@ -7,9 +7,10 @@ import { createClient } from 'redis';
 
 const { Client } = pg;
 const DATABASE_NAME = 'retailbooks_e2e';
-const DATABASE_URL = `postgresql://retailbooks:retailbooks@localhost:55432/${DATABASE_NAME}`;
-const MAINTENANCE_URL = 'postgresql://retailbooks:retailbooks@localhost:55432/postgres';
+const DATABASE_URL = `postgresql://retailbooks:retailbooks@127.0.0.1:55432/${DATABASE_NAME}`;
+const MAINTENANCE_URL = 'postgresql://retailbooks:retailbooks@127.0.0.1:55432/postgres';
 const QUEUE_PREFIX = 'retailbooks-e2e';
+const PLATFORM_ADMIN_EMAIL = 'demo.admin@retailbooks.local';
 const repoRoot = resolve(process.cwd(), '../..');
 
 await createDatabase();
@@ -19,6 +20,7 @@ await clearEmailQueue();
 await clearAuthRateLimits();
 runNode([resolve(repoRoot, 'node_modules/@nestjs/cli/bin/nest.js'), 'build'], apiRoot());
 runNode(['dist/prisma/seed.js'], apiRoot());
+await ensurePlatformAdmin();
 
 async function createDatabase() {
   const admin = new Client({ connectionString: MAINTENANCE_URL });
@@ -75,12 +77,37 @@ async function clearAuthRateLimits() {
   }
 }
 
+/**
+ * Browser tests need a database-backed grant before their first navigation. Relying on the
+ * allowlist bootstrap would make the non-admin boundary test depend on execution order.
+ */
+async function ensurePlatformAdmin() {
+  const database = new Client({ connectionString: DATABASE_URL });
+  await database.connect();
+  try {
+    await database.query(
+      `INSERT INTO platform_admins (user_id, role, status, note)
+       SELECT id, 'SUPERADMIN'::"PlatformRole", 'ACTIVE'::"PlatformAdminStatus", $2
+       FROM users WHERE email = $1
+       ON CONFLICT (user_id) DO UPDATE
+       SET role = 'SUPERADMIN'::"PlatformRole", status = 'ACTIVE'::"PlatformAdminStatus",
+           revoked_at = NULL, note = EXCLUDED.note`,
+      [PLATFORM_ADMIN_EMAIL, 'Deterministic Playwright platform administrator fixture.'],
+    );
+  } finally {
+    await database.end();
+  }
+}
+
 function runNpm(args) {
   execFileSync('npm', args, {
     cwd: repoRoot,
     env: {
       ...process.env,
       DATABASE_URL,
+      REDIS_URL: 'redis://127.0.0.1:56379',
+      S3_ENDPOINT: 'http://127.0.0.1:59000',
+      SMTP_HOST: '127.0.0.1',
       NODE_ENV: 'test',
       QUEUE_PREFIX,
       WEB_APP_URL: 'http://127.0.0.1:3300',
@@ -96,6 +123,9 @@ function runNode(args, cwd) {
     env: {
       ...process.env,
       DATABASE_URL,
+      REDIS_URL: 'redis://127.0.0.1:56379',
+      S3_ENDPOINT: 'http://127.0.0.1:59000',
+      SMTP_HOST: '127.0.0.1',
       NODE_ENV: 'test',
       QUEUE_PREFIX,
       WEB_APP_URL: 'http://127.0.0.1:3300',
