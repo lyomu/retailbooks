@@ -564,10 +564,10 @@ permissions, audit events, and object storage. **Critical blocker:** no durable 
 
 ## Stage 9 — Phase 11: Portals & Collaboration
 
-**Status: implementation complete, verification partial (2026-09-08). Not closed.** The evidence
-ledger, the eleven defects this pass found and fixed, and the precise list of gates that have not
-been run are in `docs/PHASE11_TODO.md`. Phase 11 does **not** meet the Definition of Done below:
-item 8 (full CI sequence green) and item 9 (handover refreshed on a closed phase) are outstanding.
+**Status: implementation complete and verified — Phase 11 closed (2026-09-11).** The evidence
+ledger, the eleven defects this pass found and fixed, and the closure record are in
+`docs/PHASE11_TODO.md`. Phase 11 meets the Definition of Done below: item 8 (full CI sequence
+green) and item 9 (handover refreshed on a closed phase) are both satisfied in the closing change.
 
 **Roadmap:** `BUILD_ROADMAP.md` Phase 11. **Depends on:** verified-user sessions, the organization
 permission model, object storage and signed URLs, the audit event writer, statement derivation, and
@@ -598,15 +598,18 @@ document rendering.
       multi-client isolation (21/21 captured)
 - [x] Internal authorization-boundary matrix extended to every Phase 11 organization-scoped route
       (6/6 captured)
-- [ ] Portal E2E and accessibility coverage — written, never executed
+- [x] Portal E2E and accessibility coverage — desktop 10/10 (1 mobile-only skip), the mobile
+      overflow test green, and the desktop visual baseline captured/committed (2026-09-11)
 
 ### 11I — Verification and close-out
 
 - [x] Migration applied locally and replayed from scratch in the dedicated E2E database
 - [x] API and web typecheck, and repository formatting
-- [ ] Lint, full-suite integration rerun, both production builds, Playwright, visual review, design
-      detector, and forward/reverse drift — **not captured**; see the ledger in `PHASE11_TODO.md`
-- [ ] Roll a verified Phase 11 into the roadmap, this plan, and the handover
+- [x] Lint, full-suite integration rerun, both production builds, Playwright, visual review, design
+      detector, and forward/reverse drift — **captured 2026-09-11**; see the closure record in
+      `PHASE11_TODO.md`
+- [x] Roll a verified Phase 11 into the roadmap, this plan, and the handover — completed in the
+      same closing change (2026-09-11)
 
 ---
 

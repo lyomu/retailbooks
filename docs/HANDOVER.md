@@ -4,16 +4,16 @@
 double-entry accounting & invoicing web platform (monorepo: `apps/api` NestJS, `apps/web` Next.js,
 `packages/*` shared libs).
 
-**Last refreshed:** 2026-09-10 (Phase 12 closed; Phase 11 implemented, verification partial — not closed).
+**Last refreshed:** 2026-09-11 (Phases 11 and 12 both closed with captured green evidence).
 
 ## 1. Where things stand
 
-Twelve of fourteen phases have code. Ten meet the roadmap's "done and verified" bar (Phase 1
+Twelve of fourteen phases have code. Eleven meet the roadmap's "done and verified" bar (Phase 1
 remains functionally complete with explicitly tracked hardening debt). Phase 10 closed on
-2026-09-05 with a green whole-repo gate and named tracked debt. **Phase 11 has complete
-implementation and partial verification as of 2026-09-08; Phase 12 closed on 2026-09-10 with
-captured green acceptance evidence** — Phase 11's open gates are enumerated in
-`docs/PHASE11_TODO.md`; Phase 12's closure evidence lives in `docs/PHASE12_TODO.md`.
+2026-09-05 with a green whole-repo gate and named tracked debt. **Phase 11 closed on 2026-09-11
+and Phase 12 closed on 2026-09-10, both with captured green evidence.** Phase 11's closure
+record is in `docs/PHASE11_TODO.md`; Phase 12's closure evidence lives in
+`docs/PHASE12_TODO.md`.
 
 | Phase                      | State                                                                                                     |
 | -------------------------- | --------------------------------------------------------------------------------------------------------- |
@@ -27,28 +27,25 @@ captured green acceptance evidence** — Phase 11's open gates are enumerated in
 | 8 Globalization            | Complete and verified (8A–8E)                                                                             |
 | 9 Reporting                | Complete and verified (9A–9F)                                                                             |
 | 10 Automation & Approvals  | Complete and verified (10A–10I), 64/76 checklist items; tracked debt named in `PHASE10_TODO.md` and below |
-| 11 Portals & Collaboration | **Implemented, partially verified — not closed.** Ledger in `PHASE11_TODO.md`                             |
+| 11 Portals & Collaboration | Complete and verified, closed 2026-09-11 — closure record in `PHASE11_TODO.md`                            |
 | 12 Platform Admin          | Complete and verified (12A–12J), closed 2026-09-10                                                        |
 | 13–14                      | No code                                                                                                   |
 
 **The plan is `docs/EXECUTION_PLAN.md`.** It sequenced the verification debt (Stages 0–4) and
 Phases 7–10 (Stages 5–8), and records three decisions (D1 ledger dimensions, D2 report query
 strategy, D3 country-pack DB model). All three are decided; D1 is implemented.
-**Stages 0–8 are all closed as of 2026-09-05.** `docs/PHASE10_TODO.md` remains the durable Phase 10
-record including its tracked-debt list; `docs/PHASE10_TEST_PLAN.md` documents how its remaining
-test coverage was executed. Stage 9 (Phase 11) is open: implementation is complete and its own
-acceptance suites pass, but the whole-repository gate has not been captured. Stage 10 (Phase 12)
-closed on 2026-09-10 with captured green gates. Phases 13–14 (AI and cross-module scenarios) have
-no code.
+**Stages 0–10 are all closed.** `docs/PHASE10_TODO.md` remains the durable Phase 10 record; `docs/PHASE10_TEST_PLAN.md`
+documents its remaining test-plan debt. **Stage 9 (Phase 11) closed 2026-09-11** with captured gates in `docs/PHASE11_TODO.md`; Stage 10
+(Phase 12) closed 2026-09-10. Phases 13–14 (AI and cross-module scenarios) have no code.
 
 ### What is genuinely open, in priority order
 
-1. **Phase 11 owes its closing gates.** The code is written and its two dedicated acceptance suites
-   pass (29/29 portal, 21/21 collaboration, plus 6/6 authorization boundary). What has _not_ been
-   captured: `npm run lint`, a full-suite integration rerun after the final fixes, both production
-   builds, any Playwright run at all, visual review, the design detector, and drift/replay.
-   `docs/PHASE11_TODO.md` holds the evidence ledger and a three-step "what to run first" list.
-   Nothing there should be promoted to verified without captured output.
+1. **Phase 11 is closed (2026-09-11).** The gate is green end-to-end with captured output: lint,
+   format, typecheck, both production builds, the integration suite, Playwright (desktop 10/10,
+   mobile overflow, committed desktop baseline), the design detector, and drift/replay — all
+   recorded in `docs/PHASE11_TODO.md`. The closing change also folds in the small runtime fixes
+   the gates surfaced (CORS `Content-Disposition` for the portal CSV export; the auth rate-limit
+   reset in the E2E sharing test; the desktop-only visual baseline).
 2. **Phases 13–14 have no code.** AI (13) and the pre-release cross-module scenarios (14) are
    roadmap sections only. The §18.1 quote-through-payment chain remains the
    named end-to-end gap: banking import/match/reconcile are covered in isolation, but not the full
@@ -84,12 +81,13 @@ no code.
 Full reasoning, including what was rejected, is in `EXECUTION_PLAN.md` §"Decisions to make before
 Stage 5".
 
-### In progress (2026-09-08) — Phase 11 Portals & Collaboration
+### Closed (2026-09-11) — Phase 11 Portals & Collaboration
 
-**Implementation is complete across 11A–11G and the two dedicated acceptance suites pass. The phase
-is not closed:** lint, the full-suite integration rerun, production builds, Playwright, visual
-review, the design detector, and drift/replay have not been captured. Read `docs/PHASE11_TODO.md`
-before touching anything here; it lists exactly what is proven and what is not.
+**Implementation is complete across 11A–11G and Phase 11 is closed (2026-09-11).** The whole-repo
+gate is green with captured output: lint, format, typecheck, the production builds, the integration
+suite, Playwright (desktop 10/10 with one mobile-only skip, mobile overflow green, desktop portal
+baseline committed), the Impeccable detector, and drift/replay. The full evidence list is in
+`docs/PHASE11_TODO.md`; the closing fixes there are listed in the closure record.
 
 Eleven live defects were found and fixed by the tests written in this pass. Four are worth knowing
 about because they shape how this area should be worked on:

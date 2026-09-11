@@ -14,7 +14,7 @@ export function configureApp(app: INestApplication): void {
   const webOrigin = process.env.WEB_APP_URL ?? 'http://localhost:3000';
 
   app.setGlobalPrefix('api/v1');
-  app.enableCors({ origin: webOrigin, credentials: true });
+  app.enableCors({ origin: webOrigin, credentials: true, exposedHeaders: ['Content-Disposition'] });
   app.useGlobalPipes(
     new ValidationPipe({ transform: true, whitelist: true, forbidNonWhitelisted: true }),
   );

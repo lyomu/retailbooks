@@ -88,6 +88,11 @@ describe('SYSTEM_ROLE_TEMPLATES', () => {
       'sales.invoices.view',
       'sales.invoices.manage',
       'purchases.expenses.view',
+      // Phase 11's collaboration defaults: the owning role uses the Comments/Files/Activity panel
+      // on the transaction-detail surfaces it owns (see roles-catalog.ts and defect 7).
+      'collaboration.comments.create',
+      'collaboration.attachments.upload',
+      'collaboration.activity.view',
     ]);
     // Billing a project raises a real invoice, so the role can see and manage that document.
     // Separation of duties stops there: raising a charge and recording its settlement must not
@@ -112,6 +117,9 @@ describe('SYSTEM_ROLE_TEMPLATES', () => {
       'inventory.transfers.manage',
       'inventory.reorder.view',
       'inventory.valuation.view',
+      'collaboration.comments.create',
+      'collaboration.attachments.upload',
+      'collaboration.activity.view',
     ]);
     expect(template?.permissions).not.toContain('inventory.adjustments.approve');
   });
@@ -178,6 +186,11 @@ describe('SYSTEM_ROLE_TEMPLATES', () => {
       'purchases.recurring_bills.manage',
       'purchases.recurring_expenses.view',
       'purchases.recurring_expenses.manage',
+      // Phase 11's collaboration defaults: the B role uses the Comments/Files/Activity panel on
+      // the transaction-detail surfaces it owns (see roles-catalog.ts and defect 7).
+      'collaboration.comments.create',
+      'collaboration.attachments.upload',
+      'collaboration.activity.view',
     ]);
     // Same asymmetry as SALES: the money-moving/reversing keys (approve/void/allocate) stay with
     // ADMIN/ACCOUNTANT and never appear on the PURCHASES role.

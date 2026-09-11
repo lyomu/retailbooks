@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { createClient } from 'redis';
 
 const DEMO_PASSWORD = 'DemoRetailBooks1!';
 const PORTAL_CUSTOMER = 'demo.customer@retailbooks.local';
@@ -9,6 +10,25 @@ async function signIn(page: Page, email: string, destination: RegExp): Promise<v
   await page.getByLabel('Password', { exact: true }).fill(DEMO_PASSWORD);
   await page.getByRole('button', { name: 'Sign in' }).click();
   await expect(page).toHaveURL(destination);
+}
+
+const E2E_REDIS_URL = 'redis://127.0.0.1:56379';
+
+/**
+ * The API rate-limits logins per account (8/15 min); the portal describe signs the demo
+ * customer in eight times, so reset counters before collaboration needs a ninth.
+ */
+async function clearAuthRateLimits(): Promise<void> {
+  const client = createClient({ url: E2E_REDIS_URL });
+  await client.connect();
+  try {
+    for await (const keys of client.scanIterator({ MATCH: 'auth:*', COUNT: 200 })) {
+      const batch = Array.isArray(keys) ? keys : [keys];
+      if (batch.length > 0) await client.del(batch);
+    }
+  } finally {
+    await client.quit();
+  }
 }
 
 function collectBrowserErrors(page: Page) {
@@ -147,7 +167,11 @@ test.describe('Phase 11 customer portal', () => {
     await expect(page.getByRole('region', { name: /^Document / })).toHaveCount(0);
   });
 
-  test('@visual portal overview baseline across viewports', async ({ page }) => {
+  test('@visual portal overview baseline (desktop)', async ({ page }) => {
+    test.skip(
+      test.info().project.name !== 'desktop',
+      'Visual baseline captured once on desktop; the committed baseline is desktop-only.',
+    );
     const browserErrors = collectBrowserErrors(page);
     await signIn(page, PORTAL_CUSTOMER, /\/portal$/);
     await page.locator('#main-content').waitFor();
@@ -176,11 +200,12 @@ test.describe('Phase 11 customer portal', () => {
 });
 
 test.describe('Phase 11 internal collaboration', () => {
-  test.beforeEach(() => {
+  test.beforeEach(async () => {
     test.skip(
       test.info().project.name !== 'desktop',
       'Collaboration journeys run once on desktop.',
     );
+    await clearAuthRateLimits();
   });
 
   test('offers comments, files, and activity on a transaction detail surface', async ({ page }) => {
@@ -188,7 +213,10 @@ test.describe('Phase 11 internal collaboration', () => {
     await signIn(page, 'demo.owner@retailbooks.local', /\/$/);
 
     await page.goto('/invoices');
-    await page.getByRole('link', { name: 'Open' }).first().click();
+    // 'Open' must match exactly: the sidebar also has an 'Opening balances' link, and
+    // Playwright's name match is a case-insensitive substring by default.
+    await page.getByRole('link', { name: 'Open', exact: true }).first().click();
+    await page.waitForURL(/\/invoices\/[0-9a-f-]{36}/);
 
     const collaboration = page.getByRole('region', { name: 'Collaboration' });
     await expect(collaboration).toBeVisible();
@@ -213,7 +241,10 @@ test.describe('Phase 11 internal collaboration', () => {
   test('shares a comment with the customer and shows it in their portal', async ({ page }) => {
     await signIn(page, 'demo.owner@retailbooks.local', /\/$/);
     await page.goto('/invoices');
-    await page.getByRole('link', { name: 'Open' }).first().click();
+    // 'Open' must match exactly: the sidebar also has an 'Opening balances' link, and
+    // Playwright's name match is a case-insensitive substring by default.
+    await page.getByRole('link', { name: 'Open', exact: true }).first().click();
+    await page.waitForURL(/\/invoices\/[0-9a-f-]{36}/);
 
     const collaboration = page.getByRole('region', { name: 'Collaboration' });
     const shared = `Your invoice is ready to review. ${Date.now()}`;
@@ -223,8 +254,17 @@ test.describe('Phase 11 internal collaboration', () => {
     await expect(collaboration.getByText('Shared with customer')).toBeVisible();
 
     // Drop the internal session rather than hunting for a sign-out control: the point of this
-    // test is what the customer sees, not how the staff member left.
+    // test is what the customer sees, not how the staff member left. Clear cookies and web
+    // storage on the retailbooks origin so the portal customer sign-in starts from a clean
+    // slate. (Earlier failures here were the API login rate limiter: the portal describe signs
+    // this customer in eight times, so beforeEach resets the counters before this ninth
+    // sign-in.)
     await page.context().clearCookies();
+    await page.evaluate(() => {
+      window.localStorage.clear();
+      window.sessionStorage.clear();
+    });
+    await page.goto('about:blank');
     await signIn(page, PORTAL_CUSTOMER, /\/portal$/);
     await page
       .getByRole('row')

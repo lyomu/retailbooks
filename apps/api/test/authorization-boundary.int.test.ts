@@ -1989,6 +1989,10 @@ function discoverOrganizationEndpoints(controllers: readonly Type[]): EndpointCa
   const endpoints: EndpointCase[] = [];
   for (const controller of controllers) {
     const basePath = metadataValue<string>(PATH_METADATA, controller) ?? '';
+    // Platform-admin routes are platform-scoped (guarded by PlatformGuard) even when they
+    // operate on an organization id. They are not part of the organization boundary and are
+    // covered by the platform-authorization matrix instead, so skip them here.
+    if (basePath === 'platform') continue;
     const classGuards = metadataValue<unknown[]>(GUARDS_METADATA, controller) ?? [];
     const prototype = controller.prototype as object;
     for (const methodName of Object.getOwnPropertyNames(prototype)) {

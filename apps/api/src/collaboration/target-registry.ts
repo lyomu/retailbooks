@@ -1,7 +1,7 @@
 import { NotFoundException } from '@nestjs/common';
 import type { CollaborationTargetType } from '@prisma/client';
 
-import { PrismaService } from '../database/prisma.service.js';
+import type { PrismaService } from '../database/prisma.service.js';
 import type { OrganizationContext } from '../organizations/organization-context.js';
 
 type TargetDefinition = {

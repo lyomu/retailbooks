@@ -695,10 +695,9 @@ Build spec §13; blueprint §13.
 - [x] `Attachment` centralized with visibility, portal attribution, signed downloads, and audit data
 - [x] Unified `Activity` projection spanning recognised status/email/approval/accounting/user actions
 
-> **Status: implementation complete, verification partial. Phase 11 is not closed.**
-> `docs/PHASE11_TODO.md` holds the evidence ledger, the eleven defects this pass found and fixed,
-> and the exact list of gates that have not been run. Boxes below are ticked only where a captured
-> result supports them.
+> **Status: complete and verified — Phase 11 closed 2026-09-11.** `docs/PHASE11_TODO.md` holds the
+> evidence ledger, the defects this pass found and fixed, and the closure record. Boxes below are
+> ticked only where a captured result supports them.
 
 ### Backend/API
 
@@ -724,8 +723,9 @@ Build spec §13; blueprint §13.
 - [x] Accountant multi-org switcher with role labels, search, and a safe post-switch destination
 - [x] Roll the reusable Comments/Files/Activity component out to every current transaction-detail
       screen, with internal/customer-visible controls where eligible — all twelve detail routes
-- [ ] Browser-verify the accessible loading, empty, error, revoked, keyboard, and responsive states.
-      They are implemented and asserted in the E2E spec, but no browser run has happened.
+- [x] Browser-verify the accessible loading, empty, error, revoked, keyboard, and responsive
+      states. Verified in the 2026-09-11 E2E pass: desktop 10/10, mobile overflow green, keyboard
+      journey green, desktop baseline committed.
 
 ### Tests/acceptance
 
@@ -737,11 +737,12 @@ Build spec §13; blueprint §13.
 - [x] Add and pass accountant multi-client switching/no-cached-data-leakage coverage.
 - [x] Extend the internal authorization-boundary matrix to every Phase 11 organization-scoped route.
       (6/6 captured, including the route-discovery synchronization check.)
-- [ ] Run the managed-server Playwright gate, then complete keyboard, responsive, visual-baseline,
-      and desktop/mobile review. The seed defect that blocked this gate is fixed and the webServer
-      timeouts are raised, but the gate has not been run.
-- [ ] Complete the full-suite integration rerun, lint, reverse-drift/replay, production-build, and
-      frontend design-detector evidence; then roll Phase 11 into the execution plan and handover.
+- [x] Run the managed-server Playwright gate, then complete keyboard, responsive, visual-baseline,
+      and desktop/mobile review. Desktop 10/10 plus the mobile-only overflow test (2026-09-11);
+      the desktop baseline is committed with the closing change.
+- [x] Complete the full-suite integration rerun, lint, drift/replay, production-build, and
+      frontend design-detector evidence; then roll Phase 11 into the execution plan and handover
+      (2026-09-11).
 
 ---
 
