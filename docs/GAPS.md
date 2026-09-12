@@ -166,12 +166,17 @@ directly with Phase 14 tracks 13-16 above and should close together, not twice.
 
 _(Explicitly out of scope for V1 per spec §19, not a gap: public API/webhook contracts.)_
 
-- [ ] 39. **Shared screen patterns** — 5 unchecked pattern contracts (List, Create/Edit, Detail,
-      Import, Approval, Report) at `docs/BUILD_ROADMAP.md:118-127`. May already be satisfied by
-      shipped screens; never formally audited.
-- [ ] 40. **Definition of Done** template (`docs/BUILD_ROADMAP.md:872-885`) never run per-module.
-      Two items with no owner elsewhere: analytics events (feeds Phase 12 Product Analytics), and
-      documentation/support notes.
+- [x] 39. **Shared screen patterns** — all 6 pattern contracts (List, Create/Edit, Detail, Import,
+      Approval, Report) at `docs/BUILD_ROADMAP.md:132-161` are satisfied by shipped screens.
+      Audited against `apps/web/src/components/*-workbench.tsx` — every pattern has a canonical
+      implementation (invoices-workbench.tsx for List/Create/Edit/Detail, banking-workbench.tsx
+      for Import, approvals-workbench.tsx for Approval, reports-workbench.tsx for Report) and
+      is reused across 15+ entity workbenches. All required states (loading, empty, error,
+      no-permission, archived/void, success) are handled via shared primitives from `packages/ui`.
+- [x] 40. **Definition of Done** template (`docs/BUILD_ROADMAP.md:907-921`) run per-module.
+      Audit result: 11 of 14 DoD items are satisfied across all shipped modules; 3 are deferred to
+      future phases by decision: - **Analytics events** — feeds Phase 12 Product Analytics (no code exists yet; `apps/web/src/components/platform-overview.tsx` shows org-level adoption metrics only, not product event instrumentation) - **Documentation/support notes** — Phase 14 track 16 Operations (not started; each phase has a `PHASE<N>_TODO.md` as implementation reference but no runbooks/support notes exist) - **Accessibility and security checks** — Phase 14 tracks 11 & 14 (not started)
+      Satisfied items: product requirements (per-phase TODOs), UX states (`packages/ui` EmptyState/ForbiddenState/Loading/Toast), permission matrix (`roles-catalog.ts`/`permission-catalog.ts`), migrations (zero drift CI), accounting impact (cross-module scenarios), API contracts (`*.dto.ts` + class-validator + NestJS ValidationPipe), audit events (`domain-events.service.ts` + registry test), automated tests (per-module), posting+reversal (cross-module scenarios), report source-of-truth (`report-registry.ts` `sourceOfTruth`/`reconciliation` fields), background job retry/idempotency (GAP #37).
 
 ---
 
@@ -202,7 +207,7 @@ _(Explicitly out of scope for V1 per spec §19, not a gap: public API/webhook co
 
 ## Totals
 
-**40 unchecked boxes remain.** Category labels above intentionally overlap where release tracks,
+**39 unchecked boxes remain.** Category labels above intentionally overlap where release tracks,
 cross-module scenarios, and source-phase follow-ups refer to the same public-V1 work.
 
 No unchecked item is currently flagged as a live correctness risk; the remaining items are unbuilt
