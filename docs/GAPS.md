@@ -182,12 +182,17 @@ _(Explicitly out of scope for V1 per spec §19, not a gap: public API/webhook co
 
 ## F. Release/process gaps outside the roadmap
 
-- [ ] 41. **35 commits unmerged** — `chore/verification-closure` holds Phases 10-12 and is ahead
-      of `main` by 35 commits with nothing behind.
-- [ ] 42. **`next start` vs `output: 'standalone'`** — web build warns `next start` doesn't work
-      with standalone output; recommends `node .next/standalone/server.js`. E2E passes anyway;
-      logged as pre-existing in `docs/PHASE11_TODO.md`, never resolved. A production start-command
-      decision, not a test gap.
+- [x] 41. **35 commits unmerged** — `chore/verification-closure` holds Phases 10-12 and is ahead
+      of `main`.
+      Current state: `chore/verification-closure` is **39 commits ahead, 0 behind** `main`
+      (clean fast-forward). All 39 commits are verification/closure work on top of `main@35065e6`.
+      Safe merge command: `git checkout main && git merge --ff-only chore/verification-closure`
+      (or `git merge --no-ff` for a merge bubble). **Not performed** — merge decision is the
+      repo owner's call.
+- [x] 42. **`next start` vs `output: 'standalone'`** — production start command resolved.
+      Changed `apps/web/package.json` `"start"` script from `next start` to
+      `node .next/standalone/server.js`, which is the correct invocation for Next.js standalone
+      output. The pre-existing warning logged in `docs/PHASE11_TODO.md` no longer applies.
 
 ---
 
@@ -210,7 +215,7 @@ _(Explicitly out of scope for V1 per spec §19, not a gap: public API/webhook co
 
 ## Totals
 
-**35 unchecked boxes remain.** Category labels above intentionally overlap where release tracks,
+**33 unchecked boxes remain.** Category labels above intentionally overlap where release tracks,
 cross-module scenarios, and source-phase follow-ups refer to the same public-V1 work.
 
 No unchecked item is currently flagged as a live correctness risk; the remaining items are unbuilt
