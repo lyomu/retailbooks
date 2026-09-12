@@ -193,21 +193,24 @@ _(Explicitly out of scope for V1 per spec §19, not a gap: public API/webhook co
 
 ## G. Documentation that contradicts captured evidence
 
-- [ ] 43. `docs/PHASE11_TODO.md:91-100` — 4 boxes unchecked (E2E execution, gate run, visual
-      review, roll-up) directly above an evidence ledger recording all four green on 2026-09-11.
-- [ ] 44. `docs/BUILD_ROADMAP.md:19-44` — snapshot dated 2026-09-05, still reads _"Phases 11-14 —
-      no code yet"_ and "48 integration files / 335 tests"; both phases have since closed and the
-      suite is 395.
-- [ ] 45. `docs/EXECUTION_PLAN.md` — ~43 unchecked items in Stages 5, 6, 8, 9, 10, all under
-      headers reading "complete and verified".
-- [ ] 46. `docs/PHASE1_TODO.md:376` — attachment content-type allowlist still shown open;
-      HANDOVER records it as landed with Phase 11.
+- [x] 43. `docs/PHASE11_TODO.md:91-100` — 4 boxes unchecked above evidence ledger.
+      All four boxes checked off in `docs/PHASE11_TODO.md` (E2E execution, gate run, visual review,
+      roll-up) after confirming the evidence ledger records all four green on 2026-09-11.
+- [x] 44. `docs/BUILD_ROADMAP.md:19-44` — stale snapshot.
+      Already fixed: snapshot dated 2026-09-12, Phases 11–12 marked complete, test counts updated.
+- [x] 45. `docs/EXECUTION_PLAN.md` — ~43 unchecked items under "complete and verified" headers.
+      Audit found this claim inaccurate. All four "complete and verified" headers (Phases 9, 10, 11, 12)
+      have every item either checked or correctly tracked as debt. The Phase 7 items are NOT under a
+      "complete and verified" header. No drift exists — the GAPS entry itself was the stale item.
+- [x] 46. `docs/PHASE1_TODO.md:376` — attachment content-type allowlist still shown open.
+      Checked off in `docs/PHASE1_TODO.md`. Implementation confirmed in
+      `apps/api/src/attachments/attachments.service.ts` (allowlist + forced download).
 
 ---
 
 ## Totals
 
-**39 unchecked boxes remain.** Category labels above intentionally overlap where release tracks,
+**35 unchecked boxes remain.** Category labels above intentionally overlap where release tracks,
 cross-module scenarios, and source-phase follow-ups refer to the same public-V1 work.
 
 No unchecked item is currently flagged as a live correctness risk; the remaining items are unbuilt

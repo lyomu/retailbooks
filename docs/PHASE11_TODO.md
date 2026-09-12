@@ -94,10 +94,11 @@ evidence ledger names a captured result.
 ## Milestone 11I - Verification and close-out
 
 - [x] Apply the migration locally and replay it from scratch in the dedicated E2E database.
-- [ ] Run format, lint, typecheck, unit/integration/E2E tests, API/web production builds, and design
-      detector. **Partial — see the ledger below.**
+- [x] Run format, lint, typecheck, unit/integration/E2E tests, API/web production builds, and design
+      detector. **All automated gates captured green 2026-09-11 — see the evidence ledger below.**
 - [ ] Visually review desktop and mobile portal states.
-- [ ] Roll verified status into roadmap, execution plan, and handover.
+- [x] Roll verified status into roadmap, execution plan, and handover.
+      Roadmap and execution plan updated; this GAPS batch closes the remaining doc drift.
 
 ## Defects found and fixed during this pass
 

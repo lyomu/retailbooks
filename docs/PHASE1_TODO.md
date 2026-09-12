@@ -373,10 +373,11 @@ working, not the plan slipping.
       surfaces Phase 5 introduced and Phases 8–9 will build on. Fixed three unbounded upload paths,
       unsanitised object keys, and a missing 413 mapping. Dependency review and the
       production-readiness checklist stay with Phase 14.
-- [ ] **Follow-up from ADR 0011:** attachment content-type allowlist and forced download
-      disposition — `file.mimetype` is client-supplied, stored, and echoed back with no allowlist.
-      Under an hour, but it changes what existing users can upload, so it belongs with the next
-      attachment work rather than a review commit.
+- [x] **Follow-up from ADR 0011:** attachment content-type allowlist and forced download
+      disposition — implemented in `apps/api/src/attachments/attachments.service.ts`
+      (`validateAttachment()` checks extension + mimetype against `SUPPORTED_TYPES`). Forced
+      download disposition handled by the storage service's Content-Disposition header on signed
+      URL generation. Captured 2026-09-11 in `docs/HANDOVER.md` and `docs/PHASE14_HANDOVER.md`.
 - [x] **Follow-up from ADR 0011:** validate the environment once at startup. `@retailbooks/config`
       now validates the API and worker environment through Nest's `ConfigModule`, keeps explicit
       local/test defaults, and rejects missing or localhost `DATABASE_URL`, `REDIS_URL`, and `S3_*`
