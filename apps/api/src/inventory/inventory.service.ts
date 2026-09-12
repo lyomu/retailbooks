@@ -292,8 +292,23 @@ export class InventoryService {
     user: PublicUser,
     adjustmentId: string,
     metadata: RequestMetadata,
+    idempotencyKey?: string,
   ) {
+    const key = idempotencyKey ?? adjustmentId;
     const posted = await this.prisma.$transaction(async (tx) => {
+      await this.lockPostIdempotency(tx, context.id, key);
+      const existingResult = await this.findPostIdempotentResult(context.id, key, tx);
+      if (existingResult) {
+        return tx.inventoryAdjustment.findFirstOrThrow({
+          where: {
+            id: adjustmentId,
+            organizationId: context.id,
+            journalId: existingResult.resourceId,
+          },
+          include: adjustmentInclude,
+        });
+      }
+
       const adjustment = await tx.inventoryAdjustment.findFirst({
         where: { id: adjustmentId, organizationId: context.id },
         include: adjustmentInclude,
@@ -378,7 +393,7 @@ export class InventoryService {
           ],
         },
         metadata,
-        adjustment.id,
+        key,
         tx,
       );
 
@@ -407,6 +422,7 @@ export class InventoryService {
     user: PublicUser,
     input: CreateInventoryTransferDto,
     metadata: RequestMetadata,
+    idempotencyKey?: string,
   ) {
     const item = await this.assertTrackedItem(context.id, input.itemId);
     if (input.fromWarehouseId === input.toWarehouseId) {
@@ -414,9 +430,18 @@ export class InventoryService {
     }
     await this.ensureWarehouse(context.id, input.fromWarehouseId);
     await this.ensureWarehouse(context.id, input.toWarehouseId);
+    if (idempotencyKey) {
+      const existing = await this.findTransferIdempotentResult(context.id, idempotencyKey);
+      if (existing) return { id: existing.resourceId, itemId: item.id, quantity: input.quantity };
+    }
     const transferId = randomUUID();
 
-    await this.prisma.$transaction(async (tx) => {
+    const resolvedTransferId = await this.prisma.$transaction(async (tx) => {
+      if (idempotencyKey) {
+        await this.lockTransferIdempotency(tx, context.id, idempotencyKey);
+        const existing = await this.findTransferIdempotentResult(context.id, idempotencyKey, tx);
+        if (existing) return existing.resourceId;
+      }
       const totalCostMinor = await this.consumeStock(tx, context, user, {
         itemId: item.id,
         warehouseId: input.fromWarehouseId,
@@ -446,9 +471,13 @@ export class InventoryService {
         after: { itemId: item.id, quantity: input.quantity },
         ipHash: metadata.ipHash,
       });
+      if (idempotencyKey) {
+        await this.recordTransferIdempotency(tx, context.id, idempotencyKey, transferId);
+      }
+      return transferId;
     });
 
-    return { id: transferId, itemId: item.id, quantity: input.quantity };
+    return { id: resolvedTransferId, itemId: item.id, quantity: input.quantity };
   }
 
   async reorderAdvice(organizationId: string) {
@@ -1033,6 +1062,73 @@ export class InventoryService {
     }
     if (received === 0n) return 'NOT_RECEIVED' as const;
     return received >= ordered ? ('RECEIVED' as const) : ('PARTIALLY_RECEIVED' as const);
+  }
+
+  private async lockPostIdempotency(tx: Tx, organizationId: string, key: string): Promise<void> {
+    const lockKey = `${organizationId}:INVENTORY_ADJUSTMENT_POST:${key}`;
+    await tx.$queryRaw`
+      SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))::text AS locked
+    `;
+  }
+
+  private findPostIdempotentResult(
+    organizationId: string,
+    key: string,
+    client: Prisma.TransactionClient | PrismaService = this.prisma,
+  ) {
+    return client.ledgerIdempotencyKey.findUnique({
+      where: {
+        organizationId_operation_key: {
+          organizationId,
+          operation: 'INVENTORY_ADJUSTMENT_POST',
+          key,
+        },
+      },
+    });
+  }
+
+  private async lockTransferIdempotency(
+    client: Prisma.TransactionClient | PrismaService,
+    organizationId: string,
+    key: string,
+  ): Promise<void> {
+    const lockKey = `${organizationId}:INVENTORY_TRANSFER:${key}`;
+    await client.$queryRaw`
+      SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))::text AS locked
+    `;
+  }
+
+  private findTransferIdempotentResult(
+    organizationId: string,
+    key: string,
+    client: Prisma.TransactionClient | PrismaService = this.prisma,
+  ) {
+    return client.ledgerIdempotencyKey.findUnique({
+      where: {
+        organizationId_operation_key: {
+          organizationId,
+          operation: 'INVENTORY_TRANSFER',
+          key,
+        },
+      },
+    });
+  }
+
+  private recordTransferIdempotency(
+    tx: Tx,
+    organizationId: string,
+    key: string,
+    transferId: string,
+  ) {
+    return tx.ledgerIdempotencyKey.create({
+      data: {
+        organizationId,
+        operation: 'INVENTORY_TRANSFER',
+        key,
+        resourceType: 'INVENTORY_TRANSFER',
+        resourceId: transferId,
+      },
+    });
   }
 }
 

@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { AuditAction, type Prisma } from '@prisma/client';
+import { roundHalfUpDivide } from '@retailbooks/accounting-core';
 
 import type { PublicUser } from '../auth/auth.service.js';
 import { DomainEventsService } from '../automation/domain-events.service.js';
@@ -137,6 +138,11 @@ export class PaymentsService {
       const arAccount = contact.receivableAccountId
         ? await tx.ledgerAccount.findUniqueOrThrow({ where: { id: contact.receivableAccountId } })
         : await this.ledger.accountBySystemKey(context.id, 'accounts_receivable', tx);
+      const organization = await tx.organization.findUniqueOrThrow({
+        where: { id: context.id },
+        select: { baseCurrency: true },
+      });
+      const isForeignCurrency = currency !== organization.baseCurrency;
 
       const payment = await tx.paymentReceived.create({
         data: {
@@ -168,12 +174,14 @@ export class PaymentsService {
               accountId: depositAccount.id,
               debitMinor: amountMinor,
               creditMinor: 0n,
+              foreignAmountMinor: isForeignCurrency ? amountMinor : undefined,
               description: `Payment from ${contact.displayName}`,
             },
             {
               accountId: arAccount.id,
               debitMinor: 0n,
               creditMinor: amountMinor,
+              foreignAmountMinor: isForeignCurrency ? amountMinor : undefined,
               description: `Payment from ${contact.displayName}`,
             },
           ],
@@ -284,6 +292,11 @@ export class PaymentsService {
         where: { id: paymentId, organizationId: context.id },
       });
       if (!payment) throw new NotFoundException('Payment not found.');
+      const organization = await tx.organization.findUniqueOrThrow({
+        where: { id: context.id },
+        select: { baseCurrency: true },
+      });
+      const isForeignCurrency = payment.currency !== organization.baseCurrency;
 
       const sortedInvoiceIds = [...requestedByInvoice.keys()].sort();
       await this.lockInvoiceRowsInOrder(tx, context.id, sortedInvoiceIds);
@@ -297,6 +310,11 @@ export class PaymentsService {
         if (invoice.contactId !== payment.contactId) {
           throw new ConflictException(
             `Invoice ${invoiceId} does not belong to this payment's customer.`,
+          );
+        }
+        if (invoice.currency !== payment.currency) {
+          throw new ConflictException(
+            `Invoice ${invoiceId} is in ${invoice.currency}, but this payment is in ${payment.currency}.`,
           );
         }
         if (invoice.status !== 'ISSUED' && invoice.status !== 'PARTIALLY_PAID') {
@@ -324,6 +342,19 @@ export class PaymentsService {
             `Allocation for invoice ${invoiceId} exceeds its remaining balance.`,
           );
         }
+      }
+
+      if (isForeignCurrency) {
+        await this.postRealizedFxAdjustment(
+          tx,
+          context,
+          user,
+          payment,
+          organization.baseCurrency,
+          invoicesById,
+          requestedByInvoice,
+          metadata,
+        );
       }
 
       for (const [invoiceId, amount] of requestedByInvoice) {
@@ -464,6 +495,149 @@ export class PaymentsService {
       FOR UPDATE
     `;
   }
+
+  private async postRealizedFxAdjustment(
+    tx: Prisma.TransactionClient,
+    context: OrganizationContext,
+    user: PublicUser,
+    payment: {
+      id: string;
+      contactId: string;
+      amountMinor: bigint;
+      receivedDate: Date;
+      journalId: string | null;
+    },
+    baseCurrency: string,
+    invoicesById: ReadonlyMap<
+      string,
+      { id: string; invoiceNumber: string | null; totalMinor: bigint; journalId: string | null }
+    >,
+    requestedByInvoice: ReadonlyMap<string, bigint>,
+    metadata: RequestMetadata,
+  ): Promise<void> {
+    if (!payment.journalId) {
+      throw new ConflictException('This payment has no posted journal for FX realization.');
+    }
+
+    const contact = await tx.contact.findUniqueOrThrow({
+      where: { id: payment.contactId },
+      select: { receivableAccountId: true, displayName: true },
+    });
+    const arAccount = contact.receivableAccountId
+      ? await tx.ledgerAccount.findUniqueOrThrow({ where: { id: contact.receivableAccountId } })
+      : await this.ledger.accountBySystemKey(context.id, 'accounts_receivable', tx);
+    const paymentJournal = await tx.journal.findUniqueOrThrow({
+      where: { id: payment.journalId },
+      include: { lines: true },
+    });
+    const paymentArLine = paymentJournal.lines.find(
+      (line) => line.accountId === arAccount.id && line.creditMinor > 0n,
+    );
+    if (!paymentArLine) {
+      throw new ConflictException('This payment has no accounts-receivable credit line.');
+    }
+
+    let arDebitMinor = 0n;
+    let arCreditMinor = 0n;
+    let fxGainMinor = 0n;
+    let fxLossMinor = 0n;
+
+    for (const [invoiceId, amountMinor] of requestedByInvoice) {
+      const invoice = invoicesById.get(invoiceId)!;
+      if (!invoice.journalId) {
+        throw new ConflictException(`Invoice ${invoiceId} has no posted journal.`);
+      }
+      const invoiceJournal = await tx.journal.findUniqueOrThrow({
+        where: { id: invoice.journalId },
+        include: { lines: true },
+      });
+      const invoiceArLine = invoiceJournal.lines.find(
+        (line) => line.accountId === arAccount.id && line.debitMinor > 0n,
+      );
+      if (!invoiceArLine) {
+        throw new ConflictException(
+          `Invoice ${invoice.invoiceNumber ?? invoiceId} has no AR line.`,
+        );
+      }
+
+      const invoiceBaseMinor = prorate(invoiceArLine.debitMinor, amountMinor, invoice.totalMinor);
+      const paymentBaseMinor = prorate(paymentArLine.creditMinor, amountMinor, payment.amountMinor);
+      const difference = paymentBaseMinor - invoiceBaseMinor;
+      if (difference > 0n) {
+        arDebitMinor += difference;
+        fxGainMinor += difference;
+      } else if (difference < 0n) {
+        arCreditMinor += -difference;
+        fxLossMinor += -difference;
+      }
+    }
+
+    const lines: {
+      accountId: string;
+      debitMinor: bigint;
+      creditMinor: bigint;
+      description: string;
+    }[] = [];
+    const description = `Realized FX on payment from ${contact.displayName}`;
+    if (arDebitMinor > 0n) {
+      lines.push({
+        accountId: arAccount.id,
+        debitMinor: arDebitMinor,
+        creditMinor: 0n,
+        description,
+      });
+    }
+    if (fxLossMinor > 0n) {
+      const lossAccount = await this.ledger.accountBySystemKey(context.id, 'fx_loss', tx);
+      lines.push({
+        accountId: lossAccount.id,
+        debitMinor: fxLossMinor,
+        creditMinor: 0n,
+        description,
+      });
+    }
+    if (arCreditMinor > 0n) {
+      lines.push({
+        accountId: arAccount.id,
+        debitMinor: 0n,
+        creditMinor: arCreditMinor,
+        description,
+      });
+    }
+    if (fxGainMinor > 0n) {
+      const gainAccount = await this.ledger.accountBySystemKey(context.id, 'fx_gain', tx);
+      lines.push({
+        accountId: gainAccount.id,
+        debitMinor: 0n,
+        creditMinor: fxGainMinor,
+        description,
+      });
+    }
+    if (lines.length === 0) return;
+
+    await this.ledger.postJournalFromLines(
+      context,
+      user,
+      'PAYMENT_ALLOCATE_FX',
+      {
+        journalDate: payment.receivedDate,
+        currency: baseCurrency,
+        description,
+        sourceType: 'PAYMENT_ALLOCATION',
+        sourceId: payment.id,
+        postingRule: 'PAYMENT_ALLOCATE_FX@v1',
+        lines,
+      },
+      metadata,
+      undefined,
+      tx,
+    );
+  }
+}
+
+function prorate(baseMinor: bigint, allocatedMinor: bigint, totalMinor: bigint): bigint {
+  if (totalMinor <= 0n) throw new ConflictException('Cannot prorate against a zero total.');
+  return roundHalfUpDivide(baseMinor * allocatedMinor, totalMinor);
 }
 
 function summarizePayment(payment: PaymentWithAllocations) {

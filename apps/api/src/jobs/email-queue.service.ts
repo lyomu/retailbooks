@@ -18,7 +18,7 @@ export class EmailQueueService implements OnModuleDestroy {
 
   constructor(config: ConfigService) {
     this.queue = new Queue<EmailDeliveryJob, void, EmailJobName>(EMAIL_QUEUE_NAME, {
-      connection: producerConnection(config.get<string>('REDIS_URL')),
+      connection: producerConnection(config.getOrThrow<string>('REDIS_URL')),
       prefix: config.get<string>('QUEUE_PREFIX') ?? 'retailbooks',
       skipWaitingForReady: true,
       defaultJobOptions: {

@@ -127,6 +127,68 @@ describe('inventory management against a real database', () => {
     expect((await inventory.valuationReport(context.id)).totalValueMinor).toBe('5000');
   });
 
+  it('replays inventory adjustment posting with the same idempotency key', async () => {
+    const item = await trackedItem('ADJ-IDEM', 'Adjustment replay widget');
+    const warehouse = await createWarehouse('IDEM', 'Idempotency Warehouse');
+    const draft = await inventory.createAdjustment(
+      context,
+      owner,
+      {
+        itemId: item.id,
+        warehouseId: warehouse.id,
+        adjustmentDate: '2026-02-01',
+        quantityDelta: '3',
+        valueDeltaMinor: '3000',
+        reason: 'Replay count',
+      },
+      metadata,
+    );
+
+    const first = await inventory.postAdjustment(
+      context,
+      owner,
+      draft.id,
+      metadata,
+      'adjustment-replay',
+    );
+    const replay = await inventory.postAdjustment(
+      context,
+      owner,
+      draft.id,
+      metadata,
+      'adjustment-replay',
+    );
+
+    expect(replay).toMatchObject({
+      id: first.id,
+      status: 'POSTED',
+      journalId: first.journalId,
+    });
+    expect(
+      await harness.prisma.stockMovement.count({
+        where: { organizationId: context.id, sourceType: 'ADJUSTMENT', sourceId: draft.id },
+      }),
+    ).toBe(1);
+    expect(
+      await harness.prisma.journal.count({
+        where: {
+          organizationId: context.id,
+          sourceType: 'INVENTORY_ADJUSTMENT',
+          sourceId: draft.id,
+        },
+      }),
+    ).toBe(1);
+    expect(
+      await harness.prisma.ledgerIdempotencyKey.count({
+        where: {
+          organizationId: context.id,
+          operation: 'INVENTORY_ADJUSTMENT_POST',
+          key: 'adjustment-replay',
+        },
+      }),
+    ).toBe(1);
+  });
+
   it('records transfers as paired movements with no net organization stock or GL change', async () => {
     const item = await trackedItem('TRF-001', 'Transfer widget');
     const main = await createWarehouse('MAIN', 'Main Warehouse');
@@ -146,7 +208,22 @@ describe('inventory management against a real database', () => {
         quantity: '2',
       },
       metadata,
+      'transfer-replay',
     );
+    const replayedTransfer = await inventory.transferStock(
+      context,
+      owner,
+      {
+        itemId: item.id,
+        fromWarehouseId: main.id,
+        toWarehouseId: overflow.id,
+        transferDate: '2026-02-02',
+        quantity: '2',
+      },
+      metadata,
+      'transfer-replay',
+    );
+    expect(replayedTransfer.id).toBe(transfer.id);
 
     const transferMovements = await harness.prisma.stockMovement.findMany({
       where: { organizationId: context.id, sourceType: 'TRANSFER', sourceId: transfer.id },
@@ -164,6 +241,15 @@ describe('inventory management against a real database', () => {
     ).toBe(0);
     expect((await inventory.valuationReport(context.id)).totalValueMinor).toBe('5000');
     expect(await postedAccountBalance(inventoryAccount.id)).toBe(inventoryBalanceBefore);
+    expect(
+      await harness.prisma.ledgerIdempotencyKey.count({
+        where: {
+          organizationId: context.id,
+          operation: 'INVENTORY_TRANSFER',
+          key: 'transfer-replay',
+        },
+      }),
+    ).toBe(1);
   });
 
   it('costs stock issues under FIFO and weighted-average valuation methods', async () => {

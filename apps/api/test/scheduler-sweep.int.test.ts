@@ -69,13 +69,16 @@ describe('scheduler sweep and execution lifecycle against a real database', () =
     context = await access.requireMembership(owner.id, created.id);
   });
 
-  function createJob(schedule: Parameters<SchedulerService['createJob']>[0]['schedule']) {
+  function createJob(
+    schedule: Parameters<SchedulerService['createJob']>[0]['schedule'],
+    sourceId = '00000000-0000-4000-8000-000000000001',
+  ) {
     return scheduler.createJob({
       organizationId: context.id,
       createdByUserId: owner.id,
       handler: 'SCHEDULED_REPORT',
       sourceType: 'SCHEDULED_REPORT',
-      sourceId: '00000000-0000-4000-8000-000000000001',
+      sourceId,
       schedule,
       timeZone: 'Africa/Nairobi',
     });
@@ -154,4 +157,140 @@ describe('scheduler sweep and execution lifecycle against a real database', () =
       expect(active.nextRunAt).not.toBeNull();
     });
   });
+
+  describe('domain events', () => {
+    it('emits scheduled job completed and failed events from the execution state transaction', async () => {
+      const completedJob = await createJob(
+        { cadence: 'DAILY', localTime: '09:00' },
+        '00000000-0000-4000-8000-000000000101',
+      );
+      const failedJob = await createJob(
+        { cadence: 'DAILY', localTime: '10:00' },
+        '00000000-0000-4000-8000-000000000102',
+      );
+      const completedExecution = await queueExecution(completedJob.id);
+      const failedExecution = await queueExecution(failedJob.id);
+
+      await scheduler.beginExecution(completedExecution.id);
+      await scheduler.completeExecution(completedExecution.id, { delivered: 1 });
+      await scheduler.beginExecution(failedExecution.id);
+      await scheduler.failExecution(failedExecution.id, new Error('Report renderer failed'));
+
+      const events = await harness.prisma.domainEventOutbox.findMany({
+        where: {
+          organizationId: context.id,
+          eventName: { in: ['scheduled-job.completed', 'scheduled-job.failed'] },
+        },
+        orderBy: { createdAt: 'asc' },
+      });
+      expect(events.map((event) => event.eventName)).toEqual([
+        'scheduled-job.completed',
+        'scheduled-job.failed',
+      ]);
+      expect(events[0]).toMatchObject({
+        aggregateType: 'scheduled_job_execution',
+        aggregateId: completedExecution.id,
+      });
+      expect(events[0]?.payload).toMatchObject({
+        executionId: completedExecution.id,
+        scheduledJobId: completedJob.id,
+        result: { delivered: 1 },
+      });
+      expect(events[1]).toMatchObject({
+        aggregateType: 'scheduled_job_execution',
+        aggregateId: failedExecution.id,
+      });
+      expect(events[1]?.payload).toMatchObject({
+        executionId: failedExecution.id,
+        scheduledJobId: failedJob.id,
+        error: 'Report renderer failed',
+      });
+    });
+  });
+
+  describe('consumer retry resume', () => {
+    it('re-claims a RUNNING execution on a BullMQ retry after a worker crash and completes the same row', async () => {
+      const job = await createJob(
+        { cadence: 'DAILY', localTime: '09:00' },
+        '00000000-0000-4000-8000-000000000201',
+      );
+      const execution = await queueExecution(job.id);
+
+      const first = await scheduler.beginExecution(execution.id);
+      expect(first).not.toBeNull();
+      expect(first?.status).toBe(ScheduledJobExecutionStatus.RUNNING);
+
+      // The worker crashed before completing; BullMQ retries the same job.
+      const resumed = await scheduler.beginExecution(execution.id);
+      expect(resumed).not.toBeNull();
+      expect(resumed?.id).toBe(execution.id);
+      expect(resumed?.attempts).toBe(2);
+
+      await scheduler.completeExecution(execution.id, { delivered: 1 });
+
+      const rows = await harness.prisma.scheduledJobExecution.findMany({
+        where: { scheduledJobId: job.id },
+      });
+      expect(rows).toHaveLength(1);
+      expect(rows[0]?.status).toBe(ScheduledJobExecutionStatus.SUCCEEDED);
+      expect(rows[0]?.error).toBeNull();
+    });
+
+    it('re-runs a FAILED execution on retry, clearing the prior error', async () => {
+      const job = await createJob(
+        { cadence: 'DAILY', localTime: '09:00' },
+        '00000000-0000-4000-8000-000000000202',
+      );
+      const execution = await queueExecution(job.id);
+
+      await scheduler.beginExecution(execution.id);
+      await scheduler.failExecution(execution.id, new Error('transient renderer failure'));
+
+      // A BullMQ retry still finds this execution (it is not SUCCEEDED) and re-claims it.
+      expect(await scheduler.handlerForExecution(execution.id)).toBe('SCHEDULED_REPORT');
+      const retried = await scheduler.beginExecution(execution.id);
+      expect(retried?.attempts).toBe(2);
+      expect(retried?.error).toBeNull();
+
+      await scheduler.completeExecution(execution.id, { delivered: 1 });
+
+      const done = await harness.prisma.scheduledJobExecution.findUniqueOrThrow({
+        where: { id: execution.id },
+      });
+      expect(done.status).toBe(ScheduledJobExecutionStatus.SUCCEEDED);
+      expect(done.error).toBeNull();
+      expect(done.completedAt).not.toBeNull();
+    });
+
+    it('treats a replay after completion as a no-op (crash after commit)', async () => {
+      const job = await createJob(
+        { cadence: 'DAILY', localTime: '09:00' },
+        '00000000-0000-4000-8000-000000000203',
+      );
+      const execution = await queueExecution(job.id);
+
+      await scheduler.beginExecution(execution.id);
+      await scheduler.completeExecution(execution.id, { delivered: 1 });
+
+      expect(await scheduler.handlerForExecution(execution.id)).toBeNull();
+      expect(await scheduler.beginExecution(execution.id)).toBeNull();
+
+      const rows = await harness.prisma.scheduledJobExecution.findMany({
+        where: { scheduledJobId: job.id },
+      });
+      expect(rows).toHaveLength(1);
+      expect(rows[0]?.status).toBe(ScheduledJobExecutionStatus.SUCCEEDED);
+    });
+  });
+
+  async function queueExecution(scheduledJobId: string) {
+    return harness.prisma.scheduledJobExecution.create({
+      data: {
+        organizationId: context.id,
+        scheduledJobId,
+        occurrenceKey: `${scheduledJobId}:manual`,
+        status: ScheduledJobExecutionStatus.QUEUED,
+      },
+    });
+  }
 });

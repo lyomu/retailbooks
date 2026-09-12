@@ -429,6 +429,7 @@ export class LedgerService {
          */
         projectId?: string | null;
         tagId?: string | null;
+        foreignAmountMinor?: bigint | null;
       }[];
     },
     metadata: RequestMetadata,
@@ -471,6 +472,7 @@ export class LedgerService {
               tagId: line.tagId ?? undefined,
               debitMinor: line.debitMinor,
               creditMinor: line.creditMinor,
+              foreignAmountMinor: line.foreignAmountMinor ?? undefined,
             })),
           },
         },

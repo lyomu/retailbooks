@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
   HttpCode,
   Param,
   ParseUUIDPipe,
@@ -178,6 +179,7 @@ export class InventoryController {
   @RequirePermission('inventory.adjustments.post')
   async postAdjustment(
     @Param('adjustmentId', new ParseUUIDPipe()) adjustmentId: string,
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
     @Req() request: OrganizationRequest,
   ) {
     const metadata = requestMetadata(request, this.auth.pepper);
@@ -187,6 +189,7 @@ export class InventoryController {
         request.auth.user,
         adjustmentId,
         metadata,
+        idempotencyKey,
       ),
     };
   }
@@ -212,7 +215,11 @@ export class InventoryController {
   @Post('transfers')
   @HttpCode(201)
   @RequirePermission('inventory.transfers.manage')
-  async transfer(@Body() input: CreateInventoryTransferDto, @Req() request: OrganizationRequest) {
+  async transfer(
+    @Body() input: CreateInventoryTransferDto,
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
+    @Req() request: OrganizationRequest,
+  ) {
     const metadata = requestMetadata(request, this.auth.pepper);
     return {
       data: await this.inventory.transferStock(
@@ -220,6 +227,7 @@ export class InventoryController {
         request.auth.user,
         input,
         metadata,
+        idempotencyKey,
       ),
     };
   }

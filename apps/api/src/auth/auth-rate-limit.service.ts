@@ -14,7 +14,7 @@ export class AuthRateLimitService implements OnModuleDestroy {
 
   constructor(config: ConfigService) {
     this.client = createClient({
-      url: config.get('REDIS_URL') ?? 'redis://localhost:56379',
+      url: config.getOrThrow<string>('REDIS_URL'),
       socket: { connectTimeout: 750, reconnectStrategy: false },
     });
     this.client.on('error', () => undefined);

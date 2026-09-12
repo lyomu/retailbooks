@@ -23,6 +23,11 @@ export interface PostingRuleLineSpec {
   debitMinor?: bigint;
   creditMinor?: bigint;
   /**
+   * Transaction-currency amount for foreign-currency postings. The ledger converts this to base
+   * currency at post time and keeps the original amount/rate frozen on the journal line.
+   */
+  foreignAmountMinor?: bigint;
+  /**
    * Reporting dimensions (decision D1) frozen onto the posted line. A rule sets these where its
    * source document carries an attribution -- invoice revenue to a project, say -- and leaves them
    * undefined otherwise. This is the only path by which a dimension reaches the ledger, which is

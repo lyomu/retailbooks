@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import type { HealthResponse, QueueStatus, ServiceStatus } from '@retailbooks/contracts';
 import { DomainEventState } from '@prisma/client';
 import { Client as PostgresClient } from 'pg';
@@ -21,6 +22,7 @@ export class HealthService {
     private readonly emailQueue: EmailQueueService,
     private readonly automationQueue: AutomationQueueService,
     private readonly prisma: PrismaService,
+    private readonly config: ConfigService,
   ) {}
 
   liveness(): HealthResponse {
@@ -172,9 +174,7 @@ export class HealthService {
   private async checkPostgres(): Promise<ServiceStatus> {
     return this.timedCheck('postgres', async () => {
       const client = new PostgresClient({
-        connectionString:
-          process.env.DATABASE_URL ??
-          'postgresql://retailbooks:retailbooks@localhost:55432/retailbooks',
+        connectionString: this.config.getOrThrow<string>('DATABASE_URL'),
         connectionTimeoutMillis: 1_500,
       });
 
@@ -190,7 +190,7 @@ export class HealthService {
   private async checkRedis(): Promise<ServiceStatus> {
     return this.timedCheck('redis', async () => {
       const client = createRedisClient({
-        url: process.env.REDIS_URL ?? 'redis://localhost:56379',
+        url: this.config.getOrThrow<string>('REDIS_URL'),
         socket: { connectTimeout: 1_500 },
       });
       client.on('error', () => undefined);
@@ -206,7 +206,7 @@ export class HealthService {
 
   private async checkMinio(): Promise<ServiceStatus> {
     return this.timedCheck('minio', async () => {
-      const endpoint = process.env.S3_ENDPOINT ?? 'http://localhost:59000';
+      const endpoint = this.config.getOrThrow<string>('S3_ENDPOINT');
       const response = await fetch(`${endpoint}/minio/health/live`, {
         signal: AbortSignal.timeout(1_500),
       });

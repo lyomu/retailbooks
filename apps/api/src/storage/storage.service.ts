@@ -19,13 +19,13 @@ export class StorageService {
   private bucketEnsured = false;
 
   constructor(config: ConfigService) {
-    this.bucket = config.get<string>('S3_BUCKET') ?? 'retailbooks-local';
+    this.bucket = config.getOrThrow<string>('S3_BUCKET');
     this.client = new S3Client({
-      endpoint: config.get<string>('S3_ENDPOINT'),
-      region: config.get<string>('S3_REGION') ?? 'us-east-1',
+      endpoint: config.getOrThrow<string>('S3_ENDPOINT'),
+      region: config.getOrThrow<string>('S3_REGION'),
       credentials: {
-        accessKeyId: config.get<string>('S3_ACCESS_KEY') ?? '',
-        secretAccessKey: config.get<string>('S3_SECRET_KEY') ?? '',
+        accessKeyId: config.getOrThrow<string>('S3_ACCESS_KEY'),
+        secretAccessKey: config.getOrThrow<string>('S3_SECRET_KEY'),
       },
       forcePathStyle: true,
     });

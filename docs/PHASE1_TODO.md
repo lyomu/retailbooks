@@ -377,10 +377,10 @@ working, not the plan slipping.
       disposition — `file.mimetype` is client-supplied, stored, and echoed back with no allowlist.
       Under an hour, but it changes what existing users can upload, so it belongs with the next
       attachment work rather than a review commit.
-- [ ] **Follow-up from ADR 0011:** validate the environment once at startup. `packages/config` is a
-      stub and only `SECURITY_PEPPER` asserts itself; `DATABASE_URL`, `REDIS_URL` and the `S3_*`
-      credentials fall back to empty strings or localhost, so a production boot with a missing
-      secret starts and fails later inside a request. Best done at the start of Phase 8.
+- [x] **Follow-up from ADR 0011:** validate the environment once at startup. `@retailbooks/config`
+      now validates the API and worker environment through Nest's `ConfigModule`, keeps explicit
+      local/test defaults, and rejects missing or localhost `DATABASE_URL`, `REDIS_URL`, and `S3_*`
+      values in production.
 - [x] Update `DESIGN.md` from the implemented system — **Stage 4.3**. Tokens reconciled against
       `packages/ui/src/tokens.css` (they had not drifted); the gap was vocabulary, not values.
       Added the module-workbench page composition that twenty-one modules converged on, the

@@ -19,6 +19,7 @@ import { DocumentNumberingService } from '../organizations/document-numbering.se
 import type { OrganizationContext } from '../organizations/organization-context.js';
 import { DocumentRenderingService } from './document-rendering.service.js';
 import { InvoicesService } from './invoices.service.js';
+import { buildPdfRenderSnapshot, parsePdfRenderSnapshot } from './pdf-render-snapshot.js';
 import { renderQuoteHtml } from './pdf-templates.js';
 import type { CreateQuoteDto, QuoteLineDto, UpdateQuoteDto } from './quotes.dto.js';
 
@@ -242,6 +243,32 @@ export class QuotesService {
       to: 'APPROVED',
       eventKey: 'sales.quote_approved',
       errorMessage: 'Only quotes pending approval can be approved.',
+      // APPROVED is the first state where the quote's data is frozen (edits are only allowed in
+      // DRAFT), so this is where the PDF render payload is captured -- once approved, no later
+      // customer rename or org restyle may restate the sent document (GAPS #38).
+      onUpdated: async (tx, quote) => {
+        await tx.quote.update({
+          where: { id: quoteId },
+          data: {
+            pdfSnapshot: buildPdfRenderSnapshot({
+              organizationName: context.legalName,
+              contactName: quote.contact.displayName,
+              number: quote.quoteNumber,
+              issueDate: quote.issueDate ? dateOnly(quote.issueDate) : null,
+              currency: quote.currency,
+              subtotalMinor: quote.subtotalMinor.toString(),
+              totalMinor: quote.totalMinor.toString(),
+              lines: quote.lines.map((line) => ({
+                descriptionSnapshot: line.descriptionSnapshot,
+                quantity: line.quantity,
+                unitPriceMinor: line.unitPriceMinor,
+                discountMinor: line.discountMinor,
+                lineTotalMinor: line.lineTotalMinor,
+              })),
+            }),
+          },
+        });
+      },
     });
   }
 
@@ -264,21 +291,34 @@ export class QuotesService {
       throw new BadRequestException('This customer has no email address on file.');
     }
 
-    const html = renderQuoteHtml(context.legalName, {
-      quoteNumber: existing.quoteNumber,
-      contactName: existing.contact.displayName,
-      issueDate: existing.issueDate ? dateOnly(existing.issueDate) : null,
-      currency: existing.currency,
-      subtotalMinor: existing.subtotalMinor.toString(),
-      totalMinor: existing.totalMinor.toString(),
-      lines: existing.lines.map((line) => ({
-        descriptionSnapshot: line.descriptionSnapshot,
-        quantity: line.quantity.toString(),
-        unitPriceMinor: line.unitPriceMinor.toString(),
-        discountMinor: line.discountMinor.toString(),
-        lineTotalMinor: line.lineTotalMinor.toString(),
-      })),
-    });
+    // The PDF always renders from the frozen `pdfSnapshot` captured at approval time (GAPS #38) --
+    // never from the live `context.legalName`/`contact.displayName`. Legacy rows fall back unchanged.
+    const snapshot = parsePdfRenderSnapshot(existing.pdfSnapshot);
+    const html = snapshot
+      ? renderQuoteHtml(snapshot.organizationName, {
+          quoteNumber: snapshot.number,
+          contactName: snapshot.contactName,
+          issueDate: snapshot.issueDate,
+          currency: snapshot.currency,
+          subtotalMinor: snapshot.subtotalMinor,
+          totalMinor: snapshot.totalMinor,
+          lines: snapshot.lines,
+        })
+      : renderQuoteHtml(context.legalName, {
+          quoteNumber: existing.quoteNumber,
+          contactName: existing.contact.displayName,
+          issueDate: existing.issueDate ? dateOnly(existing.issueDate) : null,
+          currency: existing.currency,
+          subtotalMinor: existing.subtotalMinor.toString(),
+          totalMinor: existing.totalMinor.toString(),
+          lines: existing.lines.map((line) => ({
+            descriptionSnapshot: line.descriptionSnapshot,
+            quantity: line.quantity.toString(),
+            unitPriceMinor: line.unitPriceMinor.toString(),
+            discountMinor: line.discountMinor.toString(),
+            lineTotalMinor: line.lineTotalMinor.toString(),
+          })),
+        });
     const { storageKey } = await this.documentRendering.render(context.id, 'QUOTE', quoteId, html);
     const signedUrl = await this.documentRendering.getSignedUrl(storageKey);
 
@@ -423,6 +463,8 @@ export class QuotesService {
       to: QuoteStatus;
       eventKey: string;
       errorMessage: string;
+      /** Runs inside the same transaction after the status update, e.g. to freeze a render payload. */
+      onUpdated?: (tx: Prisma.TransactionClient, quote: QuoteWithLines) => Promise<void>;
     },
   ) {
     const existing = await this.findOrThrow(context.id, quoteId);
@@ -446,6 +488,7 @@ export class QuotesService {
         after: { status: options.to },
         ipHash: metadata.ipHash,
       });
+      if (options.onUpdated) await options.onUpdated(tx, quote);
       return quote;
     });
     return summarizeQuote(updated);

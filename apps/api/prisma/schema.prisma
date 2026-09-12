@@ -1566,6 +1566,11 @@ model Invoice {
   /// restate what an issued document declared.
   countryPackCodeSnapshot    String?                @map("country_pack_code_snapshot") @db.VarChar(8)
   countryPackVersionSnapshot String?                @map("country_pack_version_snapshot") @db.VarChar(24)
+  /// Versioned render payload frozen inside the issue transaction. PDF rendering reads only this
+  /// payload -- never the live `contact`/`organization` rows -- so a later customer rename or org
+  /// restyle cannot restate what an issued document declared (GAPS #38). `schemaVersion` lets a
+  /// future shape change read old payloads without guessing, mirroring `StructuredInvoice`.
+  pdfSnapshot                Json?                  @map("pdf_snapshot") @db.JsonB
   createdByUserId            String                 @map("created_by_user_id") @db.Uuid
   createdAt                  DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt                  DateTime               @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -1718,6 +1723,9 @@ model CreditNote {
   journalId        String?                @unique @map("journal_id") @db.Uuid
   voidedAt         DateTime?              @map("voided_at") @db.Timestamptz(6)
   sentAt           DateTime?              @map("sent_at") @db.Timestamptz(6)
+  /// Versioned render payload frozen inside the issue transaction (GAPS #38) -- the PDF reads this,
+  /// never the live contact/organization rows. Same write-once rule as `Invoice.pdfSnapshot`.
+  pdfSnapshot      Json?                  @map("pdf_snapshot") @db.JsonB
   createdByUserId  String                 @map("created_by_user_id") @db.Uuid
   createdAt        DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt        DateTime               @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -1836,6 +1844,9 @@ model Quote {
   totalMinor         BigInt       @default(0) @map("total_minor") @db.BigInt
   convertedInvoiceId String?      @unique @map("converted_invoice_id") @db.Uuid
   sentAt             DateTime?    @map("sent_at") @db.Timestamptz(6)
+  /// Versioned render payload frozen at the APPROVED transition (GAPS #38) -- once approved a quote
+  /// can no longer be edited, so this captures the exact display data the sent PDF renders from.
+  pdfSnapshot        Json?        @map("pdf_snapshot") @db.JsonB
   createdByUserId    String       @map("created_by_user_id") @db.Uuid
   createdAt          DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt          DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)

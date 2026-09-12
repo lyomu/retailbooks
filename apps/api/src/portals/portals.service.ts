@@ -9,6 +9,7 @@ import { writeAuditEvent } from '../organizations/audit-event.js';
 import type { OrganizationContext } from '../organizations/organization-context.js';
 import { StatementsService } from '../sales/statements.service.js';
 import { DocumentRenderingService } from '../sales/document-rendering.service.js';
+import { parsePdfRenderSnapshot } from '../sales/pdf-render-snapshot.js';
 import type { PortalContext } from './portal-context.js';
 import type { UpdatePortalProfileDto } from './portal.dto.js';
 
@@ -39,6 +40,9 @@ interface PortalDocumentRecord {
   totalMinor?: bigint;
   amountMinor?: bigint;
   lines?: DocumentLine[];
+  /** The frozen render payload (Invoice/CreditNote/Quote only) when the document was issued or
+   * approved; absent for SalesOrders/PaymentReceived. Renders from this, never from live records. */
+  pdfSnapshot?: unknown;
 }
 
 /** One row of the document list, before it is serialised. */
@@ -528,19 +532,22 @@ export class PortalsService {
     if (!record) throw new NotFoundException('Portal document not found.');
     const renderingType = type as
       'QUOTE' | 'SALES_ORDER' | 'INVOICE' | 'CREDIT_NOTE' | 'PAYMENT_RECEIVED';
+    // Issued documents render from the frozen pdfSnapshot (GAPS #38); only documents that predate
+    // snapshots fall back to the live portal/organization display values.
+    const frozen = parsePdfRenderSnapshot(record.pdfSnapshot);
     const snapshot = await this.documentRendering.render(
       portal.organizationId,
       renderingType,
       id,
       customerDocumentHtml({
-        organizationName: portal.organizationName,
-        customerName: portal.contactName,
+        organizationName: frozen?.organizationName ?? portal.organizationName,
+        customerName: frozen?.contactName ?? portal.contactName,
         type,
         number: record.number,
         status: record.status,
         currency: record.currency,
-        totalMinor: String(record.totalMinor ?? record.amountMinor),
-        lines: record.lines ?? [],
+        totalMinor: frozen?.totalMinor ?? String(record.totalMinor ?? record.amountMinor),
+        lines: frozen?.lines ?? record.lines ?? [],
       }),
     );
     return { downloadUrl: await this.documentRendering.getSignedUrl(snapshot.storageKey) };
@@ -588,6 +595,7 @@ export class PortalsService {
               expiryDate: true,
               currency: true,
               totalMinor: true,
+              pdfSnapshot: true,
               lines: {
                 select: {
                   descriptionSnapshot: true,
@@ -635,6 +643,7 @@ export class PortalsService {
               dueDate: true,
               currency: true,
               totalMinor: true,
+              pdfSnapshot: true,
               lines: {
                 select: {
                   descriptionSnapshot: true,
@@ -658,6 +667,7 @@ export class PortalsService {
               issueDate: true,
               currency: true,
               totalMinor: true,
+              pdfSnapshot: true,
               lines: {
                 select: {
                   descriptionSnapshot: true,

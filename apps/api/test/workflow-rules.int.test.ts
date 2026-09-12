@@ -1,10 +1,11 @@
 import { randomUUID } from 'node:crypto';
 
 import type { Prisma } from '@prisma/client';
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { PublicUser } from '../src/auth/auth.service.js';
 import { DomainEventsService } from '../src/automation/domain-events.service.js';
+import { NotificationsService } from '../src/automation/notifications.service.js';
 import { WorkflowsService } from '../src/automation/workflows.service.js';
 import { OrganizationAccessService } from '../src/organizations/organization-access.service.js';
 import type { OrganizationContext } from '../src/organizations/organization-context.js';
@@ -22,6 +23,7 @@ describe('workflow rule execution properties against a real database', () => {
   let access: OrganizationAccessService;
   let events: DomainEventsService;
   let workflows: WorkflowsService;
+  let notifications: NotificationsService;
   let owner: PublicUser;
   let orgA: OrganizationContext;
   let orgB: OrganizationContext;
@@ -32,6 +34,7 @@ describe('workflow rule execution properties against a real database', () => {
     access = harness.app.get(OrganizationAccessService);
     events = harness.app.get(DomainEventsService);
     workflows = harness.app.get(WorkflowsService);
+    notifications = harness.app.get(NotificationsService);
   });
 
   afterAll(async () => {
@@ -195,5 +198,75 @@ describe('workflow rule execution properties against a real database', () => {
     expect(run.status).toBe('FAILED');
     expect(run.error).toBeTruthy();
     expect(await harness.prisma.notification.count({ where: { organizationId: orgA.id } })).toBe(0);
+  });
+
+  describe('worker retry resume', () => {
+    it('resumes a FAILED workflow run on a BullMQ replay and applies the actions exactly once', async () => {
+      const rule = await workflows.create(
+        orgA,
+        owner,
+        {
+          name: 'resumable rule',
+          trigger: 'invoice.issued',
+          conditions: [],
+          actions: [{ type: 'CREATE_NOTIFICATION', recipientUserId: owner.id, title: 'Follow up' }],
+        },
+        metadata,
+      );
+      await workflows.setStatus(orgA, owner, rule.id, 'ACTIVE', metadata);
+      const eventId = await emitAndDispatch(orgA.id, { invoiceId: 'inv-resume' });
+
+      // First attempt: the notification action fails, the action transaction rolls back, and the
+      // run is marked FAILED with nothing applied.
+      vi.spyOn(notifications, 'create').mockRejectedValueOnce(new Error('transient SMTP outage'));
+      await expect(workflows.consumeEvent(eventId)).rejects.toThrow('transient SMTP outage');
+
+      const failed = await harness.prisma.workflowRun.findFirstOrThrow({
+        where: { ruleId: rule.id, eventId },
+      });
+      expect(failed.status).toBe('FAILED');
+      expect(await harness.prisma.notification.count({ where: { organizationId: orgA.id } })).toBe(
+        0,
+      );
+
+      // BullMQ replay of the same event resumes the SAME run -- one row, actions applied once.
+      await workflows.consumeEvent(eventId);
+
+      const runs = await harness.prisma.workflowRun.findMany({
+        where: { ruleId: rule.id, eventId },
+      });
+      expect(runs).toHaveLength(1);
+      expect(runs[0]?.status).toBe('SUCCEEDED');
+      expect(runs[0]?.error).toBeNull();
+      expect(await harness.prisma.notification.count({ where: { organizationId: orgA.id } })).toBe(
+        1,
+      );
+    });
+
+    it('resumes a workflow run left RUNNING by a worker crash without duplicating the run row', async () => {
+      const rule = await activeRule(orgA, 'crashy rule');
+      const eventId = await emitAndDispatch(orgA.id, { invoiceId: 'inv-crash' });
+      // The previous attempt created the RUNNING row and crashed before the action transaction.
+      await harness.prisma.workflowRun.create({
+        data: {
+          organizationId: orgA.id,
+          ruleId: rule.id,
+          eventId,
+          status: 'RUNNING',
+          startedAt: new Date(),
+        },
+      });
+
+      await workflows.consumeEvent(eventId);
+
+      const runs = await harness.prisma.workflowRun.findMany({
+        where: { ruleId: rule.id, eventId },
+      });
+      expect(runs).toHaveLength(1);
+      expect(runs[0]?.status).toBe('SUCCEEDED');
+      expect(await harness.prisma.automationTask.count({ where: { sourceEventId: eventId } })).toBe(
+        1,
+      );
+    });
   });
 });

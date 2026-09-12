@@ -48,10 +48,7 @@ export class AuthService {
     private readonly mailer: AuthMailerService,
     config: ConfigService,
   ) {
-    this.securityPepper = config.get('SECURITY_PEPPER') ?? 'local-development-pepper-change-me';
-    if (config.get('NODE_ENV') === 'production' && this.securityPepper.length < 32) {
-      throw new Error('SECURITY_PEPPER must contain at least 32 characters in production.');
-    }
+    this.securityPepper = config.getOrThrow<string>('SECURITY_PEPPER');
   }
 
   get pepper(): string {

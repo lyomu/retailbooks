@@ -1,17 +1,15 @@
 import type { ConnectionOptions } from 'bullmq';
 
-const DEFAULT_REDIS_URL = 'redis://localhost:56379';
-
-export function producerConnection(redisUrl = process.env.REDIS_URL): ConnectionOptions {
+export function producerConnection(redisUrl: string): ConnectionOptions {
   return {
-    url: redisUrl ?? DEFAULT_REDIS_URL,
+    url: redisUrl,
     maxRetriesPerRequest: 1,
   };
 }
 
-export function workerConnection(redisUrl = process.env.REDIS_URL): ConnectionOptions {
+export function workerConnection(redisUrl: string): ConnectionOptions {
   return {
-    url: redisUrl ?? DEFAULT_REDIS_URL,
+    url: redisUrl,
     maxRetriesPerRequest: null,
   };
 }

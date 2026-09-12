@@ -248,9 +248,20 @@ describe('purchase order workflows against a real database', () => {
         draft.id,
         { lines: [{ purchaseOrderLineId: issued.lines[0]!.id, quantity: '1' }] },
         metadata,
+        'receipt-replay-1',
       );
       expect(partially.receiptStatus).toBe('PARTIALLY_RECEIVED');
       expect(partially.status).toBe('ISSUED');
+
+      const replayedPartial = await purchaseOrders.recordReceipt(
+        context,
+        owner,
+        draft.id,
+        { lines: [{ purchaseOrderLineId: issued.lines[0]!.id, quantity: '1' }] },
+        metadata,
+        'receipt-replay-1',
+      );
+      expect(replayedPartial.receiptStatus).toBe('PARTIALLY_RECEIVED');
 
       const received = await purchaseOrders.recordReceipt(
         context,
@@ -258,6 +269,7 @@ describe('purchase order workflows against a real database', () => {
         draft.id,
         { lines: [{ purchaseOrderLineId: issued.lines[0]!.id, quantity: '1' }] },
         metadata,
+        'receipt-replay-2',
       );
       expect(received.receiptStatus).toBe('RECEIVED');
       expect(received.status).toBe('ISSUED');
@@ -269,6 +281,15 @@ describe('purchase order workflows against a real database', () => {
       expect(movements).toHaveLength(2);
       expect(movements.every((movement) => movement.warehouseId === warehouse.id)).toBe(true);
       expect(movements.map((movement) => movement.quantity.toString())).toEqual(['1', '1']);
+      expect(
+        await harness.prisma.ledgerIdempotencyKey.count({
+          where: {
+            organizationId: context.id,
+            operation: 'PURCHASE_ORDER_RECEIPT',
+            key: { in: ['receipt-replay-1', 'receipt-replay-2'] },
+          },
+        }),
+      ).toBe(2);
     });
 
     it('rejects recording a receipt on an order that has not been issued', async () => {

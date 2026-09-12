@@ -14,6 +14,7 @@ interface ResolvedLine {
   description?: string;
   debitMinor: bigint;
   creditMinor: bigint;
+  foreignAmountMinor?: bigint;
   projectId?: string;
   tagId?: string;
 }
@@ -46,8 +47,17 @@ export class PostingRulesService {
     externalTx?: Prisma.TransactionClient,
   ): Promise<RulePostedJournal> {
     const client = externalTx ?? this.prisma;
+    const organization = await client.organization.findUniqueOrThrow({
+      where: { id: context.id },
+      select: { baseCurrency: true },
+    });
+    const isForeignCurrency = source.currency !== organization.baseCurrency;
     const resolved = await this.resolveLines(context.id, rule.lines(source), client);
-    this.validateLines(rule, resolved);
+    const postingLines = resolved.map((line) => ({
+      ...line,
+      foreignAmountMinor: isForeignCurrency ? line.foreignAmountMinor : undefined,
+    }));
+    this.validateLines(rule, postingLines);
     const tag = postingRuleTag(rule.event, rule.version);
 
     return this.ledger.postJournalFromLines(
@@ -61,7 +71,7 @@ export class PostingRulesService {
         sourceType: rule.sourceType,
         sourceId: source.sourceId,
         postingRule: tag,
-        lines: resolved,
+        lines: postingLines,
       },
       metadata,
       idempotencyKey,
@@ -122,6 +132,7 @@ export class PostingRulesService {
       description: spec.description,
       debitMinor: spec.debitMinor ?? 0n,
       creditMinor: spec.creditMinor ?? 0n,
+      foreignAmountMinor: spec.foreignAmountMinor,
       projectId: spec.projectId,
       tagId: spec.tagId,
     };

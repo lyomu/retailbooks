@@ -16,12 +16,13 @@ when Phase 1 hardening items close. Phases 2–14 exist only here; consider crea
 `docs/PHASE<N>_TODO.md` in the same style once a phase starts, and rolling its detail back into this
 file the way Phase 1's is summarized.
 
-**Status snapshot (2026-09-05):** Ten of fourteen phases have code, and nine of those meet this
+**Status snapshot (2026-09-12):** Ten of fourteen phases have code, and nine of those meet this
 document's "done and verified" bar apart from Phase 1's hardening debt and Phase 10's tracked debt
-(named in its section below). Sequencing for everything below lives in `docs/EXECUTION_PLAN.md`.
-Whole-repo gate at this snapshot: lint, prettier, and typecheck clean; 117 unit tests; **48
-integration files / 335 tests**; migration drift zero in both directions plus migration replay from
-scratch into a shadow database; API and web production builds green.
+(named in its section below). Phases 10-12 are on `chore/verification-closure` (35 commits ahead of
+`main`). Sequencing for everything below lives in `docs/EXECUTION_PLAN.md`.
+Whole-repo gate at this snapshot: lint, prettier, and typecheck clean; unit tests; **57 integration
+files / 412+ tests**; migration drift zero in both directions plus migration replay from scratch into
+a shadow database; API and web production builds green.
 
 - **Phase 1 (Foundation)** — functionally complete, hardening/test debt open (Milestone 1J).
 - **Phase 2 (Sales)** — complete and verified (2A–2K); see `docs/PHASE2_TODO.md`.
@@ -30,8 +31,8 @@ scratch into a shadow database; API and web production builds green.
   `docs/PHASE4_TODO.md`.
 - **Phase 5 (Banking & Reconciliation)** — complete and verified (5A–5E). Shipped in `ae8ae3e`
   under a code-first rule with no tests; the verification pass closed on 2026-09-02 with
-  `apps/api/test/banking.int.test.ts` (16 tests). One item stays open: the §18.1 end-to-end
-  scenario, tracked as Phase 14 scenario 1.
+  `apps/api/test/banking.int.test.ts` (16 tests). The deferred §18.1 end-to-end scenario is now
+  proven by `apps/api/test/cross-module-scenarios.int.test.ts`.
 - **Phase 6 (Inventory)** — complete and verified (6A–6E); see `docs/PHASE6_TODO.md`.
 - **Phase 7 (Projects & Time)** — complete and verified (7A–7F); see `docs/PHASE7_TODO.md`. Carries
   decision D1's ledger dimensions, which Phase 9's dimension-filtered reports build on. Phase 14
@@ -40,8 +41,9 @@ scratch into a shadow database; API and web production builds green.
 - **Phase 9 (Reporting)** — complete and verified (9A–9F); see `docs/PHASE9_TODO.md`.
 - **Phase 10 (Automation & Approvals)** — complete and verified (10A–10I) with tracked debt; see
   `docs/PHASE10_TODO.md`.
-- **Phases 11–14** — **no code yet**: no models, modules, routes, or pages exist for portals,
-  platform admin, or AI.
+- **Phases 11–12** — complete and verified; see `docs/PHASE11_TODO.md` and `docs/PHASE12_TODO.md`.
+- **Phases 13–14** — **no code yet**: no models, modules, routes, or pages exist for AI or
+  hardening/release.
 
 Two defects that the Phase 5/6 code-first rule had hidden were found and fixed during that pass:
 the authorization-boundary matrix could not detect an omitted controller (43 endpoints were
@@ -98,17 +100,29 @@ Established once, must hold for every module added in every later phase (build s
 - [x] UTC timestamps with transaction-local date/time-zone preserved where legally relevant
 - [x] Versioned tax/config references frozen onto posted ledger lines (tax snapshot on `JournalLine`)
 - [x] Idempotency keys on ledger post/reverse (`LedgerIdempotencyKey`)
-- [ ] Idempotency keys extended to every future posting endpoint (invoice issue, bill posting, payment
+- [x] Idempotency keys extended to every future posting endpoint (invoice issue, bill posting, payment
       recording, stock movement) and to imports/recurring job runs
+      — verified across the posting surface; inventory adjustment posting, inventory transfers, and
+      purchase-order receipts replay through dedicated idempotency namespaces and are covered by
+      `apps/api/test/inventory.int.test.ts` and `apps/api/test/purchase-orders.int.test.ts`
 - [ ] Optimistic concurrency/version fields on high-risk financial records beyond the ledger (verify
       current models; add `version`/`updatedAt`-guard pattern to Sales/Purchases documents as they ship)
-- [ ] Domain event emission (`invoice.issued`, `invoice.voided`, `payment.recorded`, `bill.posted`,
-      `journal.posted`, `stock.moved`, `reconciliation.completed`) — no event bus exists yet; needed
-      before Automation (Phase 10) can subscribe to business events
-- [ ] Background consumers retry-safe and idempotent for every future queue (email queue already is;
-      pattern must be reused for PDF, import, and recurring-job queues)
-- [ ] PDFs generated from immutable snapshots of issued documents (no document/PDF pipeline exists yet
-      — first needed in Phase 2)
+- [x] Domain event emission (`invoice.issued`, `invoice.voided`, `payment.recorded`, `bill.posted`,
+      `journal.posted`, `stock.moved`, `reconciliation.completed`, approval events, and
+      scheduled-job outcomes) — outbox-backed emission is wired and covered by registry plus
+      scheduler lifecycle tests
+- [x] Background consumers retry-safe and idempotent for every future queue — email queue already
+      was; the pattern is now reused for workflow, scheduler, and automation consumers via
+      idempotency keys written inside the same transaction that advances the execution row, so a
+      BullMQ replay/retry can never re-apply side effects
+      — covered by `apps/api/test/workflow-rules.int.test.ts` (resume-on-retry, replay-after-completion
+      no-op) and `apps/api/test/scheduler-sweep.int.test.ts` (re-claim on crash, re-run on failure,
+      no-op after commit)
+- [x] PDFs generated from immutable snapshots of issued documents — `buildPdfRenderSnapshot()` in
+      `apps/api/src/sales/pdf-render-snapshot.ts` captures the exact display payload inside the
+      issue/approval transaction, written to the document row's `pdfSnapshot` JSONB column; the
+      send/portal paths render from this payload, never from live records
+      — covered by `apps/api/test/issued-document-snapshots.int.test.ts` (invoice, quote, credit note)
 - [ ] Public API/webhook contracts — explicitly deferred until internal contracts stabilize (not a V1 blocker per spec §19)
 
 ## Shared screen patterns
@@ -255,7 +269,8 @@ blueprint §9).
       every organization-scoped endpoint including Statements)
 - [x] Cross-module acceptance scenario 1 (service business, build spec §18.1) passes through the AR/GL
       portion over real HTTP (bank-match/reconcile portion still depends on Phase 5)
-- [ ] Cross-module acceptance scenario 4 (credit flow, build spec §18.4) passes end to end
+- [x] Cross-module acceptance scenario 4 (credit flow, build spec §18.4) passes end to end — proven
+      by `apps/api/test/cross-module-scenarios.int.test.ts`
 
 ---
 
@@ -377,7 +392,8 @@ Entities: `FinancialAccount`, `StatementImport`, `BankTransaction`, `Match`, `Re
 > cross-currency transfers with void-by-reversal, and the reconciliation zero-difference gate,
 > lock and reopen. All 43 banking and inventory endpoints joined the authorization-boundary
 > matrix. Full gate green: 34 integration files / 258 tests, drift zero both directions, builds
-> pass. The one remaining item is the §18.1 end-to-end scenario, noted below.
+> pass. The deferred §18.1 end-to-end scenario is now proven by
+> `apps/api/test/cross-module-scenarios.int.test.ts`.
 
 ### Data model
 
@@ -417,10 +433,10 @@ Entities: `FinancialAccount`, `StatementImport`, `BankTransaction`, `Match`, `Re
 - [x] Match cannot double-allocate the same source transaction
 - [x] Reconciliation completion requires zero difference and locks on completion
 - [x] Transfer posting is balanced and linked correctly on both accounts
-- [ ] Cross-module scenario: bank import/match/reconcile closes the loop from Phase 2's invoice/payment
-      flow (build spec §18.1) — **still open.** `banking.int.test.ts` covers import, match and
-      reconcile in isolation, but not the full scenario-1 chain from quote through acceptance,
-      invoice, partial and final payment, to P&L/AR/GL agreement. Tracked as Phase 14 scenario 1.
+- [x] Cross-module scenario: bank import/match/reconcile closes the loop from Phase 2's invoice/payment
+      flow (build spec §18.1) — proven by `apps/api/test/cross-module-scenarios.int.test.ts`,
+      which runs the full chain from quote through acceptance, invoice, partial and final payment,
+      bank import/match, reconciliation, and P&L/AR/GL agreement.
 
 ---
 
@@ -845,23 +861,28 @@ incrementally as each phase lands, then fully before public V1.
 
 ### Cross-module acceptance scenarios (build spec §18) — must all pass before public V1
 
-- [ ] 1. Service business: customer → quote → acceptance → invoice → partial payment → final payment →
-      bank import/match → reconcile → P&L/AR/GL agree
+- [x] 1. Service business: customer → quote → acceptance → invoice → partial payment → final payment →
+      bank import/match → reconcile → P&L/AR/GL agree — proven by
+      `apps/api/test/cross-module-scenarios.int.test.ts`
 - [x] 2. Retail business: purchase inventory → vendor bill → payment → stock receipt → sale/invoice →
       stock issue/COGS → customer payment → inventory valuation agrees to GL — proven by
       `apps/api/test/inventory.int.test.ts`
 - [x] 3. Project business: project → approved time + expense → generate invoice → record payment →
       profitability and ledger reconcile
-- [ ] 4. Credit flow: invoice → partial payment → credit note → allocate credit → remaining balance
-      correct in statement, AR aging, and GL
-- [ ] 5. Foreign currency: foreign invoice → payment at different rate → realized FX gain/loss posted →
-      base-currency reports balance
-- [ ] 6. Close period: reconcile → lock → backdated edit/post attempt fails → authorized unlock records
-      actor/reason → re-lock succeeds
-- [ ] 7. Approval: maker creates → cannot issue before approval → approver rejects → maker
-      edits/resubmits → approver approves → issue/post → complete history
-- [ ] 8. Tenant security: identical record IDs/guesses from another organization never disclose
-      existence or data
+- [x] 4. Credit flow: invoice → partial payment → credit note → allocate credit → remaining balance
+      correct in statement, AR aging, and GL — proven by
+      `apps/api/test/cross-module-scenarios.int.test.ts`
+- [x] 5. Foreign currency: foreign invoice → payment at different rate → realized FX gain/loss posted →
+      base-currency reports balance — proven by
+      `apps/api/test/cross-module-scenarios.int.test.ts`
+- [x] 6. Close period: reconcile → lock → backdated edit/post attempt fails → authorized unlock records
+      actor/reason → re-lock succeeds — proven by
+      `apps/api/test/cross-module-scenarios.int.test.ts`
+- [x] 7. Approval: maker creates → cannot issue before approval → approver rejects → maker
+      edits/resubmits → approver approves → issue/post → complete history — proven by
+      `apps/api/test/cross-module-scenarios.int.test.ts`
+- [x] 8. Tenant security: identical record IDs/guesses from another organization never disclose
+      existence or data — proven by `apps/api/test/cross-module-scenarios.int.test.ts`
 
 ---
 

@@ -8,6 +8,7 @@ describe('HealthService', () => {
       { counts: () => Promise.resolve({ waiting: 0, active: 0, delayed: 0, failed: 0 }) } as never,
       { counts: () => Promise.resolve({ waiting: 0, active: 0, delayed: 0, failed: 0 }) } as never,
       {} as never,
+      {} as never,
     ).liveness();
 
     expect(health).toMatchObject({

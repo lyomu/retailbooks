@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_FILTER } from '@nestjs/core';
+import { validateApiEnvironment } from '@retailbooks/config';
 
 import { AuthModule } from './auth/auth.module.js';
 import { AutomationModule } from './automation/automation.module.js';
@@ -24,7 +25,7 @@ import { SalesModule } from './sales/sales.module.js';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({ isGlobal: true, validate: validateApiEnvironment }),
     ObservabilityModule,
     DatabaseModule,
     JobsModule,

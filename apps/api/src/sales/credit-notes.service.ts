@@ -27,6 +27,7 @@ import type {
   UpdateCreditNoteDto,
 } from './credit-notes.dto.js';
 import { DocumentRenderingService } from './document-rendering.service.js';
+import { buildPdfRenderSnapshot, parsePdfRenderSnapshot } from './pdf-render-snapshot.js';
 import { renderCreditNoteHtml } from './pdf-templates.js';
 
 const QUANTITY_SCALE = 10_000n;
@@ -388,6 +389,31 @@ export class CreditNotesService {
         include: creditNoteDetailInclude,
       });
 
+      // Freeze the exact display data the PDF renders from, in the same transaction that issues the
+      // credit note (GAPS #38): a later customer rename or org restyle must not restate the issued
+      // document. `updated` carries the lines with their just-frozen tax snapshots.
+      await tx.creditNote.update({
+        where: { id: creditNoteId },
+        data: {
+          pdfSnapshot: buildPdfRenderSnapshot({
+            organizationName: context.legalName,
+            contactName: updated.contact.displayName,
+            number: updated.creditNoteNumber,
+            issueDate: updated.issueDate ? dateOnly(updated.issueDate) : null,
+            currency: updated.currency,
+            subtotalMinor: updated.subtotalMinor.toString(),
+            taxTotalMinor: updated.taxTotalMinor.toString(),
+            totalMinor: updated.totalMinor.toString(),
+            lines: updated.lines.map((line) => ({
+              descriptionSnapshot: line.descriptionSnapshot,
+              quantity: line.quantity,
+              unitPriceMinor: line.unitPriceMinor,
+              discountMinor: line.discountMinor,
+              lineTotalMinor: line.lineTotalMinor,
+            })),
+          }),
+        },
+      });
       await this.recordCreditNoteIdempotency(
         tx,
         context.id,
@@ -822,22 +848,36 @@ export class CreditNotesService {
       throw new BadRequestException('This customer has no email address on file.');
     }
 
-    const html = renderCreditNoteHtml(context.legalName, {
-      creditNoteNumber: existing.creditNoteNumber,
-      contactName: existing.contact.displayName,
-      issueDate: existing.issueDate ? dateOnly(existing.issueDate) : null,
-      currency: existing.currency,
-      subtotalMinor: existing.subtotalMinor.toString(),
-      taxTotalMinor: existing.taxTotalMinor.toString(),
-      totalMinor: existing.totalMinor.toString(),
-      lines: existing.lines.map((line) => ({
-        descriptionSnapshot: line.descriptionSnapshot,
-        quantity: line.quantity.toString(),
-        unitPriceMinor: line.unitPriceMinor.toString(),
-        discountMinor: line.discountMinor.toString(),
-        lineTotalMinor: line.lineTotalMinor.toString(),
-      })),
-    });
+    // The PDF always renders from the frozen `pdfSnapshot` captured at issue time (GAPS #38) -- never
+    // from the live `context.legalName`/`contact.displayName`. Legacy rows fall back unchanged.
+    const snapshot = parsePdfRenderSnapshot(existing.pdfSnapshot);
+    const html = snapshot
+      ? renderCreditNoteHtml(snapshot.organizationName, {
+          creditNoteNumber: snapshot.number,
+          contactName: snapshot.contactName,
+          issueDate: snapshot.issueDate,
+          currency: snapshot.currency,
+          subtotalMinor: snapshot.subtotalMinor,
+          taxTotalMinor: snapshot.taxTotalMinor ?? '0',
+          totalMinor: snapshot.totalMinor,
+          lines: snapshot.lines,
+        })
+      : renderCreditNoteHtml(context.legalName, {
+          creditNoteNumber: existing.creditNoteNumber,
+          contactName: existing.contact.displayName,
+          issueDate: existing.issueDate ? dateOnly(existing.issueDate) : null,
+          currency: existing.currency,
+          subtotalMinor: existing.subtotalMinor.toString(),
+          taxTotalMinor: existing.taxTotalMinor.toString(),
+          totalMinor: existing.totalMinor.toString(),
+          lines: existing.lines.map((line) => ({
+            descriptionSnapshot: line.descriptionSnapshot,
+            quantity: line.quantity.toString(),
+            unitPriceMinor: line.unitPriceMinor.toString(),
+            discountMinor: line.discountMinor.toString(),
+            lineTotalMinor: line.lineTotalMinor.toString(),
+          })),
+        });
     const { storageKey } = await this.documentRendering.render(
       context.id,
       'CREDIT_NOTE',

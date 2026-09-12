@@ -42,7 +42,7 @@ export class AutomationWorker implements OnModuleInit, OnModuleDestroy {
       AUTOMATION_QUEUE_NAME,
       async (job) => this.process(job),
       {
-        connection: workerConnection(this.config.get<string>('REDIS_URL')),
+        connection: workerConnection(this.config.getOrThrow<string>('REDIS_URL')),
         prefix: this.config.get<string>('QUEUE_PREFIX') ?? 'retailbooks',
         concurrency: Number(this.config.get('AUTOMATION_WORKER_CONCURRENCY') ?? 4),
         metrics: { maxDataPoints: 14 * 24 * 60 },
@@ -78,7 +78,7 @@ export class AutomationWorker implements OnModuleInit, OnModuleDestroy {
     }
     if (job.name === AUTOMATION_JOB_NAMES.scheduledExecution) {
       const data = job.data as ScheduledExecutionJob;
-      const handler = await this.scheduler.handlerForQueuedExecution(data.executionId);
+      const handler = await this.scheduler.handlerForExecution(data.executionId);
       if (!handler) return;
       if (handler === 'report.scheduled') await this.scheduledReports.execute(data.executionId);
       else if (handler.startsWith('recurring.')) await this.recurring.execute(data.executionId);

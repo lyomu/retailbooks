@@ -3,7 +3,18 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
   "files": [
-    "README.md"
-  ]
+    "README.md",
+    "src"
+  ],
+  "dependencies": {
+    "zod": "^4.1.5"
+  }
 }

@@ -26,6 +26,7 @@ import { PostingRulesService } from '../posting-rules/posting-rules.service.js';
 import { DocumentRenderingService } from './document-rendering.service.js';
 import { INVOICE_ISSUE_RULE } from './invoice-posting-rule.js';
 import type { CreateInvoiceDto, InvoiceLineDto, UpdateInvoiceDto } from './invoices.dto.js';
+import { buildPdfRenderSnapshot, parsePdfRenderSnapshot } from './pdf-render-snapshot.js';
 import { renderInvoiceHtml } from './pdf-templates.js';
 
 const QUANTITY_SCALE = 10_000n;
@@ -383,6 +384,7 @@ export class InvoicesService {
           totalMinor,
           balanceMinor: totalMinor,
           journalId: postedJournal.id,
+          exchangeRate: postedJournal.exchangeRate,
           countryPackCodeSnapshot: preference?.countryPackCode ?? null,
           countryPackVersionSnapshot: preference?.countryPackVersion ?? null,
         },
@@ -391,6 +393,31 @@ export class InvoicesService {
 
       await this.inventory.postInvoiceCogs(context, user, invoiceId, metadata, tx);
       await this.persistStructuredInvoice(tx, context.id, updated);
+      // Freeze the exact display data the PDF renders from, in the same transaction that issues
+      // the invoice: a later customer rename or org restyle must not restate the issued document
+      // (GAPS #38). The PDF is rendered from this payload, never from live records.
+      await tx.invoice.update({
+        where: { id: invoiceId },
+        data: {
+          pdfSnapshot: buildPdfRenderSnapshot({
+            organizationName: context.legalName,
+            contactName: updated.contact.displayName,
+            number: updated.invoiceNumber,
+            issueDate: updated.issueDate ? dateOnly(updated.issueDate) : null,
+            currency: updated.currency,
+            subtotalMinor: updated.subtotalMinor.toString(),
+            taxTotalMinor: updated.taxTotalMinor.toString(),
+            totalMinor: updated.totalMinor.toString(),
+            lines: updated.lines.map((line) => ({
+              descriptionSnapshot: line.descriptionSnapshot,
+              quantity: line.quantity,
+              unitPriceMinor: line.unitPriceMinor,
+              discountMinor: line.discountMinor,
+              lineTotalMinor: line.lineTotalMinor,
+            })),
+          }),
+        },
+      });
       await this.recordInvoiceIdempotency(tx, context.id, idempotencyKey, invoiceId);
       await writeAuditEvent(tx, {
         organizationId: context.id,
@@ -515,22 +542,37 @@ export class InvoicesService {
       throw new BadRequestException('This customer has no email address on file.');
     }
 
-    const html = renderInvoiceHtml(context.legalName, {
-      invoiceNumber: existing.invoiceNumber,
-      contactName: existing.contact.displayName,
-      issueDate: existing.issueDate ? dateOnly(existing.issueDate) : null,
-      currency: existing.currency,
-      subtotalMinor: existing.subtotalMinor.toString(),
-      taxTotalMinor: existing.taxTotalMinor.toString(),
-      totalMinor: existing.totalMinor.toString(),
-      lines: existing.lines.map((line) => ({
-        descriptionSnapshot: line.descriptionSnapshot,
-        quantity: line.quantity.toString(),
-        unitPriceMinor: line.unitPriceMinor.toString(),
-        discountMinor: line.discountMinor.toString(),
-        lineTotalMinor: line.lineTotalMinor.toString(),
-      })),
-    });
+    // The PDF always renders from the frozen `pdfSnapshot` captured at issue time -- never from the
+    // live `context.legalName`/`contact.displayName` -- so renaming either after issue cannot restate
+    // the issued document. Legacy rows (pre-snapshot) fall back to the live-record path unchanged.
+    const snapshot = parsePdfRenderSnapshot(existing.pdfSnapshot);
+    const html = snapshot
+      ? renderInvoiceHtml(snapshot.organizationName, {
+          invoiceNumber: snapshot.number,
+          contactName: snapshot.contactName,
+          issueDate: snapshot.issueDate,
+          currency: snapshot.currency,
+          subtotalMinor: snapshot.subtotalMinor,
+          taxTotalMinor: snapshot.taxTotalMinor ?? '0',
+          totalMinor: snapshot.totalMinor,
+          lines: snapshot.lines,
+        })
+      : renderInvoiceHtml(context.legalName, {
+          invoiceNumber: existing.invoiceNumber,
+          contactName: existing.contact.displayName,
+          issueDate: existing.issueDate ? dateOnly(existing.issueDate) : null,
+          currency: existing.currency,
+          subtotalMinor: existing.subtotalMinor.toString(),
+          taxTotalMinor: existing.taxTotalMinor.toString(),
+          totalMinor: existing.totalMinor.toString(),
+          lines: existing.lines.map((line) => ({
+            descriptionSnapshot: line.descriptionSnapshot,
+            quantity: line.quantity.toString(),
+            unitPriceMinor: line.unitPriceMinor.toString(),
+            discountMinor: line.discountMinor.toString(),
+            lineTotalMinor: line.lineTotalMinor.toString(),
+          })),
+        });
     const { storageKey } = await this.documentRendering.render(
       context.id,
       'INVOICE',

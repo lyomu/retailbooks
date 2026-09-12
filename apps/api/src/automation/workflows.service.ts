@@ -257,7 +257,7 @@ export class WorkflowsService {
     // the rule's actions -- so a later action failure rolls back only the actions, never the record
     // that this rule was attempted at all. Its (ruleId, eventId) uniqueness is what makes re-entry
     // (a BullMQ retry replaying the same event) idempotent: a second attempt hits this insert and is
-    // treated as already-run, never as a second RUNNING row.
+    // never a second RUNNING row.
     let run: { id: string };
     try {
       run = await this.prisma.workflowRun.create({
@@ -270,44 +270,40 @@ export class WorkflowsService {
         },
       });
     } catch (error) {
-      if (isUniqueViolation(error)) return;
-      throw error;
+      if (!isUniqueViolation(error)) throw error;
+      // A replay of the same event after an earlier attempt. SUCCEEDED/SKIPPED are terminal -- the
+      // work committed -- so a retry is a no-op. FAILED means the action transaction rolled back and
+      // only the FAILED marker committed; RUNNING means the previous attempt crashed before that
+      // transaction committed. In both cases the actions were never applied, so a retry resumes
+      // them; the guarded UPDATE_MANY lets exactly one resumer win.
+      const existing = await this.prisma.workflowRun.findUnique({
+        where: { ruleId_eventId: { ruleId: rule.id, eventId: event.id } },
+        select: { id: true, status: true },
+      });
+      if (
+        !existing ||
+        existing.status === WorkflowRunStatus.SUCCEEDED ||
+        existing.status === WorkflowRunStatus.SKIPPED
+      ) {
+        return;
+      }
+      const claimed = await this.prisma.workflowRun.updateMany({
+        where: {
+          id: existing.id,
+          status: { in: [WorkflowRunStatus.RUNNING, WorkflowRunStatus.FAILED] },
+        },
+        data: {
+          status: WorkflowRunStatus.RUNNING,
+          startedAt: new Date(),
+          completedAt: null,
+          error: null,
+        },
+      });
+      if (!claimed.count) return;
+      run = existing;
     }
     try {
-      const actions = parseActions(rule.actions);
-      await this.prisma.$transaction(async (tx) => {
-        for (const action of actions) {
-          if (action.type === 'CREATE_NOTIFICATION') {
-            await this.notifications.create(tx, {
-              organizationId: event.organizationId,
-              recipientUserId: action.recipientUserId,
-              eventKey: `automation.rule.${rule.id}`,
-              title: interpolate(action.title, event.payload),
-              body: action.body ? interpolate(action.body, event.payload) : undefined,
-              href: action.href,
-              metadata: { eventId: event.id, ruleId: rule.id },
-            });
-          } else {
-            await tx.automationTask.create({
-              data: {
-                organizationId: event.organizationId,
-                sourceEventId: event.id,
-                title: interpolate(action.title, event.payload),
-                detail: action.detail ? interpolate(action.detail, event.payload) : undefined,
-                assignedToUserId: action.assignedToUserId,
-              },
-            });
-          }
-        }
-        await tx.workflowRun.update({
-          where: { id: run.id },
-          data: {
-            status: WorkflowRunStatus.SUCCEEDED,
-            completedAt: new Date(),
-            result: { actions: actions.length, ruleVersion: rule.version },
-          },
-        });
-      });
+      await this.executeActions(run.id, event, rule);
     } catch (error) {
       await this.prisma.workflowRun.update({
         where: { id: run.id },
@@ -320,6 +316,49 @@ export class WorkflowsService {
       });
       throw error;
     }
+  }
+
+  /** Applies a rule's actions and flips the run to SUCCEEDED in one transaction; on failure the
+   * transaction rolls back and the caller marks the run FAILED, so a later retry can resume. */
+  private async executeActions(
+    runId: string,
+    event: { id: string; organizationId: string; payload: Prisma.JsonValue },
+    rule: Prisma.WorkflowRuleGetPayload<Record<string, never>>,
+  ): Promise<void> {
+    const actions = parseActions(rule.actions);
+    await this.prisma.$transaction(async (tx) => {
+      for (const action of actions) {
+        if (action.type === 'CREATE_NOTIFICATION') {
+          await this.notifications.create(tx, {
+            organizationId: event.organizationId,
+            recipientUserId: action.recipientUserId,
+            eventKey: `automation.rule.${rule.id}`,
+            title: interpolate(action.title, event.payload),
+            body: action.body ? interpolate(action.body, event.payload) : undefined,
+            href: action.href,
+            metadata: { eventId: event.id, ruleId: rule.id },
+          });
+        } else {
+          await tx.automationTask.create({
+            data: {
+              organizationId: event.organizationId,
+              sourceEventId: event.id,
+              title: interpolate(action.title, event.payload),
+              detail: action.detail ? interpolate(action.detail, event.payload) : undefined,
+              assignedToUserId: action.assignedToUserId,
+            },
+          });
+        }
+      }
+      await tx.workflowRun.update({
+        where: { id: runId },
+        data: {
+          status: WorkflowRunStatus.SUCCEEDED,
+          completedAt: new Date(),
+          result: { actions: actions.length, ruleVersion: rule.version },
+        },
+      });
+    });
   }
 
   private async createSkippedRun(

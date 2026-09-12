@@ -258,12 +258,34 @@ export class PurchaseOrdersService {
     orderId: string,
     input: RecordPurchaseOrderReceiptDto | 'PARTIALLY_RECEIVED' | 'RECEIVED',
     metadata: RequestMetadata,
+    idempotencyKey?: string,
   ) {
     if (typeof input === 'string') {
       throw new BadRequestException('Receipt status is derived from stock receipt movements.');
     }
     const updated = await this.prisma.$transaction(async (tx) => {
-      return this.inventory.recordPurchaseOrderReceipt(context, user, orderId, input, metadata, tx);
+      if (idempotencyKey) {
+        await this.lockReceiptIdempotency(tx, context.id, idempotencyKey);
+        const existing = await this.findReceiptIdempotentResult(context.id, idempotencyKey, tx);
+        if (existing) {
+          return tx.purchaseOrder.findFirstOrThrow({
+            where: { id: existing.resourceId, organizationId: context.id },
+            include: orderDetailInclude,
+          });
+        }
+      }
+      const order = await this.inventory.recordPurchaseOrderReceipt(
+        context,
+        user,
+        orderId,
+        input,
+        metadata,
+        tx,
+      );
+      if (idempotencyKey) {
+        await this.recordReceiptIdempotency(tx, context.id, idempotencyKey, orderId);
+      }
+      return order;
     });
     return summarizeOrder(updated);
   }
@@ -341,6 +363,50 @@ export class PurchaseOrdersService {
     });
     if (!order) throw new NotFoundException('Purchase order not found.');
     return order;
+  }
+
+  private async lockReceiptIdempotency(
+    tx: Prisma.TransactionClient,
+    organizationId: string,
+    key: string,
+  ): Promise<void> {
+    const lockKey = `${organizationId}:PURCHASE_ORDER_RECEIPT:${key}`;
+    await tx.$queryRaw`
+      SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))::text AS locked
+    `;
+  }
+
+  private findReceiptIdempotentResult(
+    organizationId: string,
+    key: string,
+    client: Prisma.TransactionClient | PrismaService = this.prisma,
+  ) {
+    return client.ledgerIdempotencyKey.findUnique({
+      where: {
+        organizationId_operation_key: {
+          organizationId,
+          operation: 'PURCHASE_ORDER_RECEIPT',
+          key,
+        },
+      },
+    });
+  }
+
+  private recordReceiptIdempotency(
+    tx: Prisma.TransactionClient,
+    organizationId: string,
+    key: string,
+    orderId: string,
+  ) {
+    return tx.ledgerIdempotencyKey.create({
+      data: {
+        organizationId,
+        operation: 'PURCHASE_ORDER_RECEIPT',
+        key,
+        resourceType: 'PURCHASE_ORDER',
+        resourceId: orderId,
+      },
+    });
   }
 
   private async resolveLines(organizationId: string, lines: readonly PurchaseOrderLineDto[]) {

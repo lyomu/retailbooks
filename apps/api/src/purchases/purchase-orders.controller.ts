@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
   HttpCode,
   Param,
   ParseUUIDPipe,
@@ -112,6 +113,7 @@ export class PurchaseOrdersController {
   async recordReceipt(
     @Param('orderId', new ParseUUIDPipe()) orderId: string,
     @Body() input: RecordPurchaseOrderReceiptDto,
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
     @Req() request: OrganizationRequest,
   ) {
     const metadata = requestMetadata(request, this.auth.pepper);
@@ -122,6 +124,7 @@ export class PurchaseOrdersController {
         orderId,
         input,
         metadata,
+        idempotencyKey,
       ),
     };
   }

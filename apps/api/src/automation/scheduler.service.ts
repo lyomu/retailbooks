@@ -13,6 +13,7 @@ import type { RequestMetadata } from '../auth/request-context.js';
 import { writeAuditEvent } from '../organizations/audit-event.js';
 import { AutomationQueueService } from './automation-queue.service.js';
 import { CLOCK, type Clock } from './clock.js';
+import { DomainEventsService } from './domain-events.service.js';
 import { PrismaService } from '../database/prisma.service.js';
 
 export type CalendarSchedule = {
@@ -34,6 +35,7 @@ export class SchedulerService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly queue: AutomationQueueService,
+    private readonly events: DomainEventsService,
     @Inject(CLOCK) private readonly clock: Clock,
   ) {}
 
@@ -107,13 +109,34 @@ export class SchedulerService {
     return queued.length;
   }
 
+  /**
+   * Atomically claims an execution for processing. The first claim moves QUEUED -> RUNNING. A
+   * BullMQ retry of the same job re-claims the SAME row whenever the previous attempt ended without
+   * a committed completion transaction -- either because the worker crashed mid-run (row still
+   * RUNNING) or because the handler failed (row FAILED) -- so a retry always re-runs the work
+   * instead of being silently acknowledged. SUCCEEDED rows are never reclaimed: that state commits
+   * in the same transaction as the completion event, so a replay arriving after it is a crash
+   * after commit and must be a no-op. `attempts` reflects every claim, exactly like BullMQ's own
+   * job attemptsMade counter.
+   */
   async beginExecution(executionId: string) {
     const updated = await this.prisma.scheduledJobExecution.updateMany({
-      where: { id: executionId, status: ScheduledJobExecutionStatus.QUEUED },
+      where: {
+        id: executionId,
+        status: {
+          in: [
+            ScheduledJobExecutionStatus.QUEUED,
+            ScheduledJobExecutionStatus.RUNNING,
+            ScheduledJobExecutionStatus.FAILED,
+          ],
+        },
+      },
       data: {
         status: ScheduledJobExecutionStatus.RUNNING,
         startedAt: this.clock.now(),
         attempts: { increment: 1 },
+        error: null,
+        completedAt: null,
       },
     });
     if (!updated.count) return null;
@@ -123,35 +146,72 @@ export class SchedulerService {
     });
   }
 
-  async handlerForQueuedExecution(executionId: string) {
+  async handlerForExecution(executionId: string) {
     const execution = await this.prisma.scheduledJobExecution.findFirst({
-      where: { id: executionId, status: ScheduledJobExecutionStatus.QUEUED },
+      where: { id: executionId, status: { not: ScheduledJobExecutionStatus.SUCCEEDED } },
       select: { scheduledJob: { select: { handler: true } } },
     });
     return execution?.scheduledJob.handler ?? null;
   }
 
   async completeExecution(executionId: string, result: Prisma.InputJsonObject = {}) {
-    return this.prisma.scheduledJobExecution.update({
-      where: { id: executionId },
-      data: {
-        status: ScheduledJobExecutionStatus.SUCCEEDED,
-        completedAt: this.clock.now(),
-        result,
-        error: null,
-      },
+    return this.prisma.$transaction(async (tx) => {
+      const execution = await tx.scheduledJobExecution.update({
+        where: { id: executionId },
+        data: {
+          status: ScheduledJobExecutionStatus.SUCCEEDED,
+          completedAt: this.clock.now(),
+          result,
+          error: null,
+        },
+        include: { scheduledJob: { select: scheduledJobEventSelect } },
+      });
+      await this.events.emit(tx, {
+        organizationId: execution.organizationId,
+        aggregateType: 'scheduled_job_execution',
+        aggregateId: execution.id,
+        eventName: 'scheduled-job.completed',
+        payload: {
+          executionId: execution.id,
+          scheduledJobId: execution.scheduledJobId,
+          handler: execution.scheduledJob.handler,
+          sourceType: execution.scheduledJob.sourceType,
+          sourceId: execution.scheduledJob.sourceId,
+          result,
+        },
+      });
+      return execution;
     });
   }
 
   async failExecution(executionId: string, error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
-    return this.prisma.scheduledJobExecution.update({
-      where: { id: executionId },
-      data: {
-        status: ScheduledJobExecutionStatus.FAILED,
-        completedAt: this.clock.now(),
-        error: message.slice(0, 8_000),
-      },
+    const errorMessage = message.slice(0, 8_000);
+    return this.prisma.$transaction(async (tx) => {
+      const execution = await tx.scheduledJobExecution.update({
+        where: { id: executionId },
+        data: {
+          status: ScheduledJobExecutionStatus.FAILED,
+          completedAt: this.clock.now(),
+          error: errorMessage,
+        },
+        include: { scheduledJob: { select: scheduledJobEventSelect } },
+      });
+      await this.events.emit(tx, {
+        organizationId: execution.organizationId,
+        aggregateType: 'scheduled_job_execution',
+        aggregateId: execution.id,
+        eventName: 'scheduled-job.failed',
+        payload: {
+          executionId: execution.id,
+          scheduledJobId: execution.scheduledJobId,
+          handler: execution.scheduledJob.handler,
+          sourceType: execution.scheduledJob.sourceType,
+          sourceId: execution.scheduledJob.sourceId,
+          error: errorMessage,
+        },
+      });
+      return execution;
     });
   }
 
@@ -338,6 +398,12 @@ function matchesCadence(candidate: LocalDate, schedule: CalendarSchedule, now: L
 }
 
 type LocalDate = { year: number; month: number; day: number; hour: number; minute: number };
+
+const scheduledJobEventSelect = {
+  handler: true,
+  sourceType: true,
+  sourceId: true,
+} satisfies Prisma.ScheduledJobSelect;
 
 function advanceLocal(value: LocalDate, schedule: CalendarSchedule): LocalDate {
   const date = new Date(Date.UTC(value.year, value.month - 1, value.day, value.hour, value.minute));
