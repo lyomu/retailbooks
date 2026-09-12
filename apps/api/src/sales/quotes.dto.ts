@@ -122,6 +122,10 @@ export class UpdateQuoteDto {
   @ValidateNested({ each: true })
   @Type(() => QuoteLineDto)
   lines?: QuoteLineDto[];
+
+  @IsOptional()
+  @Type(() => Number)
+  version?: number;
 }
 
 export class ListQuotesQueryDto {

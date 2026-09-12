@@ -148,7 +148,7 @@ export class QuotesService {
         await tx.quoteLine.deleteMany({ where: { quoteId } });
       }
       const quote = await tx.quote.update({
-        where: { id: quoteId },
+        where: { id: quoteId, ...(input.version !== undefined ? { version: input.version } : {}) },
         data: {
           contactId: contact.id,
           currency,
@@ -156,6 +156,7 @@ export class QuotesService {
             input.expiryDate !== undefined ? isoDate(input.expiryDate) : existing.expiryDate,
           subtotalMinor: totalMinor,
           totalMinor,
+          version: { increment: 1 },
           ...(resolvedLines
             ? {
                 lines: {
@@ -642,6 +643,7 @@ function summarizeQuote(quote: QuoteWithLines) {
     })),
     createdAt: quote.createdAt.toISOString(),
     updatedAt: quote.updatedAt.toISOString(),
+    version: quote.version,
   };
 }
 

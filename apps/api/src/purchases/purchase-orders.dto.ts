@@ -131,6 +131,10 @@ export class UpdatePurchaseOrderDto {
   @ValidateNested({ each: true })
   @Type(() => PurchaseOrderLineDto)
   lines?: PurchaseOrderLineDto[];
+
+  @IsOptional()
+  @Type(() => Number)
+  version?: number;
 }
 
 export class ListPurchaseOrdersQueryDto {

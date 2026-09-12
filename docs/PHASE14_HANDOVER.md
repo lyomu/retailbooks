@@ -10,7 +10,7 @@ something to fix as part of Phase 14 unless asked).
 
 ## 1. What Phase 14 is
 
-Build spec §16; blueprint §17. It is the final release gate across the *whole* platform, not a
+Build spec §16; blueprint §17. It is the final release gate across the _whole_ platform, not a
 module with its own screens. Per `docs/BUILD_ROADMAP.md:828-866`, it has two halves:
 
 1. **Nine hardening tracks**: accounting golden-scenario suite, tenant isolation, security,
@@ -29,7 +29,7 @@ checkboxes did (see `docs/GAPS.md` section G for that exact failure mode, three 
 
 ## 2. The one thing that will surprise you: audit before you build
 
-Several of the "gaps" read like missing features but are actually missing *proof*. A quick grep
+Several of the "gaps" read like missing features but are actually missing _proof_. A quick grep
 before starting this handover found:
 
 - **Idempotency keys already exist** on invoices, payments, credit notes, bills, expenses,
@@ -52,7 +52,7 @@ before starting this handover found:
 
 Treat every item in `docs/GAPS.md` sections A2 and E as "verify, and build only the delta" rather
 than "build from zero." Every prior phase's pattern-match here (Phase 5, 6, 7 code-first passes)
-found real defects during the *verification* pass, not before it — expect the same.
+found real defects during the _verification_ pass, not before it — expect the same.
 
 ## 3. Recommended sequencing
 
@@ -67,7 +67,7 @@ Dependencies, not just priority:
 2. **Section B — the 6 unproven cross-module scenarios.** Highest value per hour: they exercise
    already-built code end to end, following the exact pattern that found real defects in Phases 5,
    6, and 7 (see `docs/BUILD_ROADMAP.md`'s closing note under Phase 7's summary for that pattern
-   stated explicitly). Scenario 1 (quote→payment→reconcile) is named as *the* end-to-end gap and
+   stated explicitly). Scenario 1 (quote→payment→reconcile) is named as _the_ end-to-end gap and
    should go first; it also closes Phase 2's and Phase 5's last open acceptance boxes as a
    side-effect. Do the audit from §2 above as you write each scenario — you'll be exercising the
    idempotency and domain-event code paths anyway.
@@ -81,7 +81,7 @@ Dependencies, not just priority:
    controller) — extend rather than duplicate. **Migration/import (track 15) may be a real feature
    gap, not a test gap** — check whether CSV/bulk import exists for customers, vendors, items, and
    opening balances before assuming it's a verification pass (the banking statement importer is
-   *not* the same thing). Performance testing needs production-like data volumes — no seed script
+   _not_ the same thing). Performance testing needs production-like data volumes — no seed script
    for that scale currently exists; check `docs/PERFORMANCE.md` for what's already measured.
    Accessibility and visual-regression here subsume `docs/GAPS.md` items 30-33 (Phase 1's Stage
    4.5-4.7 debt) — close them together, not twice.
@@ -119,7 +119,7 @@ Dependencies, not just priority:
 Same bar as every other phase (`docs/BUILD_ROADMAP.md:868-885`, reduced in
 `docs/EXECUTION_PLAN.md`'s "Definition of done" section): migration applied with zero drift in both
 directions where schema changes, permission keys wired (not placeholders), Zod contracts complete,
-audit events emitted, posting *and* reversal tested where accounting-impacting, boundary matrix
+audit events emitted, posting _and_ reversal tested where accounting-impacting, boundary matrix
 covers any new controller automatically, full gate green (format, lint, typecheck, drift, unit,
 integration, build), and `docs/GAPS.md` checked off with the roadmap/handover rolled up in the same
 commit.

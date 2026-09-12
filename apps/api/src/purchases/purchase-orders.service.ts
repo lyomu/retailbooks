@@ -150,7 +150,7 @@ export class PurchaseOrdersService {
         await tx.purchaseOrderLine.deleteMany({ where: { purchaseOrderId: orderId } });
       }
       const order = await tx.purchaseOrder.update({
-        where: { id: orderId },
+        where: { id: orderId, ...(input.version !== undefined ? { version: input.version } : {}) },
         data: {
           vendorId: vendor.id,
           currency,
@@ -160,6 +160,7 @@ export class PurchaseOrdersService {
           ...(input.deliveryNote !== undefined ? { deliveryNote: input.deliveryNote } : {}),
           subtotalMinor: totalMinor,
           totalMinor,
+          version: { increment: 1 },
           ...(resolvedLines
             ? {
                 lines: {
@@ -563,6 +564,7 @@ function summarizeOrder(order: PurchaseOrderWithLines) {
     })),
     createdAt: order.createdAt.toISOString(),
     updatedAt: order.updatedAt.toISOString(),
+    version: order.version,
   };
 }
 

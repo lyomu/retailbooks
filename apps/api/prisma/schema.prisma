@@ -1574,6 +1574,9 @@ model Invoice {
   createdByUserId            String                 @map("created_by_user_id") @db.Uuid
   createdAt                  DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt                  DateTime               @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  /// Optimistic concurrency counter. Incremented on every mutable update so a stale write
+  /// (based on a previously-read state) is rejected at the database level (GAPS #35).
+  version                    Int                    @default(0)
   organization               Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   contact                    Contact                @relation(fields: [contactId], references: [id], onDelete: Restrict)
   journal                    Journal?               @relation(fields: [journalId], references: [id], onDelete: Restrict)
@@ -1729,6 +1732,9 @@ model CreditNote {
   createdByUserId  String                 @map("created_by_user_id") @db.Uuid
   createdAt        DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt        DateTime               @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  /// Optimistic concurrency counter. Incremented on every mutable update so a stale write
+  /// (based on a previously-read state) is rejected at the database level (GAPS #35).
+  version          Int                    @default(0)
   organization     Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   contact          Contact                @relation(fields: [contactId], references: [id], onDelete: Restrict)
   journal          Journal?               @relation(fields: [journalId], references: [id], onDelete: Restrict)
@@ -1850,6 +1856,9 @@ model Quote {
   createdByUserId    String       @map("created_by_user_id") @db.Uuid
   createdAt          DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt          DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  /// Optimistic concurrency counter. Incremented on every mutable update so a stale write
+  /// (based on a previously-read state) is rejected at the database level (GAPS #35).
+  version            Int          @default(0)
   organization       Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   contact            Contact      @relation(fields: [contactId], references: [id], onDelete: Restrict)
   convertedInvoice   Invoice?     @relation(fields: [convertedInvoiceId], references: [id], onDelete: SetNull)
@@ -2074,6 +2083,9 @@ model PurchaseOrder {
   createdByUserId      String                     @map("created_by_user_id") @db.Uuid
   createdAt            DateTime                   @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt            DateTime                   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  /// Optimistic concurrency counter. Incremented on every mutable update so a stale write
+  /// (based on a previously-read state) is rejected at the database level (GAPS #35).
+  version              Int                        @default(0)
   organization         Organization               @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   vendor               Vendor                     @relation(fields: [vendorId], references: [id], onDelete: Restrict)
   createdBy            User                       @relation("PurchaseOrderCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
@@ -2152,6 +2164,9 @@ model Bill {
   createdByUserId            String                   @map("created_by_user_id") @db.Uuid
   createdAt                  DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt                  DateTime                 @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  /// Optimistic concurrency counter. Incremented on every mutable update so a stale write
+  /// (based on a previously-read state) is rejected at the database level (GAPS #35).
+  version                    Int                      @default(0)
   organization               Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   vendor                     Vendor                   @relation(fields: [vendorId], references: [id], onDelete: Restrict)
   purchaseOrder              PurchaseOrder?           @relation(fields: [purchaseOrderId], references: [id], onDelete: SetNull)
@@ -2319,6 +2334,9 @@ model Expense {
   createdByUserId        String           @map("created_by_user_id") @db.Uuid
   createdAt              DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt              DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  /// Optimistic concurrency counter. Incremented on every mutable update so a stale write
+  /// (based on a previously-read state) is rejected at the database level (GAPS #35).
+  version                Int              @default(0)
   organization           Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   payeeVendor            Vendor?          @relation(fields: [payeeVendorId], references: [id], onDelete: SetNull)
   paidThroughAccount     LedgerAccount    @relation("ExpensePaidThroughAccount", fields: [paidThroughAccountId], references: [id], onDelete: Restrict)

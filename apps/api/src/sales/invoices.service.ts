@@ -182,7 +182,10 @@ export class InvoicesService {
         await tx.invoiceLine.deleteMany({ where: { invoiceId } });
       }
       const invoice = await tx.invoice.update({
-        where: { id: invoiceId },
+        where: {
+          id: invoiceId,
+          ...(input.version !== undefined ? { version: input.version } : {}),
+        },
         data: {
           contactId: contact.id,
           currency,
@@ -190,6 +193,7 @@ export class InvoicesService {
           subtotalMinor: totals.subtotalMinor,
           taxTotalMinor: totals.taxTotalMinor,
           totalMinor: totals.totalMinor,
+          version: { increment: 1 },
           ...(resolvedLines
             ? {
                 lines: {
@@ -922,6 +926,7 @@ function summarizeInvoice(invoice: InvoiceWithLines) {
     })),
     createdAt: invoice.createdAt.toISOString(),
     updatedAt: invoice.updatedAt.toISOString(),
+    version: invoice.version,
   };
 }
 

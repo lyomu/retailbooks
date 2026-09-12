@@ -193,7 +193,7 @@ export class ApprovalsService {
     target: ApprovalTargetSnapshot,
     metadata: RequestMetadata,
   ) {
-    const policy = await this.resolvePolicy(context.id, user.id, target);
+    const policy = await this.resolvePolicy(context.id, user.id, context.role.key, target);
     if (!policy) return null;
     const request = await tx.approvalRequest.create({
       data: {
@@ -464,6 +464,7 @@ export class ApprovalsService {
   private async resolvePolicy(
     organizationId: string,
     submitterUserId: string,
+    submitterRoleKey: string,
     target: ApprovalTargetSnapshot,
   ): Promise<ApprovalPolicyDetail | null> {
     const candidates = await this.prisma.approvalPolicy.findMany({
@@ -472,8 +473,9 @@ export class ApprovalsService {
       orderBy: [{ priority: 'desc' }, { createdAt: 'asc' }],
     });
     return (
-      candidates.find((policy) => matchesConditions(policy.conditions, submitterUserId, target)) ??
-      null
+      candidates.find((policy) =>
+        matchesConditions(policy.conditions, submitterUserId, submitterRoleKey, target),
+      ) ?? null
     );
   }
 
@@ -524,6 +526,7 @@ function normalizeSteps(steps: ApprovalPolicyStepDto[]) {
 function matchesConditions(
   value: Prisma.JsonValue,
   submitterUserId: string,
+  submitterRoleKey: string,
   target: ApprovalTargetSnapshot,
 ): boolean {
   if (!value || Array.isArray(value) || typeof value !== 'object') return true;
@@ -531,6 +534,12 @@ function matchesConditions(
   if (
     Array.isArray(conditions.submitterUserIds) &&
     !conditions.submitterUserIds.includes(submitterUserId)
+  ) {
+    return false;
+  }
+  if (
+    Array.isArray(conditions.submitterRoles) &&
+    !conditions.submitterRoles.includes(submitterRoleKey)
   ) {
     return false;
   }

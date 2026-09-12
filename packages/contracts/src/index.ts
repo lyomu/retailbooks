@@ -1444,7 +1444,9 @@ export const createInvoiceDto = z.object({
   lines: z.array(invoiceLineDto).min(1).max(200),
 });
 
-export const updateInvoiceDto = createInvoiceDto.partial();
+export const updateInvoiceDto = createInvoiceDto.partial().extend({
+  version: z.number().int().optional(),
+});
 
 // --- Purchases: Bills ---
 
@@ -1594,7 +1596,9 @@ export const createBillDto = z.object({
   lines: z.array(billLineDto).min(1).max(200),
 });
 
-export const updateBillDto = createBillDto.partial();
+export const updateBillDto = createBillDto.partial().extend({
+  version: z.number().int().optional(),
+});
 
 export const attachmentSchema = z.object({
   id: z.uuid(),
@@ -1752,7 +1756,9 @@ export const createExpenseDto = z.object({
   taxCodeId: z.uuid().optional(),
 });
 
-export const updateExpenseDto = createExpenseDto.partial();
+export const updateExpenseDto = createExpenseDto.partial().extend({
+  version: z.number().int().optional(),
+});
 
 // --- Sales: Payments Received ---
 
@@ -1953,7 +1959,9 @@ export const createCreditNoteDto = z.object({
   lines: z.array(creditNoteLineDto).min(1).max(200),
 });
 
-export const updateCreditNoteDto = createCreditNoteDto.partial();
+export const updateCreditNoteDto = createCreditNoteDto.partial().extend({
+  version: z.number().int().optional(),
+});
 
 export const creditNoteAllocationLineDto = z.object({
   invoiceId: z.uuid(),
@@ -2184,7 +2192,9 @@ export const createQuoteDto = z.object({
   lines: z.array(quoteLineDto).min(1).max(200),
 });
 
-export const updateQuoteDto = createQuoteDto.partial();
+export const updateQuoteDto = createQuoteDto.partial().extend({
+  version: z.number().int().optional(),
+});
 
 // --- Sales: Sales Orders ---
 
@@ -2315,7 +2325,9 @@ export const createPurchaseOrderDto = z.object({
   lines: z.array(purchaseOrderLineDto).min(1).max(200),
 });
 
-export const updatePurchaseOrderDto = createPurchaseOrderDto.partial();
+export const updatePurchaseOrderDto = createPurchaseOrderDto.partial().extend({
+  version: z.number().int().optional(),
+});
 
 export const recordPurchaseOrderReceiptDto = z.object({
   lines: z
@@ -3652,6 +3664,8 @@ export const approvalConditionsSchema = z.object({
     .regex(/^-?\d+$/)
     .optional(),
   submitterUserIds: z.array(z.uuid()).max(100).optional(),
+  /** Role keys (e.g., 'ADMIN', 'ACCOUNTANT') the submitter must hold for this policy to match. */
+  submitterRoles: z.array(z.string().min(1).max(40)).max(50).optional(),
   tagIds: z.array(z.uuid()).max(100).optional(),
   projectIds: z.array(z.uuid()).max(100).optional(),
 });
@@ -3743,6 +3757,63 @@ export const notificationSchema = z.object({
   createdAt: z.iso.datetime(),
 });
 
+// --- Phase 10: Reminder Policies ---
+
+export const reminderPolicyOffsetSchema = z.object({
+  days: z.int().min(-365).max(365),
+  type: z.enum(['BEFORE_DUE', 'ON_DUE', 'OVERDUE']),
+});
+
+export const reminderPolicySchema = z.object({
+  id: z.uuid(),
+  organizationId: z.uuid(),
+  name: z.string().min(1).max(120),
+  offsets: z.array(reminderPolicyOffsetSchema).max(20),
+  subject: z.string().min(1).max(240),
+  bodyTemplate: z.string().min(1).max(20_000),
+  active: z.boolean(),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+});
+
+export const createReminderPolicySchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  offsets: z.array(reminderPolicyOffsetSchema).min(1).max(20),
+  subject: z.string().trim().min(1).max(240),
+  bodyTemplate: z.string().trim().min(1).max(20_000),
+});
+
+export const updateReminderPolicySchema = z.object({
+  name: z.string().trim().min(1).max(120).optional(),
+  offsets: z.array(reminderPolicyOffsetSchema).min(1).max(20).optional(),
+  subject: z.string().trim().min(1).max(240).optional(),
+  bodyTemplate: z.string().trim().min(1).max(20_000).optional(),
+});
+
+// --- Phase 10: Scheduled Job Executions ---
+
+export const scheduledJobExecutionStatusSchema = z.enum([
+  'QUEUED',
+  'RUNNING',
+  'COMPLETED',
+  'FAILED',
+  'CANCELLED',
+]);
+
+export const scheduledJobExecutionSchema = z.object({
+  id: z.uuid(),
+  organizationId: z.uuid(),
+  scheduledJobId: z.uuid(),
+  occurrenceKey: z.string().min(1).max(120),
+  status: scheduledJobExecutionStatusSchema,
+  attempts: z.int().min(0),
+  startedAt: z.iso.datetime().nullable(),
+  completedAt: z.iso.datetime().nullable(),
+  error: z.string().nullable(),
+  result: z.record(z.string(), z.unknown()),
+  createdAt: z.iso.datetime(),
+});
+
 export type ReportKey = z.infer<typeof reportKeySchema>;
 export type ReportFamily = z.infer<typeof reportFamilySchema>;
 export type ReportBasis = z.infer<typeof reportBasisSchema>;
@@ -3773,6 +3844,12 @@ export type WorkflowDryRun = z.infer<typeof workflowDryRunSchema>;
 export type ScheduleDefinition = z.infer<typeof scheduleDefinitionSchema>;
 export type CreateScheduledReport = z.infer<typeof createScheduledReportSchema>;
 export type Notification = z.infer<typeof notificationSchema>;
+export type ReminderPolicyOffset = z.infer<typeof reminderPolicyOffsetSchema>;
+export type ReminderPolicy = z.infer<typeof reminderPolicySchema>;
+export type CreateReminderPolicy = z.infer<typeof createReminderPolicySchema>;
+export type UpdateReminderPolicy = z.infer<typeof updateReminderPolicySchema>;
+export type ScheduledJobExecutionStatus = z.infer<typeof scheduledJobExecutionStatusSchema>;
+export type ScheduledJobExecution = z.infer<typeof scheduledJobExecutionSchema>;
 
 export type PlatformRole = z.infer<typeof platformRoleSchema>;
 export type PlatformAdminStatus = z.infer<typeof platformAdminStatusSchema>;

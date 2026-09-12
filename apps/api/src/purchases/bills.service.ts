@@ -162,7 +162,7 @@ export class BillsService {
         await tx.billLine.deleteMany({ where: { billId } });
       }
       const bill = await tx.bill.update({
-        where: { id: billId },
+        where: { id: billId, ...(input.version !== undefined ? { version: input.version } : {}) },
         data: {
           vendorId: vendor.id,
           currency,
@@ -176,6 +176,7 @@ export class BillsService {
           subtotalMinor: totals.subtotalMinor,
           taxTotalMinor: totals.taxTotalMinor,
           totalMinor: totals.totalMinor,
+          version: { increment: 1 },
           ...(resolvedLines
             ? {
                 lines: {
@@ -712,6 +713,7 @@ function summarizeBill(bill: BillWithLines) {
     })),
     createdAt: bill.createdAt.toISOString(),
     updatedAt: bill.updatedAt.toISOString(),
+    version: bill.version,
   };
 }
 

@@ -115,6 +115,10 @@ export class UpdateCreditNoteDto {
   @ValidateNested({ each: true })
   @Type(() => CreditNoteLineDto)
   lines?: CreditNoteLineDto[];
+
+  @IsOptional()
+  @Type(() => Number)
+  version?: number;
 }
 
 export class ListCreditNotesQueryDto {

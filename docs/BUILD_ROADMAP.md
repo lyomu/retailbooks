@@ -669,8 +669,10 @@ and both production builds. Carried forward as tracked debt, following the Phase
 Quote bespoke approval route is not yet an adapter into the policy engine; the 10H approval
 edge-case tests (multi-level ordering, criteria boundaries, concurrent decisions, mid-flight policy
 edits, revoked permissions); the two deliberately-deferred 10F refactors (export streaming, async
-`202` oversized-PDF export); the 10E `runDueTemplates` unification; two 10A contract schemas; and
-the 10I operator-facing docs.
+`202` oversized-PDF export); the 10E `runDueTemplates` unification; and the 10I operator-facing docs.
+(The two 10A contract schemas — ReminderPolicy and ScheduledJobExecution — and the 10C
+`submitter role` condition are now complete and verified; see `apps/api/test/automation-contracts.test.ts`
+and `apps/api/test/submitter-role.int.test.ts`.)
 
 Build spec §12; blueprint §13.
 
@@ -685,8 +687,8 @@ Build spec §12; blueprint §13.
 ### Backend/API
 
 - [x] Approvals: no-approval / simple / multi-level / criteria-based policies
-      (no `submitter role` condition; tag/project criteria cannot match any target today — see
-      `docs/PHASE10_TODO.md` 10C)
+      (`submitter role` condition now supported via `approvalConditionsSchema.submitterRoles`;
+      tag/project criteria cannot match any target today — see `docs/PHASE10_TODO.md` 10C)
 - [x] Approval targets: quotes, sales orders, invoices, credit notes, POs, bills, payments made,
       inventory adjustments, journals — each configurable independently
 - [x] Rule engine: trigger + conditions + actions, permission-aware; start with safe actions

@@ -1,4 +1,4 @@
-import { Transform } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { IsIn, IsISO8601, IsOptional, IsString, Length, Matches, MaxLength } from 'class-validator';
 
 const trim = ({ value }: { value: unknown }): unknown =>
@@ -123,6 +123,10 @@ export class UpdateExpenseDto {
   @IsString()
   @Length(36, 36)
   taxCodeId?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  version?: number;
 }
 
 export class ListExpensesQueryDto {

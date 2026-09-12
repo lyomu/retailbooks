@@ -139,6 +139,10 @@ export class UpdateInvoiceDto {
   @ValidateNested({ each: true })
   @Type(() => InvoiceLineDto)
   lines?: InvoiceLineDto[];
+
+  @IsOptional()
+  @Type(() => Number)
+  version?: number;
 }
 
 export class ListInvoicesQueryDto {

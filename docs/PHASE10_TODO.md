@@ -122,11 +122,12 @@ No second report query or rendering implementation is allowed.
 
 ## Milestone 10A — Contracts, permissions, schema, and migration
 
-- [ ] Add shared enums and discriminated Zod contracts for event envelopes, approval targets and
+- [x] Add shared enums and discriminated Zod contracts for event envelopes, approval targets and
       decisions, workflow triggers/conditions/actions, schedule definitions, job executions,
       notifications, reminders, and scheduled reports
-      (partial: `domainEventSchema`, approval/workflow/schedule/notification schemas exist in
-      `packages/contracts`; no `ReminderPolicy` or `ScheduledJobExecution` contract schema yet)
+      (complete: `domainEventSchema`, approval/workflow/schedule/notification schemas, plus the
+      previously-missing `ReminderPolicy` and `ScheduledJobExecution` schemas all in
+      `packages/contracts`; validated by `apps/api/test/automation-contracts.test.ts`)
 - [x] Add permission keys and role defaults for approval inbox/policy management, workflow rules,
       schedules/reminders, notification preferences, scheduled reports, and tenant job retry access
 - [x] Add `DomainEventOutbox` with organization, event name/version, aggregate identity, payload,

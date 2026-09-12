@@ -161,7 +161,10 @@ export class ExpensesService {
 
     const updated = await this.prisma.$transaction(async (tx) => {
       const expense = await tx.expense.update({
-        where: { id: expenseId },
+        where: {
+          id: expenseId,
+          ...(input.version !== undefined ? { version: input.version } : {}),
+        },
         data: {
           payeeVendorId:
             input.payeeVendorId !== undefined ? input.payeeVendorId : existing.payeeVendorId,
@@ -174,6 +177,7 @@ export class ExpensesService {
           amountMinor,
           totalMinor: amountMinor,
           taxCodeId: input.taxCodeId !== undefined ? input.taxCodeId : existing.taxCodeId,
+          version: { increment: 1 },
         },
         include: expenseDetailInclude,
       });
@@ -593,6 +597,7 @@ function summarizeExpense(expense: ExpenseWithDetail) {
     voidedAt: expense.voidedAt?.toISOString() ?? null,
     createdAt: expense.createdAt.toISOString(),
     updatedAt: expense.updatedAt.toISOString(),
+    version: expense.version,
   };
 }
 

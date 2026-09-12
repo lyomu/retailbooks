@@ -159,6 +159,10 @@ export class UpdateBillDto {
   @ValidateNested({ each: true })
   @Type(() => BillLineDto)
   lines?: BillLineDto[];
+
+  @IsOptional()
+  @Type(() => Number)
+  version?: number;
 }
 
 export class ListBillsQueryDto {

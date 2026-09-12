@@ -184,13 +184,17 @@ export class CreditNotesService {
         await tx.creditNoteLine.deleteMany({ where: { creditNoteId } });
       }
       const creditNote = await tx.creditNote.update({
-        where: { id: creditNoteId },
+        where: {
+          id: creditNoteId,
+          ...(input.version !== undefined ? { version: input.version } : {}),
+        },
         data: {
           contactId: contact.id,
           currency,
           subtotalMinor: totals.subtotalMinor,
           taxTotalMinor: totals.taxTotalMinor,
           totalMinor: totals.totalMinor,
+          version: { increment: 1 },
           ...(resolvedLines
             ? {
                 lines: {
@@ -1193,6 +1197,7 @@ function summarizeCreditNote(creditNote: CreditNoteWithDetail) {
     })),
     createdAt: creditNote.createdAt.toISOString(),
     updatedAt: creditNote.updatedAt.toISOString(),
+    version: creditNote.version,
   };
 }
 
