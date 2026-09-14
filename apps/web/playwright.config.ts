@@ -52,7 +52,7 @@ export default defineConfig({
         ...process.env,
         API_PORT: '3401',
         DATABASE_URL: 'postgresql://retailbooks:retailbooks@127.0.0.1:55432/retailbooks_e2e',
-        REDIS_URL: 'redis://127.0.0.1:56379',
+        REDIS_URL: 'redis://127.0.0.1:56780',
         S3_ENDPOINT: 'http://127.0.0.1:59000',
         SMTP_HOST: '127.0.0.1',
         NODE_ENV: 'test',
@@ -62,7 +62,7 @@ export default defineConfig({
     },
     {
       command:
-        'npm run build --workspace @retailbooks/web && npm run start --workspace @retailbooks/web -- --hostname 127.0.0.1 --port 3300',
+        'npm run build --workspace @retailbooks/web && npm run start --workspace @retailbooks/web',
       url: 'http://127.0.0.1:3300/login',
       reuseExistingServer: !process.env.CI,
       // A cold Next production build of the whole app, then the server start.
@@ -71,6 +71,12 @@ export default defineConfig({
       env: {
         ...process.env,
         NEXT_PUBLIC_API_URL: 'http://127.0.0.1:3401',
+        // The generated standalone server.js reads these env vars, not --hostname/--port CLI
+        // flags (that's `next start`'s interface, not the standalone server's) -- passing them as
+        // args was silently ignored and the server always bound to the 0.0.0.0:3000 default,
+        // which this config's own health-check URL then timed out waiting for.
+        HOSTNAME: '127.0.0.1',
+        PORT: '3300',
       },
     },
   ],

@@ -4,6 +4,7 @@ import { validateApiEnvironment } from '@retailbooks/config';
 
 import { ObservabilityModule } from './common/logging/observability.module.js';
 import { AutomationWorkerModule } from './automation/automation-worker.module.js';
+import { DocumentExtractionWorkerModule } from './documents/document-extraction-worker.module.js';
 import { JobsWorkerModule } from './jobs/jobs-worker.module.js';
 
 @Module({
@@ -12,6 +13,7 @@ import { JobsWorkerModule } from './jobs/jobs-worker.module.js';
     ObservabilityModule,
     JobsWorkerModule,
     AutomationWorkerModule,
+    DocumentExtractionWorkerModule,
   ],
 })
 export class WorkerAppModule {}

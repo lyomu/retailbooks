@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import {
   reportFiltersSchema,
@@ -14,9 +19,23 @@ import { writeAuditEvent } from '../organizations/audit-event.js';
 import { REPORT_DEFINITIONS, reportDefinitionFor } from './report-registry.js';
 import type {
   CreateSavedReportDto,
+  DrillDownQueryDto,
   ReportQueryDto,
   UpdateSavedReportDto,
 } from './reporting.dto.js';
+
+/**
+ * Reports whose rows are already ledger-account aggregates over journal_lines. The drill-down
+ * service re-scopes the same aggregate query to one account and reconciles it against the
+ * individual posted lines. Other report families are not yet supported for drill-down.
+ */
+export const DRILLDOWN_REPORT_KEYS: readonly ReportKey[] = [
+  'financial.profit-loss',
+  'financial.balance-sheet',
+  'financial.trial-balance',
+];
+
+export const REPORT_DRILLDOWN_MAX_LINES = 500;
 
 type DbRow = Record<string, unknown> & {
   id: string;
@@ -267,7 +286,6 @@ export class ReportingService {
   private async financial(organizationId: string, key: ReportKey, filters: ReportFilters) {
     const dimensions = dimensionSql(filters);
     const period = periodSql(filters);
-    const asOf = Prisma.sql`j.journal_date <= ${dateValue(filters.to)}::date`;
 
     if (key === 'financial.general-ledger') {
       return this.query(
@@ -320,13 +338,7 @@ export class ReportingService {
       );
     }
 
-    const types =
-      key === 'financial.profit-loss'
-        ? Prisma.sql`a.type IN ('REVENUE', 'EXPENSE', 'COST_OF_SALES', 'OTHER_INCOME', 'OTHER_EXPENSE')`
-        : key === 'financial.balance-sheet'
-          ? Prisma.sql`a.type IN ('ASSET', 'LIABILITY', 'EQUITY')`
-          : Prisma.sql`TRUE`;
-    const dateFilter = key === 'financial.profit-loss' ? period : asOf;
+    const { types, dateFilter } = this.accountFilterSql(key, filters);
     const amount =
       key === 'financial.profit-loss' || key === 'financial.balance-sheet'
         ? Prisma.sql`CASE WHEN a.normal_balance = 'DEBIT' THEN SUM(jl.debit_minor - jl.credit_minor) ELSE SUM(jl.credit_minor - jl.debit_minor) END`
@@ -347,6 +359,128 @@ export class ReportingService {
         ORDER BY a.type, a.code`,
       filters,
     );
+  }
+
+  /** Shared with drillDown() so the aggregate and per-account queries can never disagree. */
+  private accountFilterSql(
+    key: ReportKey,
+    filters: ReportFilters,
+  ): { types: Prisma.Sql; dateFilter: Prisma.Sql } {
+    const types =
+      key === 'financial.profit-loss'
+        ? Prisma.sql`a.type IN ('REVENUE', 'EXPENSE', 'COST_OF_SALES', 'OTHER_INCOME', 'OTHER_EXPENSE')`
+        : key === 'financial.balance-sheet'
+          ? Prisma.sql`a.type IN ('ASSET', 'LIABILITY', 'EQUITY')`
+          : Prisma.sql`TRUE`;
+    const dateFilter =
+      key === 'financial.profit-loss'
+        ? periodSql(filters)
+        : Prisma.sql`j.journal_date <= ${dateValue(filters.to)}::date`;
+    return { types, dateFilter };
+  }
+
+  /**
+   * Expands one financial-statement row (a ledger account) into the posted journal lines that sum
+   * to it, using the exact same account-type and date-window predicates as the aggregate report
+   * query. Rejects unsupported reports and refuses to silently truncate a large line set.
+   */
+  async drillDown(organizationId: string, key: ReportKey, input: DrillDownQueryDto, rowId: string) {
+    if (!DRILLDOWN_REPORT_KEYS.includes(key)) {
+      throw new BadRequestException(`${key} does not support drill-down in this release.`);
+    }
+    const definition = reportDefinitionFor(key);
+    const filters = this.normalizeFilters(definition, { ...input, page: 1, pageSize: 1 });
+    const organization = await this.prisma.organization.findUnique({
+      where: { id: organizationId },
+      select: { baseCurrency: true },
+    });
+    if (!organization) throw new NotFoundException('Organization not found.');
+
+    const account = await this.prisma.ledgerAccount.findFirst({
+      where: { id: rowId, organizationId },
+      select: { normalBalance: true },
+    });
+    if (!account) throw new NotFoundException('Account not found for drill-down.');
+
+    const { types, dateFilter } = this.accountFilterSql(key, filters);
+    const dimensions = dimensionSql(filters);
+
+    const aggregateRows = await this.prisma.$queryRaw<DbRow[]>(Prisma.sql`
+      SELECT a.id::text AS id, a.code || ' ' || a.name AS account, a.type::text AS type,
+             SUM(jl.debit_minor) AS "debitMinor", SUM(jl.credit_minor) AS "creditMinor"
+      FROM journal_lines jl
+      JOIN journals j ON j.id = jl.journal_id AND j.organization_id = ${organizationId}::uuid
+      JOIN ledger_accounts a ON a.id = jl.account_id AND a.organization_id = ${organizationId}::uuid
+      WHERE jl.organization_id = ${organizationId}::uuid AND j.status = 'POSTED'
+        AND a.id = ${rowId}::uuid AND ${dateFilter} AND ${types} ${dimensions}
+      GROUP BY a.id HAVING SUM(jl.debit_minor) <> 0 OR SUM(jl.credit_minor) <> 0`);
+    const aggregate = aggregateRows[0];
+    if (!aggregate) {
+      throw new NotFoundException(
+        'No posted activity for this account under the selected filters.',
+      );
+    }
+    const debitMinor = integerText(aggregate.debitMinor);
+    const creditMinor = integerText(aggregate.creditMinor);
+    const amountMinor =
+      key === 'financial.trial-balance'
+        ? null
+        : account.normalBalance === 'DEBIT'
+          ? (BigInt(debitMinor) - BigInt(creditMinor)).toString()
+          : (BigInt(creditMinor) - BigInt(debitMinor)).toString();
+
+    const lineRows = await this.prisma.$queryRaw<DbRow[]>(Prisma.sql`
+      SELECT jl.id::text AS id, j.journal_date AS date, COALESCE(j.reference, 'Draft') AS reference,
+             COALESCE(jl.description, j.description) AS description,
+             jl.debit_minor AS "debitMinor", jl.credit_minor AS "creditMinor",
+             'Journal' AS source_type, j.id::text AS source_id, '/journals/' || j.id::text AS href
+      FROM journal_lines jl
+      JOIN journals j ON j.id = jl.journal_id AND j.organization_id = ${organizationId}::uuid
+      JOIN ledger_accounts a ON a.id = jl.account_id AND a.organization_id = ${organizationId}::uuid
+      WHERE jl.organization_id = ${organizationId}::uuid AND j.status = 'POSTED'
+        AND jl.account_id = ${rowId}::uuid AND ${dateFilter} AND ${types} ${dimensions}
+      ORDER BY j.journal_date, COALESCE(j.reference, ''), jl.line_number
+      LIMIT ${REPORT_DRILLDOWN_MAX_LINES + 1}`);
+    if (lineRows.length > REPORT_DRILLDOWN_MAX_LINES) {
+      throw new BadRequestException(
+        'Too many contributing entries to drill down safely. Narrow the date range or dimensions.',
+      );
+    }
+
+    const lineDebitTotal = lineRows.reduce(
+      (sum, row) => sum + BigInt(integerText(row.debitMinor)),
+      0n,
+    );
+    const lineCreditTotal = lineRows.reduce(
+      (sum, row) => sum + BigInt(integerText(row.creditMinor)),
+      0n,
+    );
+    if (lineDebitTotal.toString() !== debitMinor || lineCreditTotal.toString() !== creditMinor) {
+      throw new InternalServerErrorException(
+        'Drill-down lines did not reconcile to the reported account total.',
+      );
+    }
+
+    const row: ReportRow = {
+      id: aggregate.id,
+      cells: {
+        account: serializeCell(aggregate.account),
+        type: serializeCell(aggregate.type),
+        debitMinor: serializeCell(aggregate.debitMinor),
+        creditMinor: serializeCell(aggregate.creditMinor),
+        amountMinor: amountMinor,
+      },
+      source: { entityType: 'LedgerAccount', entityId: rowId, href: `/accounts/${rowId}/ledger` },
+    };
+
+    return {
+      definition,
+      filters,
+      baseCurrency: organization.baseCurrency,
+      row,
+      lines: lineRows.map(toReportRow),
+      reconciled: true as const,
+    };
   }
 
   private async receivables(organizationId: string, key: ReportKey, filters: ReportFilters) {

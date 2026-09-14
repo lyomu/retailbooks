@@ -51,4 +51,11 @@ export default tseslint.config(
     files: ['**/*.config.{js,mjs,ts}', 'eslint.config.mjs', '**/*.mjs'],
     extends: [tseslint.configs.disableTypeChecked],
   },
+  {
+    // Standalone scripts run directly via Node's native TypeScript support (no build step, no
+    // tsconfig project membership) -- see apps/api/eval/README.md. Type-aware linting needs a
+    // tsconfig project reference these files deliberately don't have.
+    files: ['apps/api/eval/**/*.ts'],
+    extends: [tseslint.configs.disableTypeChecked],
+  },
 );

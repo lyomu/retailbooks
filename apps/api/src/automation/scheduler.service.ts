@@ -5,16 +5,16 @@ import {
   ScheduledJobMisfirePolicy,
   ScheduledJobStatus,
   type Prisma,
+  type RecurringCadence,
 } from '@prisma/client';
-import { randomUUID } from 'node:crypto';
 
 import type { PublicUser } from '../auth/auth.service.js';
 import type { RequestMetadata } from '../auth/request-context.js';
+import { PrismaService } from '../database/prisma.service.js';
 import { writeAuditEvent } from '../organizations/audit-event.js';
 import { AutomationQueueService } from './automation-queue.service.js';
 import { CLOCK, type Clock } from './clock.js';
 import { DomainEventsService } from './domain-events.service.js';
-import { PrismaService } from '../database/prisma.service.js';
 
 export type CalendarSchedule = {
   cadence: 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'ANNUALLY';
@@ -32,6 +32,8 @@ export type CalendarSchedule = {
  */
 @Injectable()
 export class SchedulerService {
+  private readonly recurringCompatibilityRuns = new Set<string>();
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly queue: AutomationQueueService,
@@ -110,14 +112,27 @@ export class SchedulerService {
   }
 
   /**
+   * Advances a recurring template date through the same local-calendar arithmetic used by scheduled
+   * jobs. Compatibility adapters use this only when projecting scheduler state to legacy columns.
+   */
+  advanceTemplateNextRunDate(current: string, cadence: RecurringCadence, timeZone: string): string {
+    const local = localParts(new Date(`${current}T00:00:00Z`), timeZone);
+    const nextLocal = advanceLocal(
+      { year: local.year, month: local.month, day: local.day, hour: 0, minute: 0 },
+      { cadence },
+    );
+    return formatLocalDate(nextLocal);
+  }
+
+  /** Returns the organization-local date for a scheduler occurrence instant. */
+  templateDateForOccurrence(instant: Date, timeZone: string): string {
+    return formatLocalDate(localParts(instant, timeZone));
+  }
+
+  /**
    * Atomically claims an execution for processing. The first claim moves QUEUED -> RUNNING. A
    * BullMQ retry of the same job re-claims the SAME row whenever the previous attempt ended without
-   * a committed completion transaction -- either because the worker crashed mid-run (row still
-   * RUNNING) or because the handler failed (row FAILED) -- so a retry always re-runs the work
-   * instead of being silently acknowledged. SUCCEEDED rows are never reclaimed: that state commits
-   * in the same transaction as the completion event, so a replay arriving after it is a crash
-   * after commit and must be a no-op. `attempts` reflects every claim, exactly like BullMQ's own
-   * job attemptsMade counter.
+   * a committed completion transaction.
    */
   async beginExecution(executionId: string) {
     const updated = await this.prisma.scheduledJobExecution.updateMany({
@@ -239,12 +254,6 @@ export class SchedulerService {
     return execution;
   }
 
-  /**
-   * Resets one failed execution back to `QUEUED` and re-enqueues it. The unique
-   * `(scheduledJobId, occurrenceKey)` constraint means a retry cannot insert a fresh execution row
-   * for the same occurrence the way `claimDueOccurrence` does for a new one -- it reuses this row,
-   * so its history (`attempts`, prior `error`) does not survive past the retry.
-   */
   async retryExecution(
     organizationId: string,
     user: PublicUser,
@@ -280,14 +289,74 @@ export class SchedulerService {
     return reset;
   }
 
-  private async claimDueOccurrence(jobId: string, now: Date) {
+  /**
+   * Compatibility adapter for legacy recurring endpoints: claim due scheduled jobs without enqueuing
+   * them so the caller can process the claimed executions synchronously through the same handlers.
+   */
+  async findAndClaimDueRecurringJobs(
+    organizationId: string,
+    handler: string,
+    now = this.clock.now(),
+    limit = 100,
+  ) {
+    const dueJobs = await this.prisma.scheduledJob.findMany({
+      where: {
+        organizationId,
+        handler,
+        status: ScheduledJobStatus.ACTIVE,
+        nextRunAt: { lte: now },
+      },
+      orderBy: { nextRunAt: 'asc' },
+      take: limit,
+      select: { id: true, nextRunAt: true },
+    });
+
+    const claimed: Array<{
+      execution: { id: string; occurrenceKey: string; scheduledJobId: string };
+      job: NonNullable<Awaited<ReturnType<SchedulerService['beginExecution']>>>['scheduledJob'];
+    }> = [];
+
+    for (const job of dueJobs) {
+      const execution = await this.claimDueOccurrence(job.id, now, job.nextRunAt);
+      if (!execution) continue;
+      const running = await this.beginExecution(execution.id);
+      if (!running) continue;
+      claimed.push({
+        execution: {
+          id: running.id,
+          occurrenceKey: running.occurrenceKey,
+          scheduledJobId: running.scheduledJobId,
+        },
+        job: running.scheduledJob,
+      });
+    }
+
+    return claimed;
+  }
+
+  beginRecurringCompatibilityRun(organizationId: string, handler: string): boolean {
+    const key = `${organizationId}:${handler}`;
+    if (this.recurringCompatibilityRuns.has(key)) return false;
+    this.recurringCompatibilityRuns.add(key);
+    return true;
+  }
+
+  endRecurringCompatibilityRun(organizationId: string, handler: string): void {
+    this.recurringCompatibilityRuns.delete(`${organizationId}:${handler}`);
+  }
+
+  private async claimDueOccurrence(jobId: string, now: Date, expectedNextRunAt?: Date) {
     return this.prisma.$transaction(async (tx) => {
       const lock = await tx.$queryRaw<Array<{ claimed: boolean }>>`
         SELECT pg_try_advisory_xact_lock(hashtextextended(${`scheduled-job:${jobId}`}, 0)) AS claimed
       `;
       if (!lock[0]?.claimed) return null;
       const job = await tx.scheduledJob.findFirst({
-        where: { id: jobId, status: ScheduledJobStatus.ACTIVE, nextRunAt: { lte: now } },
+        where: {
+          id: jobId,
+          status: ScheduledJobStatus.ACTIVE,
+          nextRunAt: expectedNextRunAt ?? { lte: now },
+        },
       });
       if (!job) return null;
       const schedule = parseSchedule(job.schedule);
@@ -307,7 +376,12 @@ export class SchedulerService {
         job.timeZone,
         job.misfirePolicy,
       );
-      const isFinalOccurrence = pastEndDate(job.nextRunAt, job.timeZone, schedule.endDate);
+      const isFinalOccurrence = claimedFinalOccurrence(
+        job.nextRunAt,
+        nextRunAt,
+        job.timeZone,
+        schedule.endDate,
+      );
       await tx.scheduledJob.update({
         where: { id: job.id },
         data: {
@@ -406,12 +480,12 @@ const scheduledJobEventSelect = {
 } satisfies Prisma.ScheduledJobSelect;
 
 function advanceLocal(value: LocalDate, schedule: CalendarSchedule): LocalDate {
+  if (schedule.cadence === 'MONTHLY') return addMonthsLocal(value, 1);
+  if (schedule.cadence === 'QUARTERLY') return addMonthsLocal(value, 3);
+  if (schedule.cadence === 'ANNUALLY') return addMonthsLocal(value, 12);
   const date = new Date(Date.UTC(value.year, value.month - 1, value.day, value.hour, value.minute));
   if (schedule.cadence === 'DAILY') date.setUTCDate(date.getUTCDate() + 1);
-  else if (schedule.cadence === 'WEEKLY') date.setUTCDate(date.getUTCDate() + 7);
-  else if (schedule.cadence === 'MONTHLY') date.setUTCMonth(date.getUTCMonth() + 1);
-  else if (schedule.cadence === 'QUARTERLY') date.setUTCMonth(date.getUTCMonth() + 3);
-  else date.setUTCFullYear(date.getUTCFullYear() + 1);
+  else date.setUTCDate(date.getUTCDate() + 7);
   return {
     year: date.getUTCFullYear(),
     month: date.getUTCMonth() + 1,
@@ -421,12 +495,33 @@ function advanceLocal(value: LocalDate, schedule: CalendarSchedule): LocalDate {
   };
 }
 
-/** True when the occurrence's organization-local calendar date is on or after `endDate`. */
-function pastEndDate(occurrence: Date, timeZone: string, endDate: string | undefined): boolean {
+function addMonthsLocal(value: LocalDate, months: number): LocalDate {
+  const zeroBasedMonth = value.month - 1 + months;
+  const year = value.year + Math.floor(zeroBasedMonth / 12);
+  const month = (zeroBasedMonth % 12) + 1;
+  const day = Math.min(value.day, daysInMonth(year, month));
+  return { ...value, year, month, day };
+}
+
+/**
+ * True once the claimed occurrence is the final one allowed by `endDate`. This covers both an
+ * occurrence that lands exactly on the end date and one whose next recurrence would be beyond it.
+ */
+function claimedFinalOccurrence(
+  occurrence: Date,
+  nextOccurrenceValue: Date,
+  timeZone: string,
+  endDate: string | undefined,
+): boolean {
   if (!endDate) return false;
-  const local = localParts(occurrence, timeZone);
-  const occurrenceDate = `${local.year}-${String(local.month).padStart(2, '0')}-${String(local.day).padStart(2, '0')}`;
-  return occurrenceDate >= endDate;
+  return (
+    formatLocalDate(localParts(occurrence, timeZone)) >= endDate ||
+    formatLocalDate(localParts(nextOccurrenceValue, timeZone)) > endDate
+  );
+}
+
+function formatLocalDate(value: Pick<LocalDate, 'year' | 'month' | 'day'>): string {
+  return `${value.year}-${String(value.month).padStart(2, '0')}-${String(value.day).padStart(2, '0')}`;
 }
 
 function localParts(instant: Date, timeZone: string): LocalDate {
@@ -471,7 +566,3 @@ function weekday(value: LocalDate) {
 function daysInMonth(year: number, month: number) {
   return new Date(Date.UTC(year, month, 0)).getUTCDate();
 }
-
-// Keep randomUUID imported in this source while scheduler job IDs remain database generated; it is
-// the explicit seam for future worker correlation IDs and avoids changing the scheduling API later.
-void randomUUID;

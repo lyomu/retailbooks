@@ -3,6 +3,8 @@ import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module.js';
 import { DomainEventsModule } from '../automation/domain-events.module.js';
 import { OrganizationsModule } from '../organizations/organizations.module.js';
+import { EntitlementsModule } from '../platform/entitlements.module.js';
+import { BankMatchProposalService } from './bank-match-proposal.service.js';
 import { BankRulesController } from './bank-rules.controller.js';
 import { BankRulesService } from './bank-rules.service.js';
 import { BankTransactionsController } from './bank-transactions.controller.js';
@@ -17,7 +19,7 @@ import { TransfersController } from './transfers.controller.js';
 import { TransfersService } from './transfers.service.js';
 
 @Module({
-  imports: [AuthModule, OrganizationsModule, DomainEventsModule],
+  imports: [AuthModule, OrganizationsModule, DomainEventsModule, EntitlementsModule],
   controllers: [
     FinancialAccountsController,
     BankRulesController,
@@ -33,6 +35,7 @@ import { TransfersService } from './transfers.service.js';
     BankTransactionsService,
     TransfersService,
     ReconciliationsService,
+    BankMatchProposalService,
   ],
 })
 export class BankingModule {}

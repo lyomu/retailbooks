@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "node .next/standalone/server.js",
+    "postbuild": "node scripts/copy-standalone-static.mjs",
+    "start": "node .next/standalone/apps/web/server.js",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
     "e2e:prepare": "node e2e/prepare.mjs",
@@ -24,6 +25,7 @@
     "recharts": "^3.1.2"
   },
   "devDependencies": {
+    "@napi-rs/canvas": "^1.0.9",
     "@playwright/test": "^1.62.1",
     "@types/react": "^19.1.12",
     "@types/react-dom": "^19.1.9"

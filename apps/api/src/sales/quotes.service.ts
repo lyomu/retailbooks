@@ -4,12 +4,13 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { AuditAction, type Prisma, type QuoteStatus } from '@prisma/client';
+import { ApprovalRequestStatus, AuditAction, type Prisma, type QuoteStatus } from '@prisma/client';
 import { roundHalfUpDivide } from '@retailbooks/accounting-core';
 
 import type { PublicUser } from '../auth/auth.service.js';
 import type { RequestMetadata } from '../auth/request-context.js';
 import { assertNoPendingApproval } from '../automation/approval-targets.js';
+import { ApprovalTargetsService } from '../automation/approval-targets.service.js';
 import { PrismaService } from '../database/prisma.service.js';
 import { EMAIL_JOB_NAMES } from '../jobs/email-job.js';
 import { EmailQueueService } from '../jobs/email-queue.service.js';
@@ -40,6 +41,7 @@ export class QuotesService {
     private readonly invoices: InvoicesService,
     private readonly documentRendering: DocumentRenderingService,
     private readonly emailQueue: EmailQueueService,
+    private readonly approvalTargets: ApprovalTargetsService,
   ) {}
 
   async list(organizationId: string, status?: string) {
@@ -228,6 +230,14 @@ export class QuotesService {
         after: { status: 'PENDING_APPROVAL', quoteNumber: allocation.value },
         ipHash: metadata.ipHash,
       });
+      await this.approvalTargets.submitIfPolicyApplies(
+        tx,
+        context,
+        user,
+        'QUOTE',
+        quoteId,
+        metadata,
+      );
       return quote;
     });
     return summarizeQuote(updated);
@@ -239,6 +249,16 @@ export class QuotesService {
     quoteId: string,
     metadata: RequestMetadata,
   ) {
+    return this.approveAfterPolicy(context, user, quoteId, metadata);
+  }
+
+  private async approveAfterPolicy(
+    context: OrganizationContext,
+    user: PublicUser,
+    quoteId: string,
+    metadata: RequestMetadata,
+  ) {
+    await this.assertQuotePolicyApprovalComplete(context.id, quoteId);
     return this.transition(context, user, quoteId, metadata, {
       from: ['PENDING_APPROVAL'],
       to: 'APPROVED',
@@ -493,6 +513,22 @@ export class QuotesService {
       return quote;
     });
     return summarizeQuote(updated);
+  }
+
+  private async assertQuotePolicyApprovalComplete(organizationId: string, quoteId: string) {
+    const request = await this.prisma.approvalRequest.findFirst({
+      where: { organizationId, targetType: 'QUOTE', targetId: quoteId },
+      orderBy: { submittedAt: 'desc' },
+      select: { status: true },
+    });
+    if (!request) return;
+    if (request.status === ApprovalRequestStatus.APPROVED) return;
+    if (request.status === ApprovalRequestStatus.PENDING) {
+      throw new ConflictException('This quote is awaiting approval in the approval workflow.');
+    }
+    throw new ConflictException(
+      'This quote approval request was not approved; cancel or resubmit before approving the quote.',
+    );
   }
 
   private async findOrThrow(organizationId: string, quoteId: string) {

@@ -26,7 +26,7 @@ export function AuthForm({
   mode,
   token,
   invitation,
-  redirectTo = '/',
+  redirectTo = '/dashboard',
 }: {
   mode: AuthMode;
   token?: string;

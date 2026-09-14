@@ -87,7 +87,7 @@ export function AcceptInvitationClient({ token }: { token: string }) {
         <p>{message}</p>
         {state === 'joined' ? (
           <Button asChild>
-            <Link href="/">Go to the workspace</Link>
+            <Link href="/dashboard">Go to the workspace</Link>
           </Button>
         ) : null}
         {state === 'error' ? (

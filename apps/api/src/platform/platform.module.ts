@@ -3,7 +3,8 @@ import { Module } from '@nestjs/common';
 import { AutomationModule } from '../automation/automation.module.js';
 import { AuthModule } from '../auth/auth.module.js';
 import { JobsModule } from '../jobs/jobs.module.js';
-import { EntitlementsService } from './entitlements.service.js';
+import { EntitlementsModule } from './entitlements.module.js';
+import { FeatureFlagGuard } from './feature-flag.guard.js';
 import { PlatformAccessModule } from './platform-access.module.js';
 import { PlatformCatalogService } from './platform-catalog.service.js';
 import { PlatformOperationsService } from './platform-operations.service.js';
@@ -16,19 +17,22 @@ import { PlatformController } from './platform.controller.js';
  * adoption through Prisma directly, never through a tenant service that expects an
  * `OrganizationContext`.
  *
- * `EntitlementsService` is exported because entitlement resolution is the one piece of this phase
- * the rest of the application will eventually consume — a feature gate belongs next to the feature,
- * not in the console.
+ * `EntitlementsService` comes from `EntitlementsModule` (kept dependency-light so any feature module
+ * can import it directly to gate a route or a code path, without pulling in this module's heavier
+ * imports) and is re-exported here for the platform console's own use. `FeatureFlagGuard` is
+ * provided here and exported for controllers that use it by class reference in `@UseGuards()` --
+ * whichever module owns such a controller must import `EntitlementsModule` too (for constructor
+ * injection to resolve) but does not need to import this whole module.
  */
 @Module({
-  imports: [AuthModule, AutomationModule, JobsModule, PlatformAccessModule],
+  imports: [AuthModule, AutomationModule, JobsModule, PlatformAccessModule, EntitlementsModule],
   controllers: [PlatformController],
   providers: [
     PlatformTenantsService,
     PlatformCatalogService,
     PlatformOperationsService,
-    EntitlementsService,
+    FeatureFlagGuard,
   ],
-  exports: [EntitlementsService],
+  exports: [EntitlementsModule, FeatureFlagGuard],
 })
 export class PlatformModule {}

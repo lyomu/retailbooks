@@ -29,7 +29,7 @@ export default function Error({
             Try again
           </Button>
           <Button asChild>
-            <Link href="/">Back to dashboard</Link>
+            <Link href="/dashboard">Back to dashboard</Link>
           </Button>
         </div>
       </Card>

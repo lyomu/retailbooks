@@ -1,12 +1,17 @@
 'use client';
 
 import type {
+  ExplainNumberExplanation,
+  ExplainNumberResponse,
   ReportColumn,
   ReportDefinition,
   ReportDefinitionsResponse,
+  ReportDrillDownData,
+  ReportDrillDownResult,
   ReportFilters,
   ReportKey,
   ReportResult,
+  ReportRow,
   SavedReport,
   SavedReportResponse,
   SavedReportsResponse,
@@ -15,6 +20,9 @@ import {
   Badge,
   Button,
   Card,
+  Dialog,
+  DrawerContent,
+  ErrorState,
   ForbiddenState,
   Input,
   Label,
@@ -125,6 +133,9 @@ export function ReportRunnerPage({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [explainTarget, setExplainTarget] = useState<{ row: ReportRow; label: string } | null>(
+    null,
+  );
 
   const load = useCallback(async () => {
     if (!organizationId || !canView) return;
@@ -309,7 +320,25 @@ export function ReportRunnerPage({
         ) : null}
 
         {loading && !report ? <Skeleton /> : null}
-        {report ? <ReportTable report={report} currency={currency} /> : null}
+        {report ? (
+          <ReportTable
+            report={report}
+            currency={currency}
+            onExplain={(row, label) => setExplainTarget({ row, label })}
+          />
+        ) : null}
+        {explainTarget && organizationId && report ? (
+          <NumberExplanationPanel
+            organizationId={organizationId}
+            reportKey={report.definition.key}
+            filters={filters}
+            row={explainTarget.row}
+            label={explainTarget.label}
+            currency={currency}
+            canAskAi={hasPermission(organization, 'ai.assistant.ask')}
+            onClose={() => setExplainTarget(null)}
+          />
+        ) : null}
         {definition ? (
           <Card className="rb-report-provenance">
             <div>
@@ -418,7 +447,17 @@ export function SavedReportsPage() {
   );
 }
 
-function ReportTable({ report, currency }: { report: ReportData; currency: string }) {
+function ReportTable({
+  report,
+  currency,
+  onExplain,
+}: {
+  report: ReportData;
+  currency: string;
+  onExplain?: (row: ReportRow, label: string) => void;
+}) {
+  const canExplain = Boolean(onExplain) && report.definition.supportsDrillDown;
+  const labelColumn = report.definition.columns[0];
   return (
     <div className="rb-table-scroll">
       <table className="rb-table rb-report-table">
@@ -438,6 +477,7 @@ function ReportTable({ report, currency }: { report: ReportData; currency: strin
               </th>
             ))}
             <th>Source</th>
+            {canExplain ? <th>Explain</th> : null}
           </tr>
         </thead>
         <tbody>
@@ -460,11 +500,31 @@ function ReportTable({ report, currency }: { report: ReportData; currency: strin
                 </td>
               ))}
               <td>{row.source ? <Link href={row.source.href}>View source</Link> : '—'}</td>
+              {canExplain ? (
+                <td>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() =>
+                      onExplain?.(
+                        row,
+                        labelColumn
+                          ? formatCell(row.cells[labelColumn.key], labelColumn, currency)
+                          : row.id,
+                      )
+                    }
+                  >
+                    Explain
+                  </Button>
+                </td>
+              ) : null}
             </tr>
           ))}
           {report.rows.length === 0 ? (
             <tr>
-              <td colSpan={report.definition.columns.length + 1}>No activity for these filters.</td>
+              <td colSpan={report.definition.columns.length + 1 + (canExplain ? 1 : 0)}>
+                No activity for these filters.
+              </td>
             </tr>
           ) : null}
         </tbody>
@@ -474,6 +534,223 @@ function ReportTable({ report, currency }: { report: ReportData; currency: strin
       </div>
     </div>
   );
+}
+
+function pickDrillDownFilters(filters: Partial<ReportFilters>): Partial<ReportFilters> {
+  const { from, to, basis, currencyMode, projectId, tagId } = filters;
+  return { from, to, basis, currencyMode, projectId, tagId };
+}
+
+function NumberExplanationPanel({
+  organizationId,
+  reportKey,
+  filters,
+  row,
+  label,
+  currency,
+  canAskAi,
+  onClose,
+}: {
+  organizationId: string;
+  reportKey: ReportKey;
+  filters: Partial<ReportFilters>;
+  row: ReportRow;
+  label: string;
+  currency: string;
+  canAskAi: boolean;
+  onClose: () => void;
+}) {
+  const [drillDown, setDrillDown] = useState<ReportDrillDownData | null>(null);
+  const [explanation, setExplanation] = useState<ExplainNumberExplanation | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const drillDownFilters = pickDrillDownFilters(filters);
+
+  useEffect(() => {
+    let cancelled = false;
+    setDrillDown(null);
+    setExplanation(null);
+    setError(null);
+
+    async function load() {
+      try {
+        if (canAskAi) {
+          const response = await apiRequest<ExplainNumberResponse>(
+            `/organizations/${organizationId}/ai/explain-number`,
+            {
+              method: 'POST',
+              body: JSON.stringify({ reportKey, rowId: row.id, ...drillDownFilters }),
+            },
+          );
+          if (cancelled) return;
+          setDrillDown(response.data.drillDown);
+          setExplanation(response.data.explanation);
+        } else {
+          const query = filterParams(drillDownFilters);
+          const response = await apiRequest<ReportDrillDownResult>(
+            `/organizations/${organizationId}/reports/${encodeURIComponent(reportKey)}/rows/${row.id}/drill-down?${query}`,
+          );
+          if (cancelled) return;
+          setDrillDown(response.data);
+          setExplanation({ state: 'unavailable', reason: 'AI_NOT_PERMITTED' });
+        }
+      } catch (caught) {
+        if (!cancelled) setError(message(caught, 'This number could not be explained.'));
+      }
+    }
+    void load();
+    return () => {
+      cancelled = true;
+    };
+    // drillDownFilters is derived fresh from filters every render; depend on its fields directly
+    // rather than the object reference so a same-value refresh doesn't re-fetch.
+  }, [
+    organizationId,
+    reportKey,
+    row.id,
+    canAskAi,
+    drillDownFilters.from,
+    drillDownFilters.to,
+    drillDownFilters.basis,
+    drillDownFilters.currencyMode,
+    drillDownFilters.projectId,
+    drillDownFilters.tagId,
+  ]);
+
+  const labelColumn = drillDown?.definition.columns[0];
+
+  return (
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <DrawerContent
+        side="right"
+        title={`Explain ${label}`}
+        description="Deterministic breakdown and, if available, an AI interpretation."
+      >
+        <div className="rb-explain-panel">
+          {error ? (
+            <ErrorState title="This number could not be explained" description={error} />
+          ) : null}
+          {!drillDown && !error ? <Skeleton /> : null}
+          {drillDown ? (
+            <>
+              <div className="rb-explain-summary-row">
+                <strong>{label}</strong>
+                {drillDown.definition.columns
+                  .filter((column) => column.key !== labelColumn?.key)
+                  .map((column) => (
+                    <span key={column.key}>
+                      {column.label}:{' '}
+                      {formatCell(drillDown.row.cells[column.key], column, currency)}
+                    </span>
+                  ))}
+              </div>
+              <p className="rb-muted">Lines reconcile exactly to the reported total.</p>
+              <div className="rb-table-scroll">
+                <table className="rb-table">
+                  <caption className="rb-visually-hidden">Contributing entries for {label}</caption>
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Reference</th>
+                      <th>Description</th>
+                      <th className="rb-table--right">Debit</th>
+                      <th className="rb-table--right">Credit</th>
+                      <th>Source</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {drillDown.lines.map((line) => (
+                      <tr key={line.id}>
+                        <td>{String(line.cells.date ?? '—')}</td>
+                        <td>{String(line.cells.reference ?? '—')}</td>
+                        <td>{String(line.cells.description ?? '—')}</td>
+                        <td className="rb-table--right rb-num">
+                          {formatMinor(String(line.cells.debitMinor ?? '0'), currency)}
+                        </td>
+                        <td className="rb-table--right rb-num">
+                          {formatMinor(String(line.cells.creditMinor ?? '0'), currency)}
+                        </td>
+                        <td>
+                          {line.source ? <Link href={line.source.href}>View source</Link> : '—'}
+                        </td>
+                      </tr>
+                    ))}
+                    {drillDown.lines.length === 0 ? (
+                      <tr>
+                        <td colSpan={6}>No contributing entries.</td>
+                      </tr>
+                    ) : null}
+                  </tbody>
+                </table>
+              </div>
+              <div className="rb-explain-ai" aria-live="polite">
+                {renderExplanation(explanation, canAskAi)}
+              </div>
+            </>
+          ) : null}
+        </div>
+      </DrawerContent>
+    </Dialog>
+  );
+}
+
+function renderExplanation(
+  explanation: ExplainNumberExplanation | null,
+  canAskAi: boolean,
+): React.ReactNode {
+  if (!canAskAi) {
+    return (
+      <Badge tone="neutral">
+        Your role can view the breakdown above; AI explanations need the assistant permission.
+      </Badge>
+    );
+  }
+  if (!explanation) return <Skeleton />;
+  if (explanation.state === 'unavailable') {
+    return (
+      <div className="rb-explain-unavailable">
+        <Badge tone="warning">AI explanation unavailable</Badge>
+        <p className="rb-muted">{unavailableReasonCopy(explanation.reason)}</p>
+      </div>
+    );
+  }
+  if (explanation.abstained) {
+    return (
+      <p className="rb-muted">
+        The assistant couldn’t confirm an explanation from the available evidence.
+      </p>
+    );
+  }
+  return (
+    <div className="rb-explain-ready">
+      <p>{explanation.summary}</p>
+      {explanation.citations.length > 0 ? (
+        <ul className="rb-explain-citations">
+          {explanation.citations.map((citation) => (
+            <li key={citation.sourceId}>
+              {citation.href ? <Link href={citation.href}>View source</Link> : citation.sourceType}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      <p className="rb-muted rb-explain-caption">
+        AI-written interpretation of the evidence above. It is not verified fact and never changes
+        the reported amount.
+      </p>
+    </div>
+  );
+}
+
+function unavailableReasonCopy(reason: string): string {
+  if (reason === 'MODEL_DISABLED') return 'AI is turned off for this workspace.';
+  if (reason === 'AI_NOT_PERMITTED') return 'Your role does not have the AI assistant permission.';
+  if (reason === 'MODEL_EVIDENCE_STALE')
+    return 'The underlying data changed while preparing this explanation.';
+  return 'The AI explanation service is temporarily unavailable.';
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {

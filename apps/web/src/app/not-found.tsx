@@ -16,7 +16,7 @@ export default function NotFound() {
         <p>The page you&rsquo;re looking for doesn&rsquo;t exist or may have moved.</p>
         <div className="rb-standalone__actions">
           <Button asChild>
-            <Link href="/">Back to dashboard</Link>
+            <Link href="/dashboard">Back to dashboard</Link>
           </Button>
         </div>
       </Card>

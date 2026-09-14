@@ -169,6 +169,20 @@ describe('approval gates on every target finalize action against a real database
         metadata,
       );
       await quotes.submitForApproval(context, owner, draft.id, metadata);
+      const submittedRequest = await harness.prisma.approvalRequest.findFirstOrThrow({
+        where: { organizationId: context.id, targetType: 'QUOTE', targetId: draft.id },
+        orderBy: { submittedAt: 'desc' },
+      });
+      await expect(quotes.approve(context, owner, draft.id, metadata)).rejects.toThrow(
+        'This quote is awaiting approval in the approval workflow.',
+      );
+      await approvals.decide(
+        approver.context,
+        approver.user,
+        submittedRequest.id,
+        { decision: 'APPROVED' },
+        metadata,
+      );
       await quotes.approve(context, owner, draft.id, metadata);
       await quotes.send(context, owner, draft.id, metadata);
       await quotes.accept(context, owner, draft.id, metadata);

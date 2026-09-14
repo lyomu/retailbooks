@@ -1,12 +1,14 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 
 import { AuthModule } from '../auth/auth.module.js';
 import { JobsModule } from '../jobs/jobs.module.js';
 import { OrganizationsModule } from '../organizations/organizations.module.js';
+import { EntitlementsModule } from '../platform/entitlements.module.js';
 import { AutomationQueueService } from './automation-queue.service.js';
 import { AutomationJobsController } from './automation-jobs.controller.js';
 import { AutomationTasksController } from './automation-tasks.controller.js';
 import { AutomationTasksService } from './automation-tasks.service.js';
+import { ApprovalBriefingService } from './approval-briefing.service.js';
 import { ApprovalRequestsController } from './approval-requests.controller.js';
 import { ApprovalTargetsService } from './approval-targets.service.js';
 import { ApprovalsController } from './approvals.controller.js';
@@ -23,7 +25,13 @@ import { WorkflowsController } from './workflows.controller.js';
 import { WorkflowsService } from './workflows.service.js';
 
 @Module({
-  imports: [AuthModule, JobsModule, OrganizationsModule, DomainEventsModule],
+  imports: [
+    AuthModule,
+    JobsModule,
+    forwardRef(() => OrganizationsModule),
+    DomainEventsModule,
+    EntitlementsModule,
+  ],
   controllers: [
     ApprovalsController,
     ApprovalRequestsController,
@@ -38,6 +46,7 @@ import { WorkflowsService } from './workflows.service.js';
     AutomationQueueService,
     ApprovalsService,
     ApprovalTargetsService,
+    ApprovalBriefingService,
     AutomationTasksService,
     NotificationsService,
     WorkflowsService,

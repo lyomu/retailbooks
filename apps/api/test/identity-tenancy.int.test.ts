@@ -14,7 +14,7 @@ import { API, createTestHarness, type TestHarness } from './support/app.js';
 const PASSWORD = 'IntegrationPass1!';
 const NEW_PASSWORD = 'IntegrationPass2!';
 const metadata = { ipHash: 'identity-tenancy-test', userAgent: 'RetailBooks integration test' };
-const redisUrl = process.env.REDIS_URL ?? 'redis://localhost:56379';
+const redisUrl = process.env.REDIS_URL ?? 'redis://localhost:56780';
 const queuePrefix = process.env.QUEUE_PREFIX ?? 'retailbooks-integration';
 
 describe('identity and tenancy over HTTP', () => {

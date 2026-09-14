@@ -35,7 +35,7 @@ function collectBrowserErrors(page: Page) {
 test.describe('RetailBooks design foundation', () => {
   test('@visual dashboard baseline and shell interactions', async ({ page }, testInfo) => {
     const browserErrors = collectBrowserErrors(page);
-    await openStable(page, '/');
+    await openStable(page, '/dashboard');
     expect(browserErrors, 'dashboard should hydrate without browser errors').toEqual([]);
 
     await expect(page.getByRole('heading', { name: 'Dashboard', exact: true })).toBeVisible();

@@ -25,7 +25,7 @@ export default function GlobalError({
               >
                 Try again
               </button>
-              <a className="rb-button rb-button--primary rb-button--md" href="/">
+              <a className="rb-button rb-button--primary rb-button--md" href="/dashboard">
                 Back to dashboard
               </a>
             </div>

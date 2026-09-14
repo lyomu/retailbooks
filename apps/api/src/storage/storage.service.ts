@@ -61,6 +61,21 @@ export class StorageService {
     });
   }
 
+  /** Fetches an object's bytes directly (no signed URL) for server-side processing such as the
+   * Phase 13D malware-scan/OCR worker, which must never hand a model or external process a URL. */
+  async download(key: string): Promise<Buffer> {
+    const response = await this.client.send(
+      new GetObjectCommand({ Bucket: this.bucket, Key: key }),
+    );
+    const body = response.Body;
+    if (!body) throw new Error(`Storage object ${key} has no body.`);
+    const chunks: Buffer[] = [];
+    for await (const chunk of body as AsyncIterable<Uint8Array>) {
+      chunks.push(Buffer.from(chunk));
+    }
+    return Buffer.concat(chunks);
+  }
+
   async delete(key: string): Promise<void> {
     await this.client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
   }

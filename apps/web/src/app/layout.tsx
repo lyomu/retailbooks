@@ -7,7 +7,7 @@ import './styles.css';
 
 export const metadata: Metadata = {
   title: 'RetailBooks',
-  description: 'Audit-first accounting operations for growing businesses.',
+  description: 'AI invoicing and accounting that keeps small businesses clear, organized, and ready for what is next.',
 };
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {

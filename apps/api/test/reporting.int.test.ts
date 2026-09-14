@@ -230,6 +230,89 @@ describe('report engine against a real database', () => {
     expect(trialById.get(inventory.id)?.debitMinor).toBe('5000');
   });
 
+  it('drills a profit-and-loss/trial-balance account row down to its posted journal lines', async () => {
+    const bank = await ledger.accountBySystemKey(context.id, 'bank_default');
+    const revenue = await ledger.accountBySystemKey(context.id, 'sales_revenue');
+    const expense = await ledger.accountBySystemKey(context.id, 'general_expense');
+    const revenueDraft = await ledger.createJournalDraft(context, owner, {
+      journalDate: '2026-03-15',
+      currency: 'KES',
+      description: 'Drill-down fixture (revenue, two contributing lines)',
+      lines: [
+        { accountId: bank.id, debitMinor: '12500', creditMinor: '0' },
+        { accountId: revenue.id, debitMinor: '0', creditMinor: '9000' },
+        { accountId: revenue.id, debitMinor: '0', creditMinor: '3500' },
+      ],
+    });
+    await ledger.postJournal(
+      context,
+      owner,
+      revenueDraft.id,
+      metadata,
+      'drilldown-fixture-revenue',
+    );
+    const expenseDraft = await ledger.createJournalDraft(context, owner, {
+      journalDate: '2026-03-16',
+      currency: 'KES',
+      description: 'Drill-down fixture (expense)',
+      lines: [
+        { accountId: expense.id, debitMinor: '3500', creditMinor: '0' },
+        { accountId: bank.id, debitMinor: '0', creditMinor: '3500' },
+      ],
+    });
+    await ledger.postJournal(
+      context,
+      owner,
+      expenseDraft.id,
+      metadata,
+      'drilldown-fixture-expense',
+    );
+
+    const filters = { from: '2026-01-01', to: '2026-12-31' };
+
+    // Revenue is credit-normal: two posted credits reconcile to one positive P&L amount.
+    const plDrillDown = await reports.drillDown(
+      context.id,
+      'financial.profit-loss',
+      filters,
+      revenue.id,
+    );
+    expect(plDrillDown.reconciled).toBe(true);
+    expect(plDrillDown.row.cells.amountMinor).toBe('12500');
+    expect(plDrillDown.lines).toHaveLength(2);
+
+    // Expense is debit-normal: drill-down still reconciles for the other sign.
+    const expenseDrillDown = await reports.drillDown(
+      context.id,
+      'financial.profit-loss',
+      filters,
+      expense.id,
+    );
+    expect(expenseDrillDown.row.cells.amountMinor).toBe('3500');
+    expect(expenseDrillDown.lines).toHaveLength(1);
+
+    // Trial balance keeps raw debit/credit separate rather than netting a signed amount.
+    const trialDrillDown = await reports.drillDown(
+      context.id,
+      'financial.trial-balance',
+      filters,
+      revenue.id,
+    );
+    expect(trialDrillDown.row.cells.debitMinor).toBe('0');
+    expect(trialDrillDown.row.cells.creditMinor).toBe('12500');
+    expect(trialDrillDown.row.cells.amountMinor).toBeNull();
+  });
+
+  it('rejects drill-down for unsupported reports and accounts with no matching activity', async () => {
+    const filters = { from: '2026-01-01', to: '2026-12-31' };
+    await expect(
+      reports.drillDown(context.id, 'financial.general-ledger', filters, crypto.randomUUID()),
+    ).rejects.toThrow();
+    await expect(
+      reports.drillDown(context.id, 'financial.profit-loss', filters, crypto.randomUUID()),
+    ).rejects.toThrow();
+  });
+
   it('reports foreign-currency journals in frozen base-currency amounts', async () => {
     await harness.prisma.organizationCurrency.create({
       data: { organizationId: context.id, currencyCode: 'USD' },

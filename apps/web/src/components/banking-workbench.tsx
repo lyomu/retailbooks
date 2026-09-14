@@ -47,11 +47,21 @@ import {
   SplitSquareHorizontal,
   Trash2,
 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 
 import { ApiError, apiRequest, apiUpload } from '../lib/api';
 import { formValue } from '../lib/forms';
 import { hasPermission, useWorkspace } from '../lib/workspace';
+
+interface BankMatchCandidate {
+  targetType: MatchTargetType;
+  targetId: string;
+  label: string;
+  amountMinor: string;
+  date: string;
+  score: number;
+  reason: string;
+}
 
 type AccountListResponse = { data: LedgerAccount[] };
 type FinancialAccountListResponse = { data: FinancialAccount[] };
@@ -1650,11 +1660,36 @@ function BankTransactionActionPanel({
   ]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [matchProposals, setMatchProposals] = useState<BankMatchCandidate[] | null>(null);
+  const targetTypeRef = useRef<HTMLSelectElement>(null);
+  const targetIdRef = useRef<HTMLInputElement>(null);
   const totalMinor = useMemo(
     () => lines.reduce((sum, line) => sum + BigInt(decimalToMinor(line.amount || '0')), 0n),
     [lines],
   );
   const difference = BigInt(transaction.amountMinor) - totalMinor;
+
+  useEffect(() => {
+    if (mode !== 'match' || !organizationId) return;
+    let cancelled = false;
+    apiRequest<{ data: BankMatchCandidate[] }>(
+      `/organizations/${organizationId}/bank-transactions/${transaction.id}/match-proposals`,
+    )
+      .then((response) => {
+        if (!cancelled) setMatchProposals(response.data);
+      })
+      .catch(() => {
+        if (!cancelled) setMatchProposals([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [mode, organizationId, transaction.id]);
+
+  function applyProposal(candidate: BankMatchCandidate) {
+    if (targetTypeRef.current) targetTypeRef.current.value = candidate.targetType;
+    if (targetIdRef.current) targetIdRef.current.value = candidate.targetId;
+  }
   const canCategorize =
     mode === 'categorize' && difference === 0n && lines.every((line) => line.accountId);
 
@@ -1811,26 +1846,54 @@ function BankTransactionActionPanel({
           </>
         ) : null}
         {mode === 'match' ? (
-          <div className="rb-field-grid">
-            <div className="rb-field">
-              <Label htmlFor="bank-match-target-type">Target type</Label>
-              <Select id="bank-match-target-type" name="targetType">
-                {matchTargetTypes.map((type) => (
-                  <option key={type} value={type}>
-                    {label(type)}
-                  </option>
-                ))}
-              </Select>
+          <>
+            {matchProposals === null ? (
+              <Skeleton />
+            ) : matchProposals.length > 0 ? (
+              <div className="rb-explain-panel">
+                <strong>Suggested matches</strong>
+                <p className="rb-muted">
+                  Ranked by exact amount, date proximity, and description overlap -- pick one to
+                  fill the fields below, then confirm.
+                </p>
+                <ul className="rb-attachment-list">
+                  {matchProposals.map((candidate) => (
+                    <li key={`${candidate.targetType}:${candidate.targetId}`}>
+                      <button
+                        type="button"
+                        className="rb-attachment-link"
+                        onClick={() => applyProposal(candidate)}
+                      >
+                        {candidate.label} ·{' '}
+                        {formatMinor(candidate.amountMinor, transaction.currency)}
+                      </button>
+                      <span className="rb-table-secondary">{candidate.reason}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+            <div className="rb-field-grid">
+              <div className="rb-field">
+                <Label htmlFor="bank-match-target-type">Target type</Label>
+                <Select id="bank-match-target-type" name="targetType" ref={targetTypeRef}>
+                  {matchTargetTypes.map((type) => (
+                    <option key={type} value={type}>
+                      {label(type)}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              <div className="rb-field">
+                <Label htmlFor="bank-match-target-id">Target id</Label>
+                <Input id="bank-match-target-id" name="targetId" required ref={targetIdRef} />
+              </div>
+              <div className="rb-field">
+                <Label htmlFor="bank-match-note">Note</Label>
+                <Input id="bank-match-note" name="note" maxLength={240} />
+              </div>
             </div>
-            <div className="rb-field">
-              <Label htmlFor="bank-match-target-id">Target id</Label>
-              <Input id="bank-match-target-id" name="targetId" required />
-            </div>
-            <div className="rb-field">
-              <Label htmlFor="bank-match-note">Note</Label>
-              <Input id="bank-match-note" name="note" maxLength={240} />
-            </div>
-          </div>
+          </>
         ) : null}
         {mode === 'exclude' ? (
           <div className="rb-field">

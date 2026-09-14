@@ -3,12 +3,17 @@
 Docker Compose provides portable development dependencies:
 
 - PostgreSQL on `localhost:55432`
-- Redis on `localhost:56379`
+- Redis on `localhost:56780`
 - MinIO S3 API on `localhost:59000` and Console on `localhost:59001`
 - Mailpit SMTP on `localhost:51025` and inbox UI on `localhost:58025`
 
 Run `docker compose up -d`, then verify container health with `docker compose ps`. The API exposes
 dependency readiness at `GET /health/ready`.
+
+PostgreSQL creates a restricted local `retailbooks_app` runtime role. The API uses that role through
+`DATABASE_URL`; Prisma migrations use the separate owner connection in
+`DATABASE_MIGRATION_URL`. Existing local volumes need the role provisioning statements in
+`postgres-init.sql` applied once before switching the API connection.
 
 These deliberately non-standard host ports avoid collisions with other local projects. Each port
 can be overridden through the corresponding variable in `docker-compose.yml`; container-side ports

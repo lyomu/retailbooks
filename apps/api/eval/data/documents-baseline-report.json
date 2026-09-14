@@ -1,0 +1,3539 @@
+{
+  "seed": 130914,
+  "generatedAt": "2026-09-14",
+  "totalCases": 110,
+  "devCount": 78,
+  "holdoutCount": 32,
+  "fieldScores": {
+    "dev": [
+      {
+        "field": "vendorName",
+        "truePositive": 78,
+        "falsePositive": 0,
+        "falseNegative": 0,
+        "correctAbstention": 0,
+        "incorrectValue": 0,
+        "total": 78
+      },
+      {
+        "field": "date",
+        "truePositive": 41,
+        "falsePositive": 0,
+        "falseNegative": 0,
+        "correctAbstention": 37,
+        "incorrectValue": 0,
+        "total": 78
+      },
+      {
+        "field": "currency",
+        "truePositive": 50,
+        "falsePositive": 0,
+        "falseNegative": 0,
+        "correctAbstention": 28,
+        "incorrectValue": 0,
+        "total": 78
+      },
+      {
+        "field": "subtotalMinor",
+        "truePositive": 60,
+        "falsePositive": 0,
+        "falseNegative": 0,
+        "correctAbstention": 18,
+        "incorrectValue": 0,
+        "total": 78
+      },
+      {
+        "field": "taxMinor",
+        "truePositive": 43,
+        "falsePositive": 0,
+        "falseNegative": 0,
+        "correctAbstention": 35,
+        "incorrectValue": 0,
+        "total": 78
+      },
+      {
+        "field": "totalMinor",
+        "truePositive": 44,
+        "falsePositive": 0,
+        "falseNegative": 0,
+        "correctAbstention": 34,
+        "incorrectValue": 0,
+        "total": 78
+      }
+    ],
+    "holdout": [
+      {
+        "field": "vendorName",
+        "truePositive": 32,
+        "falsePositive": 0,
+        "falseNegative": 0,
+        "correctAbstention": 0,
+        "incorrectValue": 0,
+        "total": 32
+      },
+      {
+        "field": "date",
+        "truePositive": 14,
+        "falsePositive": 0,
+        "falseNegative": 0,
+        "correctAbstention": 18,
+        "incorrectValue": 0,
+        "total": 32
+      },
+      {
+        "field": "currency",
+        "truePositive": 21,
+        "falsePositive": 0,
+        "falseNegative": 0,
+        "correctAbstention": 11,
+        "incorrectValue": 0,
+        "total": 32
+      },
+      {
+        "field": "subtotalMinor",
+        "truePositive": 28,
+        "falsePositive": 0,
+        "falseNegative": 0,
+        "correctAbstention": 4,
+        "incorrectValue": 0,
+        "total": 32
+      },
+      {
+        "field": "taxMinor",
+        "truePositive": 24,
+        "falsePositive": 0,
+        "falseNegative": 0,
+        "correctAbstention": 8,
+        "incorrectValue": 0,
+        "total": 32
+      },
+      {
+        "field": "totalMinor",
+        "truePositive": 22,
+        "falsePositive": 0,
+        "falseNegative": 0,
+        "correctAbstention": 10,
+        "incorrectValue": 0,
+        "total": 32
+      }
+    ],
+    "overall": [
+      {
+        "field": "vendorName",
+        "truePositive": 110,
+        "falsePositive": 0,
+        "falseNegative": 0,
+        "correctAbstention": 0,
+        "incorrectValue": 0,
+        "total": 110
+      },
+      {
+        "field": "date",
+        "truePositive": 55,
+        "falsePositive": 0,
+        "falseNegative": 0,
+        "correctAbstention": 55,
+        "incorrectValue": 0,
+        "total": 110
+      },
+      {
+        "field": "currency",
+        "truePositive": 71,
+        "falsePositive": 0,
+        "falseNegative": 0,
+        "correctAbstention": 39,
+        "incorrectValue": 0,
+        "total": 110
+      },
+      {
+        "field": "subtotalMinor",
+        "truePositive": 88,
+        "falsePositive": 0,
+        "falseNegative": 0,
+        "correctAbstention": 22,
+        "incorrectValue": 0,
+        "total": 110
+      },
+      {
+        "field": "taxMinor",
+        "truePositive": 67,
+        "falsePositive": 0,
+        "falseNegative": 0,
+        "correctAbstention": 43,
+        "incorrectValue": 0,
+        "total": 110
+      },
+      {
+        "field": "totalMinor",
+        "truePositive": 66,
+        "falsePositive": 0,
+        "falseNegative": 0,
+        "correctAbstention": 44,
+        "incorrectValue": 0,
+        "total": 110
+      }
+    ]
+  },
+  "arithmeticValidAccuracy": {
+    "dev": 1,
+    "holdout": 1
+  },
+  "perCase": [
+    {
+      "caseId": "doc-001",
+      "scanQuality": "clean",
+      "candidate": {
+        "vendorName": "THAMESIDE CONSULTING GROUP - Receipt #1292",
+        "vendorId": "vendor-kenya_retail-1",
+        "date": "2026-07-10",
+        "currency": "KES",
+        "subtotalMinor": "310292",
+        "taxMinor": "31029",
+        "totalMinor": "341321",
+        "categoryId": null,
+        "arithmeticValid": true,
+        "fieldFlags": [
+          "category_unmatched"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "true_positive",
+        "currency": "true_positive",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "true_positive",
+        "totalMinor": "true_positive"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": false
+    },
+    {
+      "caseId": "doc-002",
+      "scanQuality": "clean",
+      "candidate": {
+        "vendorName": "Riverside Hotel & Conference",
+        "vendorId": "vendor-us_saas-1",
+        "date": null,
+        "currency": "USD",
+        "subtotalMinor": "54142",
+        "taxMinor": "5414",
+        "totalMinor": "59556",
+        "categoryId": "category-us_saas-2",
+        "arithmeticValid": true,
+        "fieldFlags": [
+          "date_unresolved"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "correct_abstention",
+        "currency": "true_positive",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "true_positive",
+        "totalMinor": "true_positive"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": true
+    },
+    {
+      "caseId": "doc-003",
+      "scanQuality": "degraded",
+      "candidate": {
+        "vendorName": "Cedar Traders",
+        "vendorId": null,
+        "date": null,
+        "currency": "KES",
+        "subtotalMinor": "18668",
+        "taxMinor": "1867",
+        "totalMinor": "22844",
+        "categoryId": "category-uk_consulting-1",
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "date_ambiguous",
+          "arithmetic_mismatch",
+          "vendor_unmatched"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "correct_abstention",
+        "currency": "true_positive",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "true_positive",
+        "totalMinor": "true_positive"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": true
+    },
+    {
+      "caseId": "doc-004",
+      "scanQuality": "degraded",
+      "candidate": {
+        "vendorName": "SKYLINE TELECOM - Receipt #6467",
+        "vendorId": "vendor-eu_manufacturing-1",
+        "date": "2025-10-28",
+        "currency": null,
+        "subtotalMinor": "301738",
+        "taxMinor": null,
+        "totalMinor": "301738",
+        "categoryId": "category-eu_manufacturing-3",
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "currency_unresolved",
+          "tax_unresolved",
+          "arithmetic_unverifiable"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "true_positive",
+        "currency": "correct_abstention",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "correct_abstention",
+        "totalMinor": "true_positive"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": true
+    },
+    {
+      "caseId": "doc-005",
+      "scanQuality": "poor",
+      "candidate": {
+        "vendorName": "Invoice #36735",
+        "vendorId": null,
+        "date": "2025-10-02",
+        "currency": "UGX",
+        "subtotalMinor": null,
+        "taxMinor": null,
+        "totalMinor": null,
+        "categoryId": null,
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "total_unresolved",
+          "subtotal_unresolved",
+          "tax_unresolved",
+          "arithmetic_unverifiable",
+          "vendor_unmatched",
+          "category_unmatched"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "true_positive",
+        "currency": "true_positive",
+        "subtotalMinor": "correct_abstention",
+        "taxMinor": "correct_abstention",
+        "totalMinor": "correct_abstention"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": false
+    },
+    {
+      "caseId": "doc-006",
+      "scanQuality": "clean",
+      "candidate": {
+        "vendorName": "Prime Logistics Uganda",
+        "vendorId": "vendor-kenya_retail-1",
+        "date": null,
+        "currency": null,
+        "subtotalMinor": null,
+        "taxMinor": null,
+        "totalMinor": null,
+        "categoryId": "category-kenya_retail-4",
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "currency_unresolved",
+          "date_unresolved",
+          "total_unresolved",
+          "subtotal_unresolved",
+          "tax_unresolved",
+          "arithmetic_unverifiable"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "correct_abstention",
+        "currency": "correct_abstention",
+        "subtotalMinor": "correct_abstention",
+        "taxMinor": "correct_abstention",
+        "totalMinor": "correct_abstention"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": true
+    },
+    {
+      "caseId": "doc-007",
+      "scanQuality": "clean",
+      "candidate": {
+        "vendorName": "SAVANNAH CATERING - Receipt #2986",
+        "vendorId": "vendor-us_saas-1",
+        "date": null,
+        "currency": "KES",
+        "subtotalMinor": "166639",
+        "taxMinor": "16664",
+        "totalMinor": "183303",
+        "categoryId": "category-us_saas-0",
+        "arithmeticValid": true,
+        "fieldFlags": [
+          "date_ambiguous"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "correct_abstention",
+        "currency": "true_positive",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "true_positive",
+        "totalMinor": "true_positive"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": true
+    },
+    {
+      "caseId": "doc-008",
+      "scanQuality": "degraded",
+      "candidate": {
+        "vendorName": "Sunrise Traders",
+        "vendorId": null,
+        "date": "2025-08-13",
+        "currency": null,
+        "subtotalMinor": "43672",
+        "taxMinor": "4367",
+        "totalMinor": "48039",
+        "categoryId": "category-uk_consulting-1",
+        "arithmeticValid": true,
+        "fieldFlags": [
+          "currency_unresolved",
+          "vendor_unmatched"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "true_positive",
+        "currency": "correct_abstention",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "true_positive",
+        "totalMinor": "true_positive"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": true
+    },
+    {
+      "caseId": "doc-009",
+      "scanQuality": "degraded",
+      "candidate": {
+        "vendorName": "Sunrise Traders",
+        "vendorId": null,
+        "date": "2025-08-20",
+        "currency": "EUR",
+        "subtotalMinor": "32221",
+        "taxMinor": "3222",
+        "totalMinor": "42483",
+        "categoryId": "category-eu_manufacturing-3",
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "arithmetic_mismatch",
+          "vendor_unmatched"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "true_positive",
+        "currency": "true_positive",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "true_positive",
+        "totalMinor": "true_positive"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": true
+    },
+    {
+      "caseId": "doc-010",
+      "scanQuality": "poor",
+      "candidate": {
+        "vendorName": "Ac3m3 0ff1c3 Sup?ly L7d",
+        "vendorId": null,
+        "date": null,
+        "currency": null,
+        "subtotalMinor": "402790",
+        "taxMinor": null,
+        "totalMinor": "402790",
+        "categoryId": null,
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "currency_unresolved",
+          "date_unresolved",
+          "tax_unresolved",
+          "arithmetic_unverifiable",
+          "vendor_unmatched",
+          "category_unmatched"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "correct_abstention",
+        "currency": "correct_abstention",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "correct_abstention",
+        "totalMinor": "true_positive"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": false
+    },
+    {
+      "caseId": "doc-011",
+      "scanQuality": "clean",
+      "candidate": {
+        "vendorName": "SAVANNAH FUEL DEPOT - Receipt #1281",
+        "vendorId": "vendor-kenya_retail-1",
+        "date": null,
+        "currency": "KES",
+        "subtotalMinor": "447154",
+        "taxMinor": "44715",
+        "totalMinor": null,
+        "categoryId": "category-kenya_retail-2",
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "date_ambiguous",
+          "total_unresolved",
+          "arithmetic_unverifiable"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "correct_abstention",
+        "currency": "true_positive",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "true_positive",
+        "totalMinor": "correct_abstention"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": true
+    },
+    {
+      "caseId": "doc-012",
+      "scanQuality": "clean",
+      "candidate": {
+        "vendorName": "SAVANNAH FUEL DEPOT - Receipt #9978",
+        "vendorId": "vendor-us_saas-1",
+        "date": "2026-06-20",
+        "currency": null,
+        "subtotalMinor": null,
+        "taxMinor": null,
+        "totalMinor": null,
+        "categoryId": "category-us_saas-4",
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "currency_unresolved",
+          "total_unresolved",
+          "subtotal_unresolved",
+          "tax_unresolved",
+          "arithmetic_unverifiable"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "true_positive",
+        "currency": "correct_abstention",
+        "subtotalMinor": "correct_abstention",
+        "taxMinor": "correct_abstention",
+        "totalMinor": "correct_abstention"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": true
+    },
+    {
+      "caseId": "doc-013",
+      "scanQuality": "degraded",
+      "candidate": {
+        "vendorName": "Ac3m3 0ff1c3 Sup?ly L7d",
+        "vendorId": null,
+        "date": "2025-12-05",
+        "currency": "GBP",
+        "subtotalMinor": "37045",
+        "taxMinor": "3705",
+        "totalMinor": "40750",
+        "categoryId": "category-uk_consulting-3",
+        "arithmeticValid": true,
+        "fieldFlags": [
+          "vendor_unmatched"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "true_positive",
+        "currency": "true_positive",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "true_positive",
+        "totalMinor": "true_positive"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": true
+    },
+    {
+      "caseId": "doc-014",
+      "scanQuality": "degraded",
+      "candidate": {
+        "vendorName": "ACME OFFICE SUPPLIES - Receipt #8687",
+        "vendorId": "vendor-eu_manufacturing-1",
+        "date": null,
+        "currency": "EUR",
+        "subtotalMinor": "141849",
+        "taxMinor": "14185",
+        "totalMinor": "156034",
+        "categoryId": "category-eu_manufacturing-0",
+        "arithmeticValid": true,
+        "fieldFlags": [
+          "date_unresolved"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "correct_abstention",
+        "currency": "true_positive",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "true_positive",
+        "totalMinor": "true_positive"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": true
+    },
+    {
+      "caseId": "doc-015",
+      "scanQuality": "poor",
+      "candidate": {
+        "vendorName": "Harbor Holdings",
+        "vendorId": null,
+        "date": null,
+        "currency": "KES",
+        "subtotalMinor": null,
+        "taxMinor": null,
+        "totalMinor": null,
+        "categoryId": null,
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "date_ambiguous",
+          "total_unresolved",
+          "subtotal_unresolved",
+          "tax_unresolved",
+          "arithmetic_unverifiable",
+          "vendor_unmatched",
+          "category_unmatched"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "correct_abstention",
+        "currency": "true_positive",
+        "subtotalMinor": "correct_abstention",
+        "taxMinor": "correct_abstention",
+        "totalMinor": "correct_abstention"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": false
+    },
+    {
+      "caseId": "doc-016",
+      "scanQuality": "clean",
+      "candidate": {
+        "vendorName": "RIVERSIDE HOTEL & CONFERENCE - Receipt #4839",
+        "vendorId": "vendor-kenya_retail-1",
+        "date": "2026-06-26",
+        "currency": null,
+        "subtotalMinor": "18782",
+        "taxMinor": null,
+        "totalMinor": "18782",
+        "categoryId": null,
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "currency_unresolved",
+          "tax_unresolved",
+          "arithmetic_unverifiable",
+          "category_unmatched"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "true_positive",
+        "currency": "correct_abstention",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "correct_abstention",
+        "totalMinor": "true_positive"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": false
+    },
+    {
+      "caseId": "doc-017",
+      "scanQuality": "clean",
+      "candidate": {
+        "vendorName": "RIVERSIDE HOTEL & CONFERENCE - Receipt #2863",
+        "vendorId": "vendor-us_saas-1",
+        "date": "2025-12-08",
+        "currency": "USD",
+        "subtotalMinor": "71293",
+        "taxMinor": "7129",
+        "totalMinor": null,
+        "categoryId": "category-us_saas-3",
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "total_unresolved",
+          "arithmetic_unverifiable"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "true_positive",
+        "currency": "true_positive",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "true_positive",
+        "totalMinor": "correct_abstention"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": true
+    },
+    {
+      "caseId": "doc-018",
+      "scanQuality": "degraded",
+      "candidate": {
+        "vendorName": "EUROTECH MANUFACTURING - Receipt #7872",
+        "vendorId": "vendor-uk_consulting-1",
+        "date": null,
+        "currency": "GBP",
+        "subtotalMinor": null,
+        "taxMinor": null,
+        "totalMinor": null,
+        "categoryId": null,
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "date_unresolved",
+          "total_unresolved",
+          "subtotal_unresolved",
+          "tax_unresolved",
+          "arithmetic_unverifiable",
+          "category_unmatched"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "correct_abstention",
+        "currency": "true_positive",
+        "subtotalMinor": "correct_abstention",
+        "taxMinor": "correct_abstention",
+        "totalMinor": "correct_abstention"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": false
+    },
+    {
+      "caseId": "doc-019",
+      "scanQuality": "degraded",
+      "candidate": {
+        "vendorName": "Ac3m3 0ff1c3 Sup?ly L7d",
+        "vendorId": null,
+        "date": null,
+        "currency": "KES",
+        "subtotalMinor": "457462",
+        "taxMinor": "45746",
+        "totalMinor": "503208",
+        "categoryId": "category-eu_manufacturing-4",
+        "arithmeticValid": true,
+        "fieldFlags": [
+          "date_ambiguous",
+          "vendor_unmatched"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "correct_abstention",
+        "currency": "true_positive",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "true_positive",
+        "totalMinor": "true_positive"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": true
+    },
+    {
+      "caseId": "doc-020",
+      "scanQuality": "poor",
+      "candidate": {
+        "vendorName": "Invoice #56744",
+        "vendorId": null,
+        "date": "2025-02-14",
+        "currency": null,
+        "subtotalMinor": "208755",
+        "taxMinor": null,
+        "totalMinor": "208755",
+        "categoryId": null,
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "currency_unresolved",
+          "tax_unresolved",
+          "arithmetic_unverifiable",
+          "vendor_unmatched",
+          "category_unmatched"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "true_positive",
+        "currency": "correct_abstention",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "correct_abstention",
+        "totalMinor": "true_positive"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": false
+    },
+    {
+      "caseId": "doc-021",
+      "scanQuality": "clean",
+      "candidate": {
+        "vendorName": "METRO PRINT & COPY - Receipt #6404",
+        "vendorId": "vendor-kenya_retail-1",
+        "date": "2026-04-02",
+        "currency": "KES",
+        "subtotalMinor": "20250",
+        "taxMinor": "2025",
+        "totalMinor": "30169",
+        "categoryId": null,
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "arithmetic_mismatch",
+          "category_unmatched"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "true_positive",
+        "currency": "true_positive",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "true_positive",
+        "totalMinor": "true_positive"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": false
+    },
+    {
+      "caseId": "doc-022",
+      "scanQuality": "clean",
+      "candidate": {
+        "vendorName": "EUROTECH MANUFACTURING - Receipt #5172",
+        "vendorId": "vendor-us_saas-1",
+        "date": null,
+        "currency": "USD",
+        "subtotalMinor": "274089",
+        "taxMinor": null,
+        "totalMinor": "274089",
+        "categoryId": "category-us_saas-0",
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "date_unresolved",
+          "tax_unresolved",
+          "arithmetic_unverifiable"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "correct_abstention",
+        "currency": "true_positive",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "correct_abstention",
+        "totalMinor": "true_positive"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": true
+    },
+    {
+      "caseId": "doc-023",
+      "scanQuality": "degraded",
+      "candidate": {
+        "vendorName": "Lantern Holdings",
+        "vendorId": null,
+        "date": null,
+        "currency": "KES",
+        "subtotalMinor": "394207",
+        "taxMinor": "39421",
+        "totalMinor": null,
+        "categoryId": null,
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "date_ambiguous",
+          "total_unresolved",
+          "arithmetic_unverifiable",
+          "vendor_unmatched",
+          "category_unmatched"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "correct_abstention",
+        "currency": "true_positive",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "true_positive",
+        "totalMinor": "correct_abstention"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": false
+    },
+    {
+      "caseId": "doc-024",
+      "scanQuality": "degraded",
+      "candidate": {
+        "vendorName": "GREENLEAF STATIONERY - Receipt #8603",
+        "vendorId": "vendor-eu_manufacturing-1",
+        "date": "2025-02-22",
+        "currency": null,
+        "subtotalMinor": null,
+        "taxMinor": null,
+        "totalMinor": null,
+        "categoryId": null,
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "currency_unresolved",
+          "total_unresolved",
+          "subtotal_unresolved",
+          "tax_unresolved",
+          "arithmetic_unverifiable",
+          "category_unmatched"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "true_positive",
+        "currency": "correct_abstention",
+        "subtotalMinor": "correct_abstention",
+        "taxMinor": "correct_abstention",
+        "totalMinor": "correct_abstention"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": false
+    },
+    {
+      "caseId": "doc-025",
+      "scanQuality": "poor",
+      "candidate": {
+        "vendorName": "Lantern Traders",
+        "vendorId": null,
+        "date": "2025-02-07",
+        "currency": "UGX",
+        "subtotalMinor": "168039",
+        "taxMinor": "16804",
+        "totalMinor": null,
+        "categoryId": null,
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "total_unresolved",
+          "arithmetic_unverifiable",
+          "vendor_unmatched",
+          "category_unmatched"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "true_positive",
+        "currency": "true_positive",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "true_positive",
+        "totalMinor": "correct_abstention"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": false
+    },
+    {
+      "caseId": "doc-026",
+      "scanQuality": "clean",
+      "candidate": {
+        "vendorName": "Savannah Fuel Depot",
+        "vendorId": "vendor-kenya_retail-1",
+        "date": null,
+        "currency": null,
+        "subtotalMinor": "415171",
+        "taxMinor": "41517",
+        "totalMinor": "456688",
+        "categoryId": "category-kenya_retail-1",
+        "arithmeticValid": true,
+        "fieldFlags": [
+          "currency_unresolved",
+          "date_unresolved"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "correct_abstention",
+        "currency": "correct_abstention",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "true_positive",
+        "totalMinor": "true_positive"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": true
+    },
+    {
+      "caseId": "doc-027",
+      "scanQuality": "clean",
+      "candidate": {
+        "vendorName": "ACME OFFICE SUPPLIES - Receipt #3498",
+        "vendorId": "vendor-us_saas-1",
+        "date": null,
+        "currency": "KES",
+        "subtotalMinor": "157245",
+        "taxMinor": "15725",
+        "totalMinor": "177073",
+        "categoryId": "category-us_saas-0",
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "date_ambiguous",
+          "arithmetic_mismatch"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "correct_abstention",
+        "currency": "true_positive",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "true_positive",
+        "totalMinor": "true_positive"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": true
+    },
+    {
+      "caseId": "doc-028",
+      "scanQuality": "degraded",
+      "candidate": {
+        "vendorName": "HIGHLANDS TEA TRADERS - Receipt #9372",
+        "vendorId": "vendor-uk_consulting-1",
+        "date": "2026-01-21",
+        "currency": null,
+        "subtotalMinor": "136065",
+        "taxMinor": null,
+        "totalMinor": "136065",
+        "categoryId": null,
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "currency_unresolved",
+          "tax_unresolved",
+          "arithmetic_unverifiable",
+          "category_unmatched"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "true_positive",
+        "currency": "correct_abstention",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "correct_abstention",
+        "totalMinor": "true_positive"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": false
+    },
+    {
+      "caseId": "doc-029",
+      "scanQuality": "degraded",
+      "candidate": {
+        "vendorName": "ZENITH SOFTWARE INC - Receipt #9963",
+        "vendorId": "vendor-eu_manufacturing-1",
+        "date": "2025-08-05",
+        "currency": "EUR",
+        "subtotalMinor": "112312",
+        "taxMinor": "11231",
+        "totalMinor": null,
+        "categoryId": "category-eu_manufacturing-2",
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "total_unresolved",
+          "arithmetic_unverifiable"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "true_positive",
+        "currency": "true_positive",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "true_positive",
+        "totalMinor": "correct_abstention"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": true
+    },
+    {
+      "caseId": "doc-030",
+      "scanQuality": "poor",
+      "candidate": {
+        "vendorName": "Cedar Traders",
+        "vendorId": null,
+        "date": null,
+        "currency": null,
+        "subtotalMinor": "124642",
+        "taxMinor": "12464",
+        "totalMinor": null,
+        "categoryId": null,
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "currency_unresolved",
+          "date_unresolved",
+          "total_unresolved",
+          "arithmetic_unverifiable",
+          "vendor_unmatched",
+          "category_unmatched"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "correct_abstention",
+        "currency": "correct_abstention",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "true_positive",
+        "totalMinor": "correct_abstention"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": false
+    },
+    {
+      "caseId": "doc-031",
+      "scanQuality": "clean",
+      "candidate": {
+        "vendorName": "SAVANNAH FUEL DEPOT - Receipt #7538",
+        "vendorId": "vendor-kenya_retail-1",
+        "date": null,
+        "currency": "KES",
+        "subtotalMinor": "122290",
+        "taxMinor": "12229",
+        "totalMinor": "134519",
+        "categoryId": null,
+        "arithmeticValid": true,
+        "fieldFlags": [
+          "date_ambiguous",
+          "category_unmatched"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "correct_abstention",
+        "currency": "true_positive",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "true_positive",
+        "totalMinor": "true_positive"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": false
+    },
+    {
+      "caseId": "doc-032",
+      "scanQuality": "clean",
+      "candidate": {
+        "vendorName": "Rheinland Parts GmbH",
+        "vendorId": "vendor-us_saas-1",
+        "date": "2025-10-14",
+        "currency": null,
+        "subtotalMinor": "150565",
+        "taxMinor": "15057",
+        "totalMinor": "165622",
+        "categoryId": "category-us_saas-3",
+        "arithmeticValid": true,
+        "fieldFlags": [
+          "currency_unresolved"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "true_positive",
+        "currency": "correct_abstention",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "true_positive",
+        "totalMinor": "true_positive"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": true
+    },
+    {
+      "caseId": "doc-033",
+      "scanQuality": "degraded",
+      "candidate": {
+        "vendorName": "Ac3m3 0ff1c3 Sup?ly L7d",
+        "vendorId": null,
+        "date": "2025-07-26",
+        "currency": "GBP",
+        "subtotalMinor": "99380",
+        "taxMinor": "9938",
+        "totalMinor": "111203",
+        "categoryId": "category-uk_consulting-1",
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "arithmetic_mismatch",
+          "vendor_unmatched"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "true_positive",
+        "currency": "true_positive",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "true_positive",
+        "totalMinor": "true_positive"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": true
+    },
+    {
+      "caseId": "doc-034",
+      "scanQuality": "degraded",
+      "candidate": {
+        "vendorName": "KAMPALA FREIGHT CO - Receipt #5619",
+        "vendorId": "vendor-eu_manufacturing-1",
+        "date": null,
+        "currency": "EUR",
+        "subtotalMinor": "190041",
+        "taxMinor": null,
+        "totalMinor": "190041",
+        "categoryId": null,
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "date_unresolved",
+          "tax_unresolved",
+          "arithmetic_unverifiable",
+          "category_unmatched"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "correct_abstention",
+        "currency": "true_positive",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "correct_abstention",
+        "totalMinor": "true_positive"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": false
+    },
+    {
+      "caseId": "doc-035",
+      "scanQuality": "poor",
+      "candidate": {
+        "vendorName": "Lantern Holdings",
+        "vendorId": null,
+        "date": null,
+        "currency": "KES",
+        "subtotalMinor": "353493",
+        "taxMinor": "35349",
+        "totalMinor": null,
+        "categoryId": null,
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "date_ambiguous",
+          "total_unresolved",
+          "arithmetic_unverifiable",
+          "vendor_unmatched",
+          "category_unmatched"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "correct_abstention",
+        "currency": "true_positive",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "true_positive",
+        "totalMinor": "correct_abstention"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": false
+    },
+    {
+      "caseId": "doc-036",
+      "scanQuality": "clean",
+      "candidate": {
+        "vendorName": "THAMESIDE CONSULTING GROUP - Receipt #1090",
+        "vendorId": "vendor-kenya_retail-1",
+        "date": "2026-04-21",
+        "currency": null,
+        "subtotalMinor": null,
+        "taxMinor": null,
+        "totalMinor": null,
+        "categoryId": "category-kenya_retail-4",
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "currency_unresolved",
+          "total_unresolved",
+          "subtotal_unresolved",
+          "tax_unresolved",
+          "arithmetic_unverifiable"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "true_positive",
+        "currency": "correct_abstention",
+        "subtotalMinor": "correct_abstention",
+        "taxMinor": "correct_abstention",
+        "totalMinor": "correct_abstention"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": true
+    },
+    {
+      "caseId": "doc-037",
+      "scanQuality": "clean",
+      "candidate": {
+        "vendorName": "KAMPALA FREIGHT CO - Receipt #9299",
+        "vendorId": "vendor-us_saas-1",
+        "date": "2025-05-05",
+        "currency": "USD",
+        "subtotalMinor": "413276",
+        "taxMinor": "41328",
+        "totalMinor": "454604",
+        "categoryId": null,
+        "arithmeticValid": true,
+        "fieldFlags": [
+          "category_unmatched"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "true_positive",
+        "currency": "true_positive",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "true_positive",
+        "totalMinor": "true_positive"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": false
+    },
+    {
+      "caseId": "doc-038",
+      "scanQuality": "degraded",
+      "candidate": {
+        "vendorName": "ZENITH SOFTWARE INC - Receipt #2864",
+        "vendorId": "vendor-uk_consulting-1",
+        "date": null,
+        "currency": "GBP",
+        "subtotalMinor": "180721",
+        "taxMinor": "18072",
+        "totalMinor": "198793",
+        "categoryId": "category-uk_consulting-4",
+        "arithmeticValid": true,
+        "fieldFlags": [
+          "date_unresolved"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "correct_abstention",
+        "currency": "true_positive",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "true_positive",
+        "totalMinor": "true_positive"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": true
+    },
+    {
+      "caseId": "doc-039",
+      "scanQuality": "degraded",
+      "candidate": {
+        "vendorName": "Harbor Holdings",
+        "vendorId": null,
+        "date": null,
+        "currency": "KES",
+        "subtotalMinor": "63263",
+        "taxMinor": "6326",
+        "totalMinor": "72244",
+        "categoryId": null,
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "date_ambiguous",
+          "arithmetic_mismatch",
+          "vendor_unmatched",
+          "category_unmatched"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "correct_abstention",
+        "currency": "true_positive",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "true_positive",
+        "totalMinor": "true_positive"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": false
+    },
+    {
+      "caseId": "doc-040",
+      "scanQuality": "poor",
+      "candidate": {
+        "vendorName": "Ac3m3 0ff1c3 Sup?ly L7d",
+        "vendorId": null,
+        "date": "2026-01-22",
+        "currency": null,
+        "subtotalMinor": null,
+        "taxMinor": null,
+        "totalMinor": null,
+        "categoryId": null,
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "currency_unresolved",
+          "total_unresolved",
+          "subtotal_unresolved",
+          "tax_unresolved",
+          "arithmetic_unverifiable",
+          "vendor_unmatched",
+          "category_unmatched"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "true_positive",
+        "currency": "correct_abstention",
+        "subtotalMinor": "correct_abstention",
+        "taxMinor": "correct_abstention",
+        "totalMinor": "correct_abstention"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": false
+    },
+    {
+      "caseId": "doc-041",
+      "scanQuality": "clean",
+      "candidate": {
+        "vendorName": "SAVANNAH CATERING - Receipt #3425",
+        "vendorId": "vendor-kenya_retail-1",
+        "date": "2026-09-06",
+        "currency": "KES",
+        "subtotalMinor": "197046",
+        "taxMinor": "19705",
+        "totalMinor": null,
+        "categoryId": "category-kenya_retail-4",
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "total_unresolved",
+          "arithmetic_unverifiable"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "true_positive",
+        "currency": "true_positive",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "true_positive",
+        "totalMinor": "correct_abstention"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": true
+    },
+    {
+      "caseId": "doc-042",
+      "scanQuality": "clean",
+      "candidate": {
+        "vendorName": "EuroTech Manufacturing",
+        "vendorId": "vendor-us_saas-1",
+        "date": null,
+        "currency": "USD",
+        "subtotalMinor": null,
+        "taxMinor": null,
+        "totalMinor": null,
+        "categoryId": null,
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "date_unresolved",
+          "total_unresolved",
+          "subtotal_unresolved",
+          "tax_unresolved",
+          "arithmetic_unverifiable",
+          "category_unmatched"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "correct_abstention",
+        "currency": "true_positive",
+        "subtotalMinor": "correct_abstention",
+        "taxMinor": "correct_abstention",
+        "totalMinor": "correct_abstention"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": false
+    },
+    {
+      "caseId": "doc-043",
+      "scanQuality": "degraded",
+      "candidate": {
+        "vendorName": "Ac3m3 0ff1c3 Sup?ly L7d",
+        "vendorId": null,
+        "date": null,
+        "currency": "KES",
+        "subtotalMinor": "178918",
+        "taxMinor": "17892",
+        "totalMinor": "196810",
+        "categoryId": "category-uk_consulting-4",
+        "arithmeticValid": true,
+        "fieldFlags": [
+          "date_ambiguous",
+          "vendor_unmatched"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "correct_abstention",
+        "currency": "true_positive",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "true_positive",
+        "totalMinor": "true_positive"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": true
+    },
+    {
+      "caseId": "doc-044",
+      "scanQuality": "degraded",
+      "candidate": {
+        "vendorName": "Harbor Holdings",
+        "vendorId": null,
+        "date": "2026-07-14",
+        "currency": null,
+        "subtotalMinor": "67833",
+        "taxMinor": "6783",
+        "totalMinor": "74616",
+        "categoryId": null,
+        "arithmeticValid": true,
+        "fieldFlags": [
+          "currency_unresolved",
+          "vendor_unmatched",
+          "category_unmatched"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "true_positive",
+        "currency": "correct_abstention",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "true_positive",
+        "totalMinor": "true_positive"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": false
+    },
+    {
+      "caseId": "doc-045",
+      "scanQuality": "poor",
+      "candidate": {
+        "vendorName": "Invoice #25086",
+        "vendorId": null,
+        "date": "2026-08-14",
+        "currency": "UGX",
+        "subtotalMinor": "249413",
+        "taxMinor": "24941",
+        "totalMinor": null,
+        "categoryId": null,
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "total_unresolved",
+          "arithmetic_unverifiable",
+          "vendor_unmatched",
+          "category_unmatched"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "true_positive",
+        "currency": "true_positive",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "true_positive",
+        "totalMinor": "correct_abstention"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": false
+    },
+    {
+      "caseId": "doc-046",
+      "scanQuality": "clean",
+      "candidate": {
+        "vendorName": "SAVANNAH CATERING - Receipt #8717",
+        "vendorId": "vendor-kenya_retail-1",
+        "date": null,
+        "currency": null,
+        "subtotalMinor": "262948",
+        "taxMinor": null,
+        "totalMinor": "262948",
+        "categoryId": "category-kenya_retail-3",
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "currency_unresolved",
+          "date_unresolved",
+          "tax_unresolved",
+          "arithmetic_unverifiable"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "correct_abstention",
+        "currency": "correct_abstention",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "correct_abstention",
+        "totalMinor": "true_positive"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": true
+    },
+    {
+      "caseId": "doc-047",
+      "scanQuality": "clean",
+      "candidate": {
+        "vendorName": "SAVANNAH FUEL DEPOT - Receipt #6392",
+        "vendorId": "vendor-us_saas-1",
+        "date": null,
+        "currency": "KES",
+        "subtotalMinor": "129288",
+        "taxMinor": "12929",
+        "totalMinor": null,
+        "categoryId": "category-us_saas-1",
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "date_ambiguous",
+          "total_unresolved",
+          "arithmetic_unverifiable"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "correct_abstention",
+        "currency": "true_positive",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "true_positive",
+        "totalMinor": "correct_abstention"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": true
+    },
+    {
+      "caseId": "doc-048",
+      "scanQuality": "degraded",
+      "candidate": {
+        "vendorName": "PRIME LOGISTICS UGANDA - Receipt #5303",
+        "vendorId": "vendor-uk_consulting-1",
+        "date": "2026-12-15",
+        "currency": null,
+        "subtotalMinor": null,
+        "taxMinor": null,
+        "totalMinor": null,
+        "categoryId": "category-uk_consulting-0",
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "currency_unresolved",
+          "total_unresolved",
+          "subtotal_unresolved",
+          "tax_unresolved",
+          "arithmetic_unverifiable"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "true_positive",
+        "currency": "correct_abstention",
+        "subtotalMinor": "correct_abstention",
+        "taxMinor": "correct_abstention",
+        "totalMinor": "correct_abstention"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": true
+    },
+    {
+      "caseId": "doc-049",
+      "scanQuality": "degraded",
+      "candidate": {
+        "vendorName": "Ac3m3 0ff1c3 Sup?ly L7d",
+        "vendorId": null,
+        "date": "2025-01-01",
+        "currency": "EUR",
+        "subtotalMinor": "149668",
+        "taxMinor": "14967",
+        "totalMinor": "164635",
+        "categoryId": "category-eu_manufacturing-2",
+        "arithmeticValid": true,
+        "fieldFlags": [
+          "vendor_unmatched"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "true_positive",
+        "currency": "true_positive",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "true_positive",
+        "totalMinor": "true_positive"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": true
+    },
+    {
+      "caseId": "doc-050",
+      "scanQuality": "poor",
+      "candidate": {
+        "vendorName": "Sunrise Services",
+        "vendorId": null,
+        "date": null,
+        "currency": null,
+        "subtotalMinor": "369505",
+        "taxMinor": null,
+        "totalMinor": "369505",
+        "categoryId": null,
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "currency_unresolved",
+          "date_unresolved",
+          "tax_unresolved",
+          "arithmetic_unverifiable",
+          "vendor_unmatched",
+          "category_unmatched"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "correct_abstention",
+        "currency": "correct_abstention",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "correct_abstention",
+        "totalMinor": "true_positive"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": false
+    },
+    {
+      "caseId": "doc-051",
+      "scanQuality": "clean",
+      "candidate": {
+        "vendorName": "GreenLeaf Stationery",
+        "vendorId": "vendor-kenya_retail-1",
+        "date": null,
+        "currency": "KES",
+        "subtotalMinor": "495947",
+        "taxMinor": "49595",
+        "totalMinor": "552886",
+        "categoryId": "category-kenya_retail-0",
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "date_ambiguous",
+          "arithmetic_mismatch"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "correct_abstention",
+        "currency": "true_positive",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "true_positive",
+        "totalMinor": "true_positive"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": true
+    },
+    {
+      "caseId": "doc-052",
+      "scanQuality": "clean",
+      "candidate": {
+        "vendorName": "ZENITH SOFTWARE INC - Receipt #2343",
+        "vendorId": "vendor-us_saas-1",
+        "date": "2026-12-19",
+        "currency": null,
+        "subtotalMinor": "468014",
+        "taxMinor": null,
+        "totalMinor": "468014",
+        "categoryId": "category-us_saas-0",
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "currency_unresolved",
+          "tax_unresolved",
+          "arithmetic_unverifiable"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "true_positive",
+        "currency": "correct_abstention",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "correct_abstention",
+        "totalMinor": "true_positive"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": true
+    },
+    {
+      "caseId": "doc-053",
+      "scanQuality": "degraded",
+      "candidate": {
+        "vendorName": "Cedar Holdings",
+        "vendorId": null,
+        "date": "2025-11-19",
+        "currency": "GBP",
+        "subtotalMinor": "217332",
+        "taxMinor": "21733",
+        "totalMinor": null,
+        "categoryId": "category-uk_consulting-0",
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "total_unresolved",
+          "arithmetic_unverifiable",
+          "vendor_unmatched"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "true_positive",
+        "currency": "true_positive",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "true_positive",
+        "totalMinor": "correct_abstention"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": true
+    },
+    {
+      "caseId": "doc-054",
+      "scanQuality": "degraded",
+      "candidate": {
+        "vendorName": "Sunrise Services",
+        "vendorId": null,
+        "date": null,
+        "currency": "EUR",
+        "subtotalMinor": null,
+        "taxMinor": null,
+        "totalMinor": null,
+        "categoryId": null,
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "date_unresolved",
+          "total_unresolved",
+          "subtotal_unresolved",
+          "tax_unresolved",
+          "arithmetic_unverifiable",
+          "vendor_unmatched",
+          "category_unmatched"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "correct_abstention",
+        "currency": "true_positive",
+        "subtotalMinor": "correct_abstention",
+        "taxMinor": "correct_abstention",
+        "totalMinor": "correct_abstention"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": false
+    },
+    {
+      "caseId": "doc-055",
+      "scanQuality": "poor",
+      "candidate": {
+        "vendorName": "Invoice #64291",
+        "vendorId": null,
+        "date": null,
+        "currency": "KES",
+        "subtotalMinor": "235103",
+        "taxMinor": null,
+        "totalMinor": "235103",
+        "categoryId": null,
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "date_ambiguous",
+          "tax_unresolved",
+          "arithmetic_unverifiable",
+          "vendor_unmatched",
+          "category_unmatched"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "correct_abstention",
+        "currency": "true_positive",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "correct_abstention",
+        "totalMinor": "true_positive"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": false
+    },
+    {
+      "caseId": "doc-056",
+      "scanQuality": "clean",
+      "candidate": {
+        "vendorName": "Rheinland Parts GmbH",
+        "vendorId": "vendor-kenya_retail-1",
+        "date": "2026-04-16",
+        "currency": null,
+        "subtotalMinor": "489687",
+        "taxMinor": "48969",
+        "totalMinor": "538656",
+        "categoryId": null,
+        "arithmeticValid": true,
+        "fieldFlags": [
+          "currency_unresolved",
+          "category_unmatched"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "true_positive",
+        "currency": "correct_abstention",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "true_positive",
+        "totalMinor": "true_positive"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": false
+    },
+    {
+      "caseId": "doc-057",
+      "scanQuality": "clean",
+      "candidate": {
+        "vendorName": "ZENITH SOFTWARE INC - Receipt #7562",
+        "vendorId": "vendor-us_saas-1",
+        "date": "2025-01-12",
+        "currency": "USD",
+        "subtotalMinor": "12249",
+        "taxMinor": "1225",
+        "totalMinor": "22660",
+        "categoryId": "category-us_saas-4",
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "arithmetic_mismatch"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "true_positive",
+        "currency": "true_positive",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "true_positive",
+        "totalMinor": "true_positive"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": false
+    },
+    {
+      "caseId": "doc-058",
+      "scanQuality": "degraded",
+      "candidate": {
+        "vendorName": "Ac3m3 0ff1c3 Sup?ly L7d",
+        "vendorId": null,
+        "date": null,
+        "currency": "GBP",
+        "subtotalMinor": "847",
+        "taxMinor": null,
+        "totalMinor": "847",
+        "categoryId": "category-uk_consulting-3",
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "date_unresolved",
+          "tax_unresolved",
+          "arithmetic_unverifiable",
+          "vendor_unmatched"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "correct_abstention",
+        "currency": "true_positive",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "correct_abstention",
+        "totalMinor": "true_positive"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": true
+    },
+    {
+      "caseId": "doc-059",
+      "scanQuality": "degraded",
+      "candidate": {
+        "vendorName": "Cedar Holdings",
+        "vendorId": null,
+        "date": null,
+        "currency": "KES",
+        "subtotalMinor": "282523",
+        "taxMinor": "28252",
+        "totalMinor": null,
+        "categoryId": "category-eu_manufacturing-4",
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "date_ambiguous",
+          "total_unresolved",
+          "arithmetic_unverifiable",
+          "vendor_unmatched"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "correct_abstention",
+        "currency": "true_positive",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "true_positive",
+        "totalMinor": "correct_abstention"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": true
+    },
+    {
+      "caseId": "doc-060",
+      "scanQuality": "poor",
+      "candidate": {
+        "vendorName": "Invoice #50017",
+        "vendorId": null,
+        "date": "2025-03-28",
+        "currency": null,
+        "subtotalMinor": "206560",
+        "taxMinor": null,
+        "totalMinor": "206560",
+        "categoryId": null,
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "currency_unresolved",
+          "tax_unresolved",
+          "arithmetic_unverifiable",
+          "vendor_unmatched",
+          "category_unmatched"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "true_positive",
+        "currency": "correct_abstention",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "correct_abstention",
+        "totalMinor": "true_positive"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": false
+    },
+    {
+      "caseId": "doc-061",
+      "scanQuality": "clean",
+      "candidate": {
+        "vendorName": "GreenLeaf Stationery",
+        "vendorId": "vendor-kenya_retail-1",
+        "date": "2026-05-18",
+        "currency": "KES",
+        "subtotalMinor": "202296",
+        "taxMinor": "20230",
+        "totalMinor": "222526",
+        "categoryId": "category-kenya_retail-0",
+        "arithmeticValid": true,
+        "fieldFlags": []
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "true_positive",
+        "currency": "true_positive",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "true_positive",
+        "totalMinor": "true_positive"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": true
+    },
+    {
+      "caseId": "doc-062",
+      "scanQuality": "clean",
+      "candidate": {
+        "vendorName": "Highlands Tea Traders",
+        "vendorId": "vendor-us_saas-1",
+        "date": null,
+        "currency": "USD",
+        "subtotalMinor": "192665",
+        "taxMinor": "19267",
+        "totalMinor": "211932",
+        "categoryId": null,
+        "arithmeticValid": true,
+        "fieldFlags": [
+          "date_unresolved",
+          "category_unmatched"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "correct_abstention",
+        "currency": "true_positive",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "true_positive",
+        "totalMinor": "true_positive"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": false
+    },
+    {
+      "caseId": "doc-063",
+      "scanQuality": "degraded",
+      "candidate": {
+        "vendorName": "Ac3m3 0ff1c3 Sup?ly L7d",
+        "vendorId": null,
+        "date": null,
+        "currency": "KES",
+        "subtotalMinor": "116959",
+        "taxMinor": "11696",
+        "totalMinor": "135730",
+        "categoryId": "category-uk_consulting-3",
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "date_ambiguous",
+          "arithmetic_mismatch",
+          "vendor_unmatched"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "correct_abstention",
+        "currency": "true_positive",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "true_positive",
+        "totalMinor": "true_positive"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": true
+    },
+    {
+      "caseId": "doc-064",
+      "scanQuality": "degraded",
+      "candidate": {
+        "vendorName": "SAVANNAH FUEL DEPOT - Receipt #9805",
+        "vendorId": "vendor-eu_manufacturing-1",
+        "date": "2026-02-17",
+        "currency": null,
+        "subtotalMinor": "387798",
+        "taxMinor": null,
+        "totalMinor": "387798",
+        "categoryId": "category-eu_manufacturing-2",
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "currency_unresolved",
+          "tax_unresolved",
+          "arithmetic_unverifiable"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "true_positive",
+        "currency": "correct_abstention",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "correct_abstention",
+        "totalMinor": "true_positive"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": true
+    },
+    {
+      "caseId": "doc-065",
+      "scanQuality": "poor",
+      "candidate": {
+        "vendorName": "Lantern Services",
+        "vendorId": null,
+        "date": "2025-04-13",
+        "currency": "UGX",
+        "subtotalMinor": "448155",
+        "taxMinor": "44816",
+        "totalMinor": null,
+        "categoryId": null,
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "total_unresolved",
+          "arithmetic_unverifiable",
+          "vendor_unmatched",
+          "category_unmatched"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "true_positive",
+        "currency": "true_positive",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "true_positive",
+        "totalMinor": "correct_abstention"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": false
+    },
+    {
+      "caseId": "doc-066",
+      "scanQuality": "clean",
+      "candidate": {
+        "vendorName": "RIVERSIDE HOTEL & CONFERENCE - Receipt #3665",
+        "vendorId": "vendor-kenya_retail-1",
+        "date": null,
+        "currency": null,
+        "subtotalMinor": null,
+        "taxMinor": null,
+        "totalMinor": null,
+        "categoryId": null,
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "currency_unresolved",
+          "date_unresolved",
+          "total_unresolved",
+          "subtotal_unresolved",
+          "tax_unresolved",
+          "arithmetic_unverifiable",
+          "category_unmatched"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "correct_abstention",
+        "currency": "correct_abstention",
+        "subtotalMinor": "correct_abstention",
+        "taxMinor": "correct_abstention",
+        "totalMinor": "correct_abstention"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": false
+    },
+    {
+      "caseId": "doc-067",
+      "scanQuality": "clean",
+      "candidate": {
+        "vendorName": "EuroTech Manufacturing",
+        "vendorId": "vendor-us_saas-1",
+        "date": null,
+        "currency": "KES",
+        "subtotalMinor": "76009",
+        "taxMinor": "7601",
+        "totalMinor": "83610",
+        "categoryId": "category-us_saas-1",
+        "arithmeticValid": true,
+        "fieldFlags": [
+          "date_ambiguous"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "correct_abstention",
+        "currency": "true_positive",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "true_positive",
+        "totalMinor": "true_positive"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": true
+    },
+    {
+      "caseId": "doc-068",
+      "scanQuality": "degraded",
+      "candidate": {
+        "vendorName": "Ac3m3 0ff1c3 Sup?ly L7d",
+        "vendorId": null,
+        "date": "2026-07-18",
+        "currency": null,
+        "subtotalMinor": "268849",
+        "taxMinor": "26885",
+        "totalMinor": "295734",
+        "categoryId": "category-uk_consulting-4",
+        "arithmeticValid": true,
+        "fieldFlags": [
+          "currency_unresolved",
+          "vendor_unmatched"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "true_positive",
+        "currency": "correct_abstention",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "true_positive",
+        "totalMinor": "true_positive"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": true
+    },
+    {
+      "caseId": "doc-069",
+      "scanQuality": "degraded",
+      "candidate": {
+        "vendorName": "KAMPALA FREIGHT CO - Receipt #5903",
+        "vendorId": "vendor-eu_manufacturing-1",
+        "date": "2025-02-21",
+        "currency": "EUR",
+        "subtotalMinor": "283600",
+        "taxMinor": "28360",
+        "totalMinor": "316099",
+        "categoryId": "category-eu_manufacturing-1",
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "arithmetic_mismatch"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "true_positive",
+        "currency": "true_positive",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "true_positive",
+        "totalMinor": "true_positive"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": true
+    },
+    {
+      "caseId": "doc-070",
+      "scanQuality": "poor",
+      "candidate": {
+        "vendorName": "Invoice #22698",
+        "vendorId": null,
+        "date": null,
+        "currency": null,
+        "subtotalMinor": "288141",
+        "taxMinor": "28814",
+        "totalMinor": null,
+        "categoryId": null,
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "currency_unresolved",
+          "date_unresolved",
+          "total_unresolved",
+          "arithmetic_unverifiable",
+          "vendor_unmatched",
+          "category_unmatched"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "correct_abstention",
+        "currency": "correct_abstention",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "true_positive",
+        "totalMinor": "correct_abstention"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": false
+    },
+    {
+      "caseId": "doc-071",
+      "scanQuality": "clean",
+      "candidate": {
+        "vendorName": "CLOUDCOMPUTE SERVICES LTD - Receipt #3040",
+        "vendorId": "vendor-kenya_retail-1",
+        "date": null,
+        "currency": "KES",
+        "subtotalMinor": "464944",
+        "taxMinor": "46494",
+        "totalMinor": null,
+        "categoryId": "category-kenya_retail-0",
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "date_ambiguous",
+          "total_unresolved",
+          "arithmetic_unverifiable"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "correct_abstention",
+        "currency": "true_positive",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "true_positive",
+        "totalMinor": "correct_abstention"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": true
+    },
+    {
+      "caseId": "doc-072",
+      "scanQuality": "clean",
+      "candidate": {
+        "vendorName": "RIVERSIDE HOTEL & CONFERENCE - Receipt #3562",
+        "vendorId": "vendor-us_saas-1",
+        "date": "2026-09-21",
+        "currency": null,
+        "subtotalMinor": null,
+        "taxMinor": null,
+        "totalMinor": null,
+        "categoryId": null,
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "currency_unresolved",
+          "total_unresolved",
+          "subtotal_unresolved",
+          "tax_unresolved",
+          "arithmetic_unverifiable",
+          "category_unmatched"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "true_positive",
+        "currency": "correct_abstention",
+        "subtotalMinor": "correct_abstention",
+        "taxMinor": "correct_abstention",
+        "totalMinor": "correct_abstention"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": false
+    },
+    {
+      "caseId": "doc-073",
+      "scanQuality": "degraded",
+      "candidate": {
+        "vendorName": "Lantern Traders",
+        "vendorId": null,
+        "date": "2025-06-07",
+        "currency": "GBP",
+        "subtotalMinor": "18701",
+        "taxMinor": "1870",
+        "totalMinor": "20571",
+        "categoryId": null,
+        "arithmeticValid": true,
+        "fieldFlags": [
+          "vendor_unmatched",
+          "category_unmatched"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "true_positive",
+        "currency": "true_positive",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "true_positive",
+        "totalMinor": "true_positive"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": false
+    },
+    {
+      "caseId": "doc-074",
+      "scanQuality": "degraded",
+      "candidate": {
+        "vendorName": "CLOUDCOMPUTE SERVICES LTD - Receipt #2671",
+        "vendorId": "vendor-eu_manufacturing-1",
+        "date": null,
+        "currency": "EUR",
+        "subtotalMinor": "492928",
+        "taxMinor": "49293",
+        "totalMinor": "542221",
+        "categoryId": "category-eu_manufacturing-3",
+        "arithmeticValid": true,
+        "fieldFlags": [
+          "date_unresolved"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "correct_abstention",
+        "currency": "true_positive",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "true_positive",
+        "totalMinor": "true_positive"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": true
+    },
+    {
+      "caseId": "doc-075",
+      "scanQuality": "poor",
+      "candidate": {
+        "vendorName": "Ac3m3 0ff1c3 Sup?ly L7d",
+        "vendorId": null,
+        "date": null,
+        "currency": "KES",
+        "subtotalMinor": null,
+        "taxMinor": null,
+        "totalMinor": null,
+        "categoryId": null,
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "date_ambiguous",
+          "total_unresolved",
+          "subtotal_unresolved",
+          "tax_unresolved",
+          "arithmetic_unverifiable",
+          "vendor_unmatched",
+          "category_unmatched"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "correct_abstention",
+        "currency": "true_positive",
+        "subtotalMinor": "correct_abstention",
+        "taxMinor": "correct_abstention",
+        "totalMinor": "correct_abstention"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": false
+    },
+    {
+      "caseId": "doc-076",
+      "scanQuality": "clean",
+      "candidate": {
+        "vendorName": "ZENITH SOFTWARE INC - Receipt #1261",
+        "vendorId": "vendor-kenya_retail-1",
+        "date": "2025-04-15",
+        "currency": null,
+        "subtotalMinor": "466644",
+        "taxMinor": null,
+        "totalMinor": "466644",
+        "categoryId": "category-kenya_retail-4",
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "currency_unresolved",
+          "tax_unresolved",
+          "arithmetic_unverifiable"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "true_positive",
+        "currency": "correct_abstention",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "correct_abstention",
+        "totalMinor": "true_positive"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": false
+    },
+    {
+      "caseId": "doc-077",
+      "scanQuality": "clean",
+      "candidate": {
+        "vendorName": "Rheinland Parts GmbH",
+        "vendorId": "vendor-us_saas-1",
+        "date": "2026-05-22",
+        "currency": "USD",
+        "subtotalMinor": "292647",
+        "taxMinor": "29265",
+        "totalMinor": null,
+        "categoryId": null,
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "total_unresolved",
+          "arithmetic_unverifiable",
+          "category_unmatched"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "true_positive",
+        "currency": "true_positive",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "true_positive",
+        "totalMinor": "correct_abstention"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": false
+    },
+    {
+      "caseId": "doc-078",
+      "scanQuality": "degraded",
+      "candidate": {
+        "vendorName": "Ac3m3 0ff1c3 Sup?ly L7d",
+        "vendorId": null,
+        "date": null,
+        "currency": "GBP",
+        "subtotalMinor": null,
+        "taxMinor": null,
+        "totalMinor": null,
+        "categoryId": null,
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "date_unresolved",
+          "total_unresolved",
+          "subtotal_unresolved",
+          "tax_unresolved",
+          "arithmetic_unverifiable",
+          "vendor_unmatched",
+          "category_unmatched"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "correct_abstention",
+        "currency": "true_positive",
+        "subtotalMinor": "correct_abstention",
+        "taxMinor": "correct_abstention",
+        "totalMinor": "correct_abstention"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": false
+    },
+    {
+      "caseId": "doc-079",
+      "scanQuality": "degraded",
+      "candidate": {
+        "vendorName": "Ac3m3 0ff1c3 Sup?ly L7d",
+        "vendorId": null,
+        "date": null,
+        "currency": "KES",
+        "subtotalMinor": "304527",
+        "taxMinor": "30453",
+        "totalMinor": "334980",
+        "categoryId": "category-eu_manufacturing-0",
+        "arithmeticValid": true,
+        "fieldFlags": [
+          "date_ambiguous",
+          "vendor_unmatched"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "correct_abstention",
+        "currency": "true_positive",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "true_positive",
+        "totalMinor": "true_positive"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": true
+    },
+    {
+      "caseId": "doc-080",
+      "scanQuality": "poor",
+      "candidate": {
+        "vendorName": "Sunrise Services",
+        "vendorId": null,
+        "date": "2026-03-21",
+        "currency": null,
+        "subtotalMinor": null,
+        "taxMinor": null,
+        "totalMinor": null,
+        "categoryId": null,
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "currency_unresolved",
+          "total_unresolved",
+          "subtotal_unresolved",
+          "tax_unresolved",
+          "arithmetic_unverifiable",
+          "vendor_unmatched",
+          "category_unmatched"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "true_positive",
+        "currency": "correct_abstention",
+        "subtotalMinor": "correct_abstention",
+        "taxMinor": "correct_abstention",
+        "totalMinor": "correct_abstention"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": false
+    },
+    {
+      "caseId": "doc-081",
+      "scanQuality": "clean",
+      "candidate": {
+        "vendorName": "GREENLEAF STATIONERY - Receipt #2346",
+        "vendorId": "vendor-kenya_retail-1",
+        "date": "2025-01-15",
+        "currency": "KES",
+        "subtotalMinor": "35198",
+        "taxMinor": "3520",
+        "totalMinor": "41824",
+        "categoryId": null,
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "arithmetic_mismatch",
+          "category_unmatched"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "true_positive",
+        "currency": "true_positive",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "true_positive",
+        "totalMinor": "true_positive"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": false
+    },
+    {
+      "caseId": "doc-082",
+      "scanQuality": "clean",
+      "candidate": {
+        "vendorName": "RIVERSIDE HOTEL & CONFERENCE - Receipt #7406",
+        "vendorId": "vendor-us_saas-1",
+        "date": null,
+        "currency": "USD",
+        "subtotalMinor": "454577",
+        "taxMinor": null,
+        "totalMinor": "454577",
+        "categoryId": null,
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "date_unresolved",
+          "tax_unresolved",
+          "arithmetic_unverifiable",
+          "category_unmatched"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "correct_abstention",
+        "currency": "true_positive",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "correct_abstention",
+        "totalMinor": "true_positive"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": false
+    },
+    {
+      "caseId": "doc-083",
+      "scanQuality": "degraded",
+      "candidate": {
+        "vendorName": "Ac3m3 0ff1c3 Sup?ly L7d",
+        "vendorId": null,
+        "date": null,
+        "currency": "KES",
+        "subtotalMinor": "93641",
+        "taxMinor": "9364",
+        "totalMinor": null,
+        "categoryId": null,
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "date_ambiguous",
+          "total_unresolved",
+          "arithmetic_unverifiable",
+          "vendor_unmatched",
+          "category_unmatched"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "correct_abstention",
+        "currency": "true_positive",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "true_positive",
+        "totalMinor": "correct_abstention"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": false
+    },
+    {
+      "caseId": "doc-084",
+      "scanQuality": "degraded",
+      "candidate": {
+        "vendorName": "Lantern Services",
+        "vendorId": null,
+        "date": "2025-05-19",
+        "currency": null,
+        "subtotalMinor": null,
+        "taxMinor": null,
+        "totalMinor": null,
+        "categoryId": null,
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "currency_unresolved",
+          "total_unresolved",
+          "subtotal_unresolved",
+          "tax_unresolved",
+          "arithmetic_unverifiable",
+          "vendor_unmatched",
+          "category_unmatched"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "true_positive",
+        "currency": "correct_abstention",
+        "subtotalMinor": "correct_abstention",
+        "taxMinor": "correct_abstention",
+        "totalMinor": "correct_abstention"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": false
+    },
+    {
+      "caseId": "doc-085",
+      "scanQuality": "poor",
+      "candidate": {
+        "vendorName": "Sunrise Holdings",
+        "vendorId": null,
+        "date": "2026-06-28",
+        "currency": "UGX",
+        "subtotalMinor": "412376",
+        "taxMinor": null,
+        "totalMinor": "412376",
+        "categoryId": null,
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "tax_unresolved",
+          "arithmetic_unverifiable",
+          "vendor_unmatched",
+          "category_unmatched"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "true_positive",
+        "currency": "true_positive",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "correct_abstention",
+        "totalMinor": "true_positive"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": false
+    },
+    {
+      "caseId": "doc-086",
+      "scanQuality": "clean",
+      "candidate": {
+        "vendorName": "SKYLINE TELECOM - Receipt #8371",
+        "vendorId": "vendor-kenya_retail-1",
+        "date": null,
+        "currency": null,
+        "subtotalMinor": "413191",
+        "taxMinor": "41319",
+        "totalMinor": "454510",
+        "categoryId": "category-kenya_retail-0",
+        "arithmeticValid": true,
+        "fieldFlags": [
+          "currency_unresolved",
+          "date_unresolved"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "correct_abstention",
+        "currency": "correct_abstention",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "true_positive",
+        "totalMinor": "true_positive"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": true
+    },
+    {
+      "caseId": "doc-087",
+      "scanQuality": "clean",
+      "candidate": {
+        "vendorName": "CLOUDCOMPUTE SERVICES LTD - Receipt #5427",
+        "vendorId": "vendor-us_saas-1",
+        "date": null,
+        "currency": "KES",
+        "subtotalMinor": "123780",
+        "taxMinor": "12378",
+        "totalMinor": "141332",
+        "categoryId": "category-us_saas-0",
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "date_ambiguous",
+          "arithmetic_mismatch"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "correct_abstention",
+        "currency": "true_positive",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "true_positive",
+        "totalMinor": "true_positive"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": true
+    },
+    {
+      "caseId": "doc-088",
+      "scanQuality": "degraded",
+      "candidate": {
+        "vendorName": "Ac3m3 0ff1c3 Sup?ly L7d",
+        "vendorId": null,
+        "date": "2025-02-18",
+        "currency": null,
+        "subtotalMinor": "326368",
+        "taxMinor": null,
+        "totalMinor": "326368",
+        "categoryId": "category-uk_consulting-0",
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "currency_unresolved",
+          "tax_unresolved",
+          "arithmetic_unverifiable",
+          "vendor_unmatched"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "true_positive",
+        "currency": "correct_abstention",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "correct_abstention",
+        "totalMinor": "true_positive"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": true
+    },
+    {
+      "caseId": "doc-089",
+      "scanQuality": "degraded",
+      "candidate": {
+        "vendorName": "GREENLEAF STATIONERY - Receipt #1771",
+        "vendorId": "vendor-eu_manufacturing-1",
+        "date": "2025-02-01",
+        "currency": "EUR",
+        "subtotalMinor": "142472",
+        "taxMinor": "14247",
+        "totalMinor": null,
+        "categoryId": "category-eu_manufacturing-3",
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "total_unresolved",
+          "arithmetic_unverifiable"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "true_positive",
+        "currency": "true_positive",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "true_positive",
+        "totalMinor": "correct_abstention"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": true
+    },
+    {
+      "caseId": "doc-090",
+      "scanQuality": "poor",
+      "candidate": {
+        "vendorName": "Lantern Services",
+        "vendorId": null,
+        "date": null,
+        "currency": null,
+        "subtotalMinor": "450228",
+        "taxMinor": null,
+        "totalMinor": "450228",
+        "categoryId": null,
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "currency_unresolved",
+          "date_unresolved",
+          "tax_unresolved",
+          "arithmetic_unverifiable",
+          "vendor_unmatched",
+          "category_unmatched"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "correct_abstention",
+        "currency": "correct_abstention",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "correct_abstention",
+        "totalMinor": "true_positive"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": false
+    },
+    {
+      "caseId": "doc-091",
+      "scanQuality": "clean",
+      "candidate": {
+        "vendorName": "EuroTech Manufacturing",
+        "vendorId": "vendor-kenya_retail-1",
+        "date": null,
+        "currency": "KES",
+        "subtotalMinor": "420343",
+        "taxMinor": "42034",
+        "totalMinor": "462377",
+        "categoryId": "category-kenya_retail-2",
+        "arithmeticValid": true,
+        "fieldFlags": [
+          "date_ambiguous"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "correct_abstention",
+        "currency": "true_positive",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "true_positive",
+        "totalMinor": "true_positive"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": true
+    },
+    {
+      "caseId": "doc-092",
+      "scanQuality": "clean",
+      "candidate": {
+        "vendorName": "CLOUDCOMPUTE SERVICES LTD - Receipt #9087",
+        "vendorId": "vendor-us_saas-1",
+        "date": "2026-03-18",
+        "currency": null,
+        "subtotalMinor": "414094",
+        "taxMinor": "41409",
+        "totalMinor": "455503",
+        "categoryId": "category-us_saas-1",
+        "arithmeticValid": true,
+        "fieldFlags": [
+          "currency_unresolved"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "true_positive",
+        "currency": "correct_abstention",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "true_positive",
+        "totalMinor": "true_positive"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": true
+    },
+    {
+      "caseId": "doc-093",
+      "scanQuality": "degraded",
+      "candidate": {
+        "vendorName": "Lantern Holdings",
+        "vendorId": null,
+        "date": "2025-08-03",
+        "currency": "GBP",
+        "subtotalMinor": "364435",
+        "taxMinor": "36444",
+        "totalMinor": "404192",
+        "categoryId": null,
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "arithmetic_mismatch",
+          "vendor_unmatched",
+          "category_unmatched"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "true_positive",
+        "currency": "true_positive",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "true_positive",
+        "totalMinor": "true_positive"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": false
+    },
+    {
+      "caseId": "doc-094",
+      "scanQuality": "degraded",
+      "candidate": {
+        "vendorName": "Sunrise Services",
+        "vendorId": null,
+        "date": null,
+        "currency": "EUR",
+        "subtotalMinor": "50951",
+        "taxMinor": null,
+        "totalMinor": "50951",
+        "categoryId": "category-eu_manufacturing-0",
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "date_unresolved",
+          "tax_unresolved",
+          "arithmetic_unverifiable",
+          "vendor_unmatched"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "correct_abstention",
+        "currency": "true_positive",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "correct_abstention",
+        "totalMinor": "true_positive"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": true
+    },
+    {
+      "caseId": "doc-095",
+      "scanQuality": "poor",
+      "candidate": {
+        "vendorName": "Invoice #23841",
+        "vendorId": null,
+        "date": null,
+        "currency": "KES",
+        "subtotalMinor": null,
+        "taxMinor": null,
+        "totalMinor": null,
+        "categoryId": null,
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "date_ambiguous",
+          "total_unresolved",
+          "subtotal_unresolved",
+          "tax_unresolved",
+          "arithmetic_unverifiable",
+          "vendor_unmatched",
+          "category_unmatched"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "correct_abstention",
+        "currency": "true_positive",
+        "subtotalMinor": "correct_abstention",
+        "taxMinor": "correct_abstention",
+        "totalMinor": "correct_abstention"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": false
+    },
+    {
+      "caseId": "doc-096",
+      "scanQuality": "clean",
+      "candidate": {
+        "vendorName": "Savannah Fuel Depot",
+        "vendorId": "vendor-kenya_retail-1",
+        "date": "2025-11-21",
+        "currency": null,
+        "subtotalMinor": null,
+        "taxMinor": null,
+        "totalMinor": null,
+        "categoryId": "category-kenya_retail-3",
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "currency_unresolved",
+          "total_unresolved",
+          "subtotal_unresolved",
+          "tax_unresolved",
+          "arithmetic_unverifiable"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "true_positive",
+        "currency": "correct_abstention",
+        "subtotalMinor": "correct_abstention",
+        "taxMinor": "correct_abstention",
+        "totalMinor": "correct_abstention"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": true
+    },
+    {
+      "caseId": "doc-097",
+      "scanQuality": "clean",
+      "candidate": {
+        "vendorName": "ZENITH SOFTWARE INC - Receipt #9349",
+        "vendorId": "vendor-us_saas-1",
+        "date": "2026-10-19",
+        "currency": "USD",
+        "subtotalMinor": "395467",
+        "taxMinor": "39547",
+        "totalMinor": "435014",
+        "categoryId": "category-us_saas-3",
+        "arithmeticValid": true,
+        "fieldFlags": []
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "true_positive",
+        "currency": "true_positive",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "true_positive",
+        "totalMinor": "true_positive"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": true
+    },
+    {
+      "caseId": "doc-098",
+      "scanQuality": "degraded",
+      "candidate": {
+        "vendorName": "Cedar Services",
+        "vendorId": null,
+        "date": null,
+        "currency": "GBP",
+        "subtotalMinor": "291691",
+        "taxMinor": "29169",
+        "totalMinor": "320860",
+        "categoryId": "category-uk_consulting-3",
+        "arithmeticValid": true,
+        "fieldFlags": [
+          "date_unresolved",
+          "vendor_unmatched"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "correct_abstention",
+        "currency": "true_positive",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "true_positive",
+        "totalMinor": "true_positive"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": true
+    },
+    {
+      "caseId": "doc-099",
+      "scanQuality": "degraded",
+      "candidate": {
+        "vendorName": "PRIME LOGISTICS UGANDA - Receipt #2796",
+        "vendorId": "vendor-eu_manufacturing-1",
+        "date": null,
+        "currency": "KES",
+        "subtotalMinor": "164534",
+        "taxMinor": "16453",
+        "totalMinor": "190726",
+        "categoryId": null,
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "date_ambiguous",
+          "arithmetic_mismatch",
+          "category_unmatched"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "correct_abstention",
+        "currency": "true_positive",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "true_positive",
+        "totalMinor": "true_positive"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": false
+    },
+    {
+      "caseId": "doc-100",
+      "scanQuality": "poor",
+      "candidate": {
+        "vendorName": "Ac3m3 0ff1c3 Sup?ly L7d",
+        "vendorId": null,
+        "date": "2026-06-22",
+        "currency": null,
+        "subtotalMinor": "211759",
+        "taxMinor": "21176",
+        "totalMinor": null,
+        "categoryId": null,
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "currency_unresolved",
+          "total_unresolved",
+          "arithmetic_unverifiable",
+          "vendor_unmatched",
+          "category_unmatched"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "true_positive",
+        "currency": "correct_abstention",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "true_positive",
+        "totalMinor": "correct_abstention"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": false
+    },
+    {
+      "caseId": "doc-101",
+      "scanQuality": "clean",
+      "candidate": {
+        "vendorName": "SAVANNAH FUEL DEPOT - Receipt #3227",
+        "vendorId": "vendor-kenya_retail-1",
+        "date": "2025-09-13",
+        "currency": "KES",
+        "subtotalMinor": "258714",
+        "taxMinor": "25871",
+        "totalMinor": null,
+        "categoryId": null,
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "total_unresolved",
+          "arithmetic_unverifiable",
+          "category_unmatched"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "true_positive",
+        "currency": "true_positive",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "true_positive",
+        "totalMinor": "correct_abstention"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": false
+    },
+    {
+      "caseId": "doc-102",
+      "scanQuality": "clean",
+      "candidate": {
+        "vendorName": "Prime Logistics Uganda",
+        "vendorId": "vendor-us_saas-1",
+        "date": null,
+        "currency": "USD",
+        "subtotalMinor": null,
+        "taxMinor": null,
+        "totalMinor": null,
+        "categoryId": "category-us_saas-0",
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "date_unresolved",
+          "total_unresolved",
+          "subtotal_unresolved",
+          "tax_unresolved",
+          "arithmetic_unverifiable"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "correct_abstention",
+        "currency": "true_positive",
+        "subtotalMinor": "correct_abstention",
+        "taxMinor": "correct_abstention",
+        "totalMinor": "correct_abstention"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": true
+    },
+    {
+      "caseId": "doc-103",
+      "scanQuality": "degraded",
+      "candidate": {
+        "vendorName": "Sunrise Traders",
+        "vendorId": null,
+        "date": null,
+        "currency": "KES",
+        "subtotalMinor": "469790",
+        "taxMinor": "46979",
+        "totalMinor": "516769",
+        "categoryId": "category-uk_consulting-0",
+        "arithmeticValid": true,
+        "fieldFlags": [
+          "date_ambiguous",
+          "vendor_unmatched"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "correct_abstention",
+        "currency": "true_positive",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "true_positive",
+        "totalMinor": "true_positive"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": true
+    },
+    {
+      "caseId": "doc-104",
+      "scanQuality": "degraded",
+      "candidate": {
+        "vendorName": "Ac3m3 0ff1c3 Sup?ly L7d",
+        "vendorId": null,
+        "date": "2025-08-18",
+        "currency": null,
+        "subtotalMinor": "128873",
+        "taxMinor": "12887",
+        "totalMinor": "141760",
+        "categoryId": null,
+        "arithmeticValid": true,
+        "fieldFlags": [
+          "currency_unresolved",
+          "vendor_unmatched",
+          "category_unmatched"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "true_positive",
+        "currency": "correct_abstention",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "true_positive",
+        "totalMinor": "true_positive"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": false
+    },
+    {
+      "caseId": "doc-105",
+      "scanQuality": "poor",
+      "candidate": {
+        "vendorName": "Invoice #95713",
+        "vendorId": null,
+        "date": "2025-06-15",
+        "currency": "UGX",
+        "subtotalMinor": null,
+        "taxMinor": null,
+        "totalMinor": null,
+        "categoryId": null,
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "total_unresolved",
+          "subtotal_unresolved",
+          "tax_unresolved",
+          "arithmetic_unverifiable",
+          "vendor_unmatched",
+          "category_unmatched"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "true_positive",
+        "currency": "true_positive",
+        "subtotalMinor": "correct_abstention",
+        "taxMinor": "correct_abstention",
+        "totalMinor": "correct_abstention"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": false
+    },
+    {
+      "caseId": "doc-106",
+      "scanQuality": "clean",
+      "candidate": {
+        "vendorName": "GREENLEAF STATIONERY - Receipt #9841",
+        "vendorId": "vendor-kenya_retail-1",
+        "date": null,
+        "currency": null,
+        "subtotalMinor": "320795",
+        "taxMinor": null,
+        "totalMinor": "320795",
+        "categoryId": null,
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "currency_unresolved",
+          "date_unresolved",
+          "tax_unresolved",
+          "arithmetic_unverifiable",
+          "category_unmatched"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "correct_abstention",
+        "currency": "correct_abstention",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "correct_abstention",
+        "totalMinor": "true_positive"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": false
+    },
+    {
+      "caseId": "doc-107",
+      "scanQuality": "clean",
+      "candidate": {
+        "vendorName": "Riverside Hotel & Conference",
+        "vendorId": "vendor-us_saas-1",
+        "date": null,
+        "currency": "KES",
+        "subtotalMinor": "388123",
+        "taxMinor": "38812",
+        "totalMinor": null,
+        "categoryId": null,
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "date_ambiguous",
+          "total_unresolved",
+          "arithmetic_unverifiable",
+          "category_unmatched"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "correct_abstention",
+        "currency": "true_positive",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "true_positive",
+        "totalMinor": "correct_abstention"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": false
+    },
+    {
+      "caseId": "doc-108",
+      "scanQuality": "degraded",
+      "candidate": {
+        "vendorName": "Lantern Holdings",
+        "vendorId": null,
+        "date": "2025-07-24",
+        "currency": null,
+        "subtotalMinor": null,
+        "taxMinor": null,
+        "totalMinor": null,
+        "categoryId": null,
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "currency_unresolved",
+          "total_unresolved",
+          "subtotal_unresolved",
+          "tax_unresolved",
+          "arithmetic_unverifiable",
+          "vendor_unmatched",
+          "category_unmatched"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "true_positive",
+        "currency": "correct_abstention",
+        "subtotalMinor": "correct_abstention",
+        "taxMinor": "correct_abstention",
+        "totalMinor": "correct_abstention"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": false
+    },
+    {
+      "caseId": "doc-109",
+      "scanQuality": "degraded",
+      "candidate": {
+        "vendorName": "Ac3m3 0ff1c3 Sup?ly L7d",
+        "vendorId": null,
+        "date": "2025-12-24",
+        "currency": "EUR",
+        "subtotalMinor": "436273",
+        "taxMinor": "43627",
+        "totalMinor": "479900",
+        "categoryId": "category-eu_manufacturing-3",
+        "arithmeticValid": true,
+        "fieldFlags": [
+          "vendor_unmatched"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "true_positive",
+        "currency": "true_positive",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "true_positive",
+        "totalMinor": "true_positive"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": true
+    },
+    {
+      "caseId": "doc-110",
+      "scanQuality": "poor",
+      "candidate": {
+        "vendorName": "Harbor Holdings",
+        "vendorId": null,
+        "date": null,
+        "currency": null,
+        "subtotalMinor": "438540",
+        "taxMinor": "43854",
+        "totalMinor": null,
+        "categoryId": null,
+        "arithmeticValid": false,
+        "fieldFlags": [
+          "currency_unresolved",
+          "date_unresolved",
+          "total_unresolved",
+          "arithmetic_unverifiable",
+          "vendor_unmatched",
+          "category_unmatched"
+        ]
+      },
+      "fieldOutcomes": {
+        "vendorName": "true_positive",
+        "date": "correct_abstention",
+        "currency": "correct_abstention",
+        "subtotalMinor": "true_positive",
+        "taxMinor": "true_positive",
+        "totalMinor": "correct_abstention"
+      },
+      "arithmeticValidCorrect": true,
+      "categoryMatchTestable": false
+    }
+  ]
+}

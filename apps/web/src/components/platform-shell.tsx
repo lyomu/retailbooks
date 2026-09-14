@@ -58,7 +58,7 @@ export function PlatformShell({ children }: { children: ReactNode }) {
       <PlatformNotice
         title="You do not have platform access"
         copy="Platform administration is granted per person by an existing superadmin. If you expected access here, ask them to grant it."
-        action={{ href: '/', label: 'Back to RetailBooks' }}
+        action={{ href: '/dashboard', label: 'Back to RetailBooks' }}
       />
     );
   }
@@ -84,7 +84,7 @@ export function PlatformShell({ children }: { children: ReactNode }) {
         <div className="rb-platform__identity">
           <span className="rb-platform__role">{session?.role.toLowerCase()}</span>
           <span>{session?.email}</span>
-          <Link href="/">Exit console</Link>
+          <Link href="/dashboard">Exit console</Link>
         </div>
       </header>
       <div className="rb-platform__body">

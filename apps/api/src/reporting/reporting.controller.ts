@@ -13,6 +13,7 @@ import {
   Res,
   UseGuards,
 } from '@nestjs/common';
+import type { ReportKey } from '@retailbooks/contracts';
 import type { Response } from 'express';
 
 import { AuthService } from '../auth/auth.service.js';
@@ -23,18 +24,20 @@ import {
   type OrganizationRequest,
 } from '../organizations/organization-context.js';
 import { OrganizationGuard } from '../organizations/organization.guard.js';
+import { FeatureFlagGuard, RequireFeatureFlag } from '../platform/feature-flag.guard.js';
+import { PHASE13_FEATURE_FLAGS } from '../platform/phase13-feature-flags.js';
 import { ReportExportService } from './report-export.service.js';
 import {
   CreateSavedReportDto,
+  DrillDownQueryDto,
   ReportExportQueryDto,
-  ReportKeyParamDto,
   ReportQueryDto,
   UpdateSavedReportDto,
 } from './reporting.dto.js';
 import { ReportingService } from './reporting.service.js';
 
 @Controller('organizations/:organizationId/reports')
-@UseGuards(SessionGuard, OrganizationGuard)
+@UseGuards(SessionGuard, OrganizationGuard, FeatureFlagGuard)
 export class ReportingController {
   constructor(
     private readonly reports: ReportingService,
@@ -107,24 +110,48 @@ export class ReportingController {
     );
   }
 
+  // Every route below takes :reportKey (and, for drill-down, :rowId) via individual @Param()
+  // extraction rather than a whole-object DTO. This controller sits under the
+  // organizations/:organizationId prefix, so Nest's merged route params always include
+  // organizationId too; a whole-params DTO would receive it and be rejected by the app's
+  // forbidNonWhitelisted validation pipe (confirmed against real HTTP traffic, not just tests).
   @Get(':reportKey/export')
   @RequirePermission('reports.view')
   async exportReport(
-    @Param() params: ReportKeyParamDto,
+    @Param('reportKey') reportKey: string,
     @Query() query: ReportExportQueryDto,
     @Req() request: OrganizationRequest,
     @Res() response: Response,
   ) {
-    await this.exports.export(response, request.organization.id, params.reportKey, query);
+    await this.exports.export(response, request.organization.id, reportKey as ReportKey, query);
+  }
+
+  @Get(':reportKey/rows/:rowId/drill-down')
+  @RequirePermission('reports.view')
+  @RequireFeatureFlag(PHASE13_FEATURE_FLAGS.REPORT_DRILLDOWN)
+  async drillDown(
+    @Param('reportKey') reportKey: string,
+    @Param('rowId', new ParseUUIDPipe()) rowId: string,
+    @Query() query: DrillDownQueryDto,
+    @Req() request: OrganizationRequest,
+  ) {
+    return {
+      data: await this.reports.drillDown(
+        request.organization.id,
+        reportKey as ReportKey,
+        query,
+        rowId,
+      ),
+    };
   }
 
   @Get(':reportKey')
   @RequirePermission('reports.view')
   async runReport(
-    @Param() params: ReportKeyParamDto,
+    @Param('reportKey') reportKey: string,
     @Query() query: ReportQueryDto,
     @Req() request: OrganizationRequest,
   ) {
-    return { data: await this.reports.run(request.organization.id, params.reportKey, query) };
+    return { data: await this.reports.run(request.organization.id, reportKey as ReportKey, query) };
   }
 }

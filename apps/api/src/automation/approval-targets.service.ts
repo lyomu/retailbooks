@@ -59,4 +59,32 @@ export class ApprovalTargetsService {
       return request;
     });
   }
+
+  /**
+   * Adapter hook for legacy module-specific submit routes. It freezes the same generic target
+   * snapshot and returns `null` when no active policy applies so older no-policy workflows can stay
+   * compatible while policy-backed routes still get full request history.
+   */
+  async submitIfPolicyApplies(
+    tx: Parameters<ApprovalsService['submit']>[0],
+    context: OrganizationContext,
+    user: PublicUser,
+    targetType: ApprovalTargetType,
+    targetId: string,
+    metadata: RequestMetadata,
+  ) {
+    const nativePermission = APPROVAL_TARGET_NATIVE_PERMISSION[targetType];
+    if (!context.permissions.has(nativePermission)) {
+      throw new ForbiddenException(
+        'Your role does not allow submitting this document for approval.',
+      );
+    }
+    await tx.$queryRaw`
+      SELECT pg_advisory_xact_lock(hashtextextended(${`approval-target:${targetType}:${targetId}`}, 0))::text AS locked
+    `;
+    await assertNoDuplicatePendingApproval(tx, context.id, targetType, targetId);
+    const target = await loadApprovalTarget(tx, context.id, targetType, targetId);
+    if (!target) throw new NotFoundException('This document was not found.');
+    return this.approvals.submit(tx, context, user, target, metadata);
+  }
 }

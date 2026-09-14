@@ -7,7 +7,7 @@ import { producerConnection } from '../src/jobs/redis-connection.js';
 import { API, createTestHarness, type TestHarness } from './support/app.js';
 import { migrationCount } from './support/database.js';
 
-const redisUrl = process.env.REDIS_URL ?? 'redis://127.0.0.1:56379';
+const redisUrl = process.env.REDIS_URL ?? 'redis://127.0.0.1:56780';
 const prefix = process.env.QUEUE_PREFIX ?? 'retailbooks-integration';
 
 describe('integration harness', () => {

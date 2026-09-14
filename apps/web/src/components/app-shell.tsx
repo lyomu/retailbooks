@@ -74,14 +74,14 @@ const navigationGroups: NavigationGroup[] = [
   {
     label: 'Overview',
     items: [
-      { label: 'Dashboard', icon: LayoutDashboard, href: '/' },
+      { label: 'Dashboard', icon: LayoutDashboard, href: '/dashboard' },
       { label: 'Notifications', icon: Bell, href: '/notifications' },
     ],
   },
   {
     label: 'Sales',
     items: [
-      { label: 'Customers', icon: Users, href: '/customers' },
+      { label: 'Customers', icon: Users, href: '/dashboard/customers' },
       { label: 'Items & services', icon: Package, href: '/catalog/items' },
       { label: 'Invoices', icon: Receipt, href: '/invoices' },
       { label: 'Payments', icon: Banknote, href: '/payments' },
@@ -103,6 +103,7 @@ const navigationGroups: NavigationGroup[] = [
       { label: 'Payments made', icon: Banknote, href: '/payments-made' },
       { label: 'Recurring bills', icon: Repeat, href: '/recurring-bills' },
       { label: 'Recurring expenses', icon: Repeat, href: '/recurring-expenses' },
+      { label: 'Search receipts & bills', icon: Search, href: '/documents/search' },
     ],
   },
   {
@@ -163,6 +164,7 @@ const navigationGroups: NavigationGroup[] = [
       { label: 'Report library', icon: FileBarChart, href: '/reports' },
       { label: 'Saved reports', icon: FileClock, href: '/reports/saved' },
       { label: 'Scheduled reports', icon: CalendarClock, href: '/reports/scheduled' },
+      { label: 'Insights', icon: TrendingUp, href: '/insights' },
     ],
   },
   {

@@ -226,4 +226,43 @@ describe('recurring invoice generation against a real database', () => {
     });
     expect(claimCount).toBe(1);
   });
+
+  it('scheduled recurring execution runs only its source template, not a global due sweep', async () => {
+    const first = await recurringInvoices.createTemplate(
+      context,
+      owner,
+      {
+        contactId,
+        cadence: 'MONTHLY',
+        startDate: '2026-01-15',
+        lines: [{ description: 'Scheduled subscription', quantity: '1', unitPriceMinor: '2500' }],
+      },
+      metadata,
+    );
+    const second = await recurringInvoices.createTemplate(
+      context,
+      owner,
+      {
+        contactId,
+        cadence: 'MONTHLY',
+        startDate: '2026-01-15',
+        lines: [{ description: 'Nearby due subscription', quantity: '1', unitPriceMinor: '4500' }],
+      },
+      metadata,
+    );
+
+    const result = await recurringInvoices.claimAndRunDueTemplates(context, owner, metadata, {
+      sourceId: first.id,
+      lastRunAt: new Date('2026-01-15T00:00:00.000Z'),
+      nextRunAt: new Date('2026-02-15T00:00:00.000Z'),
+      timeZone: 'UTC',
+      status: 'ACTIVE',
+    });
+
+    expect(result).toMatchObject({ templateId: first.id });
+    expect(result.invoiceId).toBeTruthy();
+    expect(await harness.prisma.invoice.count({ where: { organizationId: context.id } })).toBe(1);
+    expect((await recurringInvoices.detail(context.id, first.id)).nextRunDate).toBe('2026-02-15');
+    expect((await recurringInvoices.detail(context.id, second.id)).nextRunDate).toBe('2026-01-15');
+  });
 });

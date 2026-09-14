@@ -166,7 +166,7 @@ export function CustomersPage() {
           <div className="rb-inline-actions">
             {canViewStatements ? (
               <Button asChild variant="ghost" size="sm">
-                <Link href={`/customers/${customer.id}/statement`}>
+                <Link href={`/dashboard/customers/${customer.id}/statement`}>
                   <FileClock aria-hidden="true" /> Statement
                 </Link>
               </Button>

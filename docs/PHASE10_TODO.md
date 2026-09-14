@@ -204,10 +204,11 @@ No second report query or rendering implementation is allowed.
 - [x] Add an approval gate to every target's existing issue/post/finalize path so direct endpoints
       cannot bypass a required policy (eight of nine targets have such a path; `PAYMENT_MADE` posts
       atomically at creation with no separate finalize step to gate)
-- [ ] Preserve existing module-specific approval routes as thin compatibility adapters where needed;
+- [x] Preserve existing module-specific approval routes as thin compatibility adapters where needed;
       all decisions and history must flow through the new engine
-      (not done: Quote's own bespoke submit/approve flow (`sales.quotes.approve`) still runs
-      entirely independently of the new policy engine, not as an adapter into it)
+      (Quote submit now freezes a generic `QUOTE` approval request when a policy applies, and
+      `sales.quotes.approve` refuses to finalize until that request is approved; proven by
+      `apps/api/test/approval-gates.int.test.ts`)
 - [x] Emit and audit submitted, approved-step, rejected, resubmitted, cancelled, and fully-approved
       lifecycle events (submitted/step-approved/rejected/completed/cancelled all emit and audit;
       "resubmitted" is not a distinct event since resubmit is just a new `approval.submitted`)
@@ -270,28 +271,16 @@ No second report query or rendering implementation is allowed.
       idempotency key as defense in depth
 - [x] Adapt recurring invoices, bills, expenses, and journals to the shared runtime while continuing
       to call their existing create/issue/post services; do not duplicate financial logic
-- [ ] Replace public `runDueTemplates` behavior with compatibility adapters to the scheduler and
+- [x] Replace public `runDueTemplates` behavior with compatibility adapters to the scheduler and
       remove module-specific clock advancement as an independent source of truth
-      (investigated, deliberately not changed: `RecurringInvoicesController`/`RecurringBillsController`/
-      `RecurringExpensesController`/`RecurringJournalsController` do still expose a direct
-      `runDueTemplates` HTTP route that the scheduler-driven path also calls per-template, so it
-      remains a second, independently-triggerable entry point to the same generation logic in the
-      letter of D5's "HTTP requests never perform a global due sweep." It is not, however, a
-      duplicate-generation risk: each of the four services' own doc comments already establish that
-      `claimOccurrence` (advisory lock + a `LedgerIdempotencyKey` row, the same primitive proven for
-      Invoices/Payments/Credit Notes) makes any concurrent or repeated trigger for the same occurrence
-      safe by construction, scheduler-driven or manual. Unifying this properly would mean making
-      `ScheduledJob` the sole source of due-ness for four already-tested modules that each compute it
-      independently via their own `nextRunDate`/`advanceCadence` -- a real refactor with no way to
-      verify it under this session's no-test-run constraint, so it was left alone rather than risked)
-- [ ] Preserve existing recurring APIs and response contracts by projecting schedule state from the
+      (legacy HTTP routes now claim due `ScheduledJob` rows through
+      `SchedulerService#findAndClaimDueRecurringJobs`; worker execution runs only the scheduled
+      source template; month-end/end-date/concurrent duplicate behavior is covered by the recurring
+      integration suites)
+- [x] Preserve existing recurring APIs and response contracts by projecting schedule state from the
       shared job during migration
-      (not done, and not safe to assume: each recurring template's own `nextRunDate` is advanced by
-      its own `advanceCadence` call in `runDueTemplates`, a separate calendar implementation from
-      `scheduler.service.ts`'s `nextOccurrence`/`advanceLocal` that mirrors it into `ScheduledJob` --
-      two independent cadence calculations that are not proven to agree on every DST/month-end edge
-      case. Existing recurring API responses already come from the template's own columns, which is
-      safe on its own, but is not the "projected from the shared job" design this bullet asks for)
+      (template create/update/active-state changes upsert the corresponding `ScheduledJob`, and
+      scheduler claims project the next local occurrence back onto the legacy `nextRunDate` field)
 - [x] Implement reminder policy CRUD for before-due, on-due, and overdue offsets and organization
       email templates without payment links (`RemindersService#update` added, mirroring the
       unrestricted-edit approach `ScheduledReportsService#update` also uses since neither policy type

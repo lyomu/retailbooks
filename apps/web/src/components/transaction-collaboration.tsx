@@ -63,7 +63,7 @@ export function TransactionCollaboration({
   const [activityCursor, setActivityCursor] = useState<string | null>(null);
   const [message, setMessage] = useState('');
   const [shareWithCustomer, setShareWithCustomer] = useState(false);
-  const [busy, setBusy] = useState<'comment' | 'upload' | 'activity' | null>(null);
+  const [busy, setBusy] = useState<'comment' | 'upload' | 'activity' | 'suggest' | null>(null);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -145,6 +145,23 @@ export function TransactionCollaboration({
       setError(
         caught instanceof ApiError ? caught.message : 'Your comment could not be saved. Try again.',
       );
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  /** Deterministic draft from the record's own facts (Phase 13E) -- pre-fills the comment box; the
+   * user still edits and posts it themselves through the existing comment route above. */
+  async function suggestNote() {
+    setBusy('suggest');
+    setError('');
+    try {
+      const result = await apiRequest<{ data: { text: string } }>(
+        `/organizations/${organizationId}/expenses/${targetId}/draft-note`,
+      );
+      setMessage(result.data.text);
+    } catch (caught) {
+      setError(caught instanceof ApiError ? caught.message : 'No draft note is available.');
     } finally {
       setBusy(null);
     }
@@ -263,6 +280,16 @@ export function TransactionCollaboration({
                     />
                     Share with customer
                   </label>
+                ) : null}
+                {targetType === 'EXPENSE' ? (
+                  <button
+                    type="button"
+                    onClick={() => void suggestNote()}
+                    disabled={busy === 'suggest'}
+                  >
+                    {busy === 'suggest' ? <Loader2 aria-hidden="true" /> : null}
+                    Suggest a note
+                  </button>
                 ) : null}
                 <button
                   type="button"

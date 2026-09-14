@@ -24,21 +24,29 @@ import {
 import { AuthService } from '../auth/auth.service.js';
 import { requestMetadata } from '../auth/request-context.js';
 import { SessionGuard } from '../auth/session.guard.js';
+import { DocumentExtractionQueueService } from '../documents/document-extraction-queue.service.js';
+import { DocumentExtractionReviewService } from '../documents/document-extraction-review.service.js';
 import {
   RequirePermission,
   type OrganizationRequest,
 } from '../organizations/organization-context.js';
 import { OrganizationGuard } from '../organizations/organization.guard.js';
+import { EntitlementsService } from '../platform/entitlements.service.js';
+import { FeatureFlagGuard, RequireFeatureFlag } from '../platform/feature-flag.guard.js';
+import { PHASE13_FEATURE_FLAGS } from '../platform/phase13-feature-flags.js';
 import { BillsService } from './bills.service.js';
 import { CreateBillDto, ListBillsQueryDto, UpdateBillDto } from './bills.dto.js';
 
 @Controller('organizations/:organizationId/bills')
-@UseGuards(SessionGuard, OrganizationGuard)
+@UseGuards(SessionGuard, OrganizationGuard, FeatureFlagGuard)
 export class BillsController {
   constructor(
     private readonly bills: BillsService,
     private readonly attachments: AttachmentsService,
     private readonly auth: AuthService,
+    private readonly extractionQueue: DocumentExtractionQueueService,
+    private readonly extractionReview: DocumentExtractionReviewService,
+    private readonly entitlements: EntitlementsService,
   ) {}
 
   @Get()
@@ -153,13 +161,68 @@ export class BillsController {
     @Req() request: OrganizationRequest,
   ) {
     const metadata = requestMetadata(request, this.auth.pepper);
+    const uploaded = await this.attachments.upload(
+      request.organization,
+      request.auth.user,
+      'BILL',
+      billId,
+      file,
+      metadata,
+    );
+    // Upload itself is not behind a flag (it predates Phase 13D); only the extraction pipeline it
+    // kicks off is.
+    if (
+      await this.entitlements.isFlagEnabled(
+        request.organization.id,
+        PHASE13_FEATURE_FLAGS.DOCUMENT_EXTRACTION,
+      )
+    ) {
+      await this.extractionQueue.enqueue(uploaded.id);
+    }
+    return { data: uploaded };
+  }
+
+  @Get(':billId/attachments/:attachmentId/extraction')
+  @RequirePermission('purchases.bills.view')
+  @RequireFeatureFlag(PHASE13_FEATURE_FLAGS.DOCUMENT_EXTRACTION)
+  async getExtraction(
+    @Param('attachmentId', new ParseUUIDPipe()) attachmentId: string,
+    @Req() request: OrganizationRequest,
+  ) {
+    return { data: await this.extractionReview.get(request.organization.id, attachmentId) };
+  }
+
+  @Post(':billId/attachments/:attachmentId/extraction/accept')
+  @RequirePermission('purchases.bills.manage')
+  @RequireFeatureFlag(PHASE13_FEATURE_FLAGS.DOCUMENT_EXTRACTION)
+  async acceptExtraction(
+    @Param('attachmentId', new ParseUUIDPipe()) attachmentId: string,
+    @Req() request: OrganizationRequest,
+  ) {
+    const metadata = requestMetadata(request, this.auth.pepper);
     return {
-      data: await this.attachments.upload(
-        request.organization,
+      data: await this.extractionReview.accept(
+        request.organization.id,
+        attachmentId,
         request.auth.user,
-        'BILL',
-        billId,
-        file,
+        metadata,
+      ),
+    };
+  }
+
+  @Post(':billId/attachments/:attachmentId/extraction/reject')
+  @RequirePermission('purchases.bills.manage')
+  @RequireFeatureFlag(PHASE13_FEATURE_FLAGS.DOCUMENT_EXTRACTION)
+  async rejectExtraction(
+    @Param('attachmentId', new ParseUUIDPipe()) attachmentId: string,
+    @Req() request: OrganizationRequest,
+  ) {
+    const metadata = requestMetadata(request, this.auth.pepper);
+    return {
+      data: await this.extractionReview.reject(
+        request.organization.id,
+        attachmentId,
+        request.auth.user,
         metadata,
       ),
     };

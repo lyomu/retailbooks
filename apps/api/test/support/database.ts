@@ -28,7 +28,9 @@ function findApiRoot(): string {
 export const apiRoot = findApiRoot();
 const repoRoot = resolve(apiRoot, '../..');
 
-const DEFAULT_URL = 'postgresql://retailbooks:retailbooks@localhost:55432/retailbooks';
+const DEFAULT_MIGRATION_URL = 'postgresql://retailbooks:retailbooks@localhost:55432/retailbooks';
+const DEFAULT_RUNTIME_URL =
+  'postgresql://retailbooks_app:retailbooks-app-local@localhost:55432/retailbooks';
 const TEST_DATABASE_NAME = 'retailbooks_test';
 
 /**
@@ -45,7 +47,15 @@ function loadEnvFiles(): void {
 /** The connection URL for the dedicated test database, derived from the configured base URL. */
 export function testDatabaseUrl(): string {
   loadEnvFiles();
-  const base = new URL(process.env.DATABASE_URL ?? DEFAULT_URL);
+  const base = new URL(process.env.DATABASE_MIGRATION_URL ?? DEFAULT_MIGRATION_URL);
+  base.pathname = `/${TEST_DATABASE_NAME}`;
+  return base.toString();
+}
+
+/** The restricted API connection for integration specs, pointing at the dedicated test database. */
+export function testRuntimeDatabaseUrl(): string {
+  loadEnvFiles();
+  const base = new URL(process.env.DATABASE_URL ?? DEFAULT_RUNTIME_URL);
   base.pathname = `/${TEST_DATABASE_NAME}`;
   return base.toString();
 }
@@ -79,12 +89,46 @@ export async function provisionTestDatabase(): Promise<string> {
 
   execFileSync('npx', ['prisma', 'migrate', 'deploy'], {
     cwd: apiRoot,
-    env: { ...process.env, DATABASE_URL: url },
+    env: { ...process.env, DATABASE_URL: url, DATABASE_MIGRATION_URL: url },
     stdio: 'pipe',
     shell: process.platform === 'win32',
   });
 
+  await grantTestRuntimePrivileges(url);
+
   return url;
+}
+
+async function grantTestRuntimePrivileges(migrationUrl: string): Promise<void> {
+  const runtimeRole = runtimeRoleName();
+  const quotedRole = quoteIdentifier(runtimeRole);
+  const quotedDatabase = quoteIdentifier(TEST_DATABASE_NAME);
+  const admin = new Client({ connectionString: migrationUrl });
+  await admin.connect();
+  try {
+    // TRUNCATE is granted only in the disposable test database so the shared harness can reset it.
+    await admin.query(`GRANT CONNECT ON DATABASE ${quotedDatabase} TO ${quotedRole}`);
+    await admin.query(`GRANT USAGE ON SCHEMA public TO ${quotedRole}`);
+    await admin.query(
+      `GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE ON ALL TABLES IN SCHEMA public TO ${quotedRole}`,
+    );
+    await admin.query(`GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public TO ${quotedRole}`);
+  } finally {
+    await admin.end();
+  }
+}
+
+function runtimeRoleName(): string {
+  loadEnvFiles();
+  const role = decodeURIComponent(new URL(process.env.DATABASE_URL ?? DEFAULT_RUNTIME_URL).username);
+  if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(role)) {
+    throw new Error('The integration runtime database role must be a simple PostgreSQL identifier.');
+  }
+  return role;
+}
+
+function quoteIdentifier(value: string): string {
+  return `"${value.replaceAll('"', '""')}"`;
 }
 
 let cachedTables: string[] | null = null;

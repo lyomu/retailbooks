@@ -10,7 +10,7 @@ export default function OnboardingPage() {
   return (
     <main className="rb-onboarding-page" id="main-content">
       <header className="rb-onboarding-page__header">
-        <Link className="rb-onboarding-page__brand" href="/" aria-label="RetailBooks home">
+        <Link className="rb-onboarding-page__brand" href="/dashboard" aria-label="RetailBooks home">
           <span className="rb-onboarding-page__mark">
             <BookOpenCheck aria-hidden="true" />
           </span>

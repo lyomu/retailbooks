@@ -1,15 +1,20 @@
 import { Module } from '@nestjs/common';
 
+import { AiModule } from '../ai/ai.module.js';
 import { AttachmentsModule } from '../attachments/attachments.module.js';
 import { AuthModule } from '../auth/auth.module.js';
 import { DomainEventsModule } from '../automation/domain-events.module.js';
 import { AutomationModule } from '../automation/automation.module.js';
+import { DocumentsModule } from '../documents/documents.module.js';
 import { InventoryModule } from '../inventory/inventory.module.js';
 import { JobsModule } from '../jobs/jobs.module.js';
 import { OrganizationsModule } from '../organizations/organizations.module.js';
+import { EntitlementsModule } from '../platform/entitlements.module.js';
 import { StorageModule } from '../storage/storage.module.js';
 import { BillsController } from './bills.controller.js';
 import { BillsService } from './bills.service.js';
+import { CategorizationSuggestionService } from './categorization-suggestion.service.js';
+import { DraftNoteService } from './draft-note.service.js';
 import { ExpenseCategoriesController } from './expense-categories.controller.js';
 import { ExpenseCategoriesService } from './expense-categories.service.js';
 import { ExpensesController } from './expenses.controller.js';
@@ -37,6 +42,9 @@ import { VendorsService } from './vendors.service.js';
     InventoryModule,
     DomainEventsModule,
     AutomationModule,
+    DocumentsModule,
+    AiModule,
+    EntitlementsModule,
   ],
   controllers: [
     VendorsController,
@@ -59,6 +67,8 @@ import { VendorsService } from './vendors.service.js';
     PaymentsMadeService,
     RecurringBillsService,
     RecurringExpensesService,
+    CategorizationSuggestionService,
+    DraftNoteService,
   ],
   exports: [RecurringBillsService, RecurringExpensesService],
 })

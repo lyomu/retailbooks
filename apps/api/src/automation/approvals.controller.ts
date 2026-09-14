@@ -18,6 +18,9 @@ import {
   type OrganizationRequest,
 } from '../organizations/organization-context.js';
 import { OrganizationGuard } from '../organizations/organization.guard.js';
+import { FeatureFlagGuard, RequireFeatureFlag } from '../platform/feature-flag.guard.js';
+import { PHASE13_FEATURE_FLAGS } from '../platform/phase13-feature-flags.js';
+import { ApprovalBriefingService } from './approval-briefing.service.js';
 import {
   ApprovalDecisionDto,
   CreateApprovalPolicyDto,
@@ -26,11 +29,12 @@ import {
 import { ApprovalsService } from './approvals.service.js';
 
 @Controller('organizations/:organizationId/automation/approval-policies')
-@UseGuards(SessionGuard, OrganizationGuard)
+@UseGuards(SessionGuard, OrganizationGuard, FeatureFlagGuard)
 export class ApprovalsController {
   constructor(
     private readonly approvals: ApprovalsService,
     private readonly auth: AuthService,
+    private readonly briefing: ApprovalBriefingService,
   ) {}
 
   @Get()
@@ -71,6 +75,16 @@ export class ApprovalsController {
     @Req() request: OrganizationRequest,
   ) {
     return { data: await this.approvals.detail(request.organization, requestId) };
+  }
+
+  @Get('requests/:requestId/briefing')
+  @RequirePermission('automation.approvals.view')
+  @RequireFeatureFlag(PHASE13_FEATURE_FLAGS.APPROVAL_AUTOMATION)
+  async briefingFor(
+    @Param('requestId', new ParseUUIDPipe()) requestId: string,
+    @Req() request: OrganizationRequest,
+  ) {
+    return { data: await this.briefing.brief(request.organization.id, requestId) };
   }
 
   @Post('requests/:requestId/decision')

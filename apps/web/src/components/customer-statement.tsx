@@ -65,7 +65,7 @@ export function CustomerStatementPage({ contactId }: { contactId: string }) {
         description="Invoices issued, payments allocated, and credit notes applied, with a running balance."
         actions={
           <Button asChild variant="outline">
-            <Link href="/customers">Back to customers</Link>
+            <Link href="/dashboard/customers">Back to customers</Link>
           </Button>
         }
       />

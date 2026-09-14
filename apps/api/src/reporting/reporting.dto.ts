@@ -80,9 +80,40 @@ export class ReportQueryDto {
   pageSize?: number;
 }
 
-export class ReportKeyParamDto {
-  @IsIn(REPORT_KEYS)
-  reportKey!: (typeof REPORT_KEYS)[number];
+/**
+ * Deliberately narrower than ReportQueryDto: no page/pageSize/comparison. A drill-down targets one
+ * row under one period; pagination would let a truncated line set masquerade as a full breakdown.
+ */
+export class DrillDownQueryDto {
+  @IsOptional()
+  @IsISO8601({ strict: true })
+  @Transform(trimOrUndefined)
+  from?: string;
+
+  @IsOptional()
+  @IsISO8601({ strict: true })
+  @Transform(trimOrUndefined)
+  to?: string;
+
+  @IsOptional()
+  @IsIn(['ACCRUAL', 'CASH'])
+  @Transform(upper)
+  basis?: 'ACCRUAL' | 'CASH';
+
+  @IsOptional()
+  @IsIn(['BASE', 'TRANSACTION'])
+  @Transform(upper)
+  currencyMode?: 'BASE' | 'TRANSACTION';
+
+  @IsOptional()
+  @IsString()
+  @Length(36, 36)
+  projectId?: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(36, 36)
+  tagId?: string;
 }
 
 export class ReportExportQueryDto extends ReportQueryDto {

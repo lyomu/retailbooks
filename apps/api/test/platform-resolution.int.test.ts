@@ -95,7 +95,10 @@ describe('platform entitlement and feature-flag resolution', () => {
     for (const rule of rules)
       await harness.prisma.featureFlagRule.create({ data: { flagId: flag.id, ...rule } });
 
-    const resolved = async () => (await entitlements.forOrganization(organizationId)).flags[0];
+    const resolved = async () =>
+      (await entitlements.forOrganization(organizationId)).flags.find(
+        (candidate) => candidate.key === 'resolution.flag',
+      );
     await expect(resolved()).resolves.toMatchObject({ enabled: true, decidedBy: 'ORGANIZATION' });
     await harness.prisma.featureFlagRule.deleteMany({
       where: { flagId: flag.id, scope: 'ORGANIZATION' },
@@ -160,8 +163,11 @@ describe('platform entitlement and feature-flag resolution', () => {
         note: 'replacement decision',
       }),
     ]);
-    await expect(entitlements.forOrganization(organizationId)).resolves.toMatchObject({
-      flags: [{ key: 'repeat.flag', enabled: false, decidedBy: 'GLOBAL' }],
+    const resolved = await entitlements.forOrganization(organizationId);
+    expect(resolved.flags.find((candidate) => candidate.key === 'repeat.flag')).toMatchObject({
+      key: 'repeat.flag',
+      enabled: false,
+      decidedBy: 'GLOBAL',
     });
     await harness
       .http()

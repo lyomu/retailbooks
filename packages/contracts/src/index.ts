@@ -402,6 +402,10 @@ export const permissionKeySchema = z.enum([
   'journals.recurring.manage',
   'reports.view',
   'reports.manage',
+  'ai.assistant.ask',
+  'ai.suggestions.view',
+  'ai.suggestions.manage',
+  'ai.settings.manage',
   'tax.codes.view',
   'tax.codes.manage',
   'audit.view',
@@ -591,6 +595,7 @@ export const reportDefinitionSchema = z.object({
   supportedCurrencyModes: z.array(reportCurrencyModeSchema).min(1),
   supportsProject: z.boolean(),
   supportsTag: z.boolean(),
+  supportsDrillDown: z.boolean(),
 });
 export const reportFiltersSchema = z.object({
   from: z.iso.date().optional(),
@@ -639,6 +644,56 @@ export const reportResultSchema = z.object({
   }),
 });
 export const reportDefinitionsResponseSchema = z.object({ data: z.array(reportDefinitionSchema) });
+export const reportDrillDownDataSchema = z.object({
+  definition: reportDefinitionSchema,
+  filters: reportFiltersSchema,
+  baseCurrency: z.string().length(3),
+  row: reportRowSchema,
+  lines: z.array(reportRowSchema),
+  reconciled: z.literal(true),
+});
+export const reportDrillDownResultSchema = z.object({ data: reportDrillDownDataSchema });
+export const aiModelExplanationSchema = z
+  .object({
+    summary: z.string().trim().min(1).max(2_000),
+    citationIds: z.array(z.string().trim().min(1).max(120)).max(100),
+    abstained: z.boolean(),
+  })
+  .refine((value) => value.abstained || value.citationIds.length > 0, {
+    message: 'A non-abstained answer needs at least one citation.',
+  });
+export const aiRunStatusSchema = z.enum(['RUNNING', 'SUCCEEDED', 'FAILED', 'REJECTED']);
+export const aiRunSchema = z.object({
+  id: z.uuid(),
+  capability: z.string().min(1),
+  provider: z.string().min(1),
+  model: z.string().min(1),
+  modelVersion: z.string().nullable(),
+  status: aiRunStatusSchema,
+  createdAt: z.iso.datetime(),
+  completedAt: z.iso.datetime().nullable(),
+});
+export const aiCitationSchema = z.object({
+  sourceType: z.string().min(1),
+  sourceId: z.string().min(1),
+  href: z.string().startsWith('/').nullable(),
+});
+export const explainNumberExplanationSchema = z.discriminatedUnion('state', [
+  z.object({ state: z.literal('unavailable'), reason: z.string().min(1) }),
+  z.object({
+    state: z.literal('ready'),
+    summary: z.string().min(1),
+    abstained: z.boolean(),
+    citations: z.array(aiCitationSchema),
+  }),
+]);
+export const explainNumberResponseSchema = z.object({
+  data: z.object({
+    run: aiRunSchema.optional(),
+    drillDown: reportDrillDownDataSchema,
+    explanation: explainNumberExplanationSchema,
+  }),
+});
 export const savedReportSchema = z.object({
   id: z.uuid(),
   name: z.string().min(1),
@@ -3823,10 +3878,18 @@ export type ReportDefinition = z.infer<typeof reportDefinitionSchema>;
 export type ReportFilters = z.infer<typeof reportFiltersSchema>;
 export type ReportRow = z.infer<typeof reportRowSchema>;
 export type ReportResult = z.infer<typeof reportResultSchema>;
+export type ReportDrillDownData = z.infer<typeof reportDrillDownDataSchema>;
+export type ReportDrillDownResult = z.infer<typeof reportDrillDownResultSchema>;
 export type ReportDefinitionsResponse = z.infer<typeof reportDefinitionsResponseSchema>;
 export type SavedReport = z.infer<typeof savedReportSchema>;
 export type SavedReportsResponse = z.infer<typeof savedReportsResponseSchema>;
 export type SavedReportResponse = z.infer<typeof savedReportResponseSchema>;
+export type AiModelExplanation = z.infer<typeof aiModelExplanationSchema>;
+export type AiRunStatus = z.infer<typeof aiRunStatusSchema>;
+export type AiRun = z.infer<typeof aiRunSchema>;
+export type AiCitation = z.infer<typeof aiCitationSchema>;
+export type ExplainNumberExplanation = z.infer<typeof explainNumberExplanationSchema>;
+export type ExplainNumberResponse = z.infer<typeof explainNumberResponseSchema>;
 export type DomainEvent = z.infer<typeof domainEventSchema>;
 export type ApprovalTargetType = z.infer<typeof approvalTargetTypeSchema>;
 export type ApprovalPolicyStatus = z.infer<typeof approvalPolicyStatusSchema>;

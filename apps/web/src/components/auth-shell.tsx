@@ -15,7 +15,7 @@ export function AuthShell({
     <main className="rb-auth" id="main-content">
       <section className="rb-auth__main" aria-labelledby="auth-title">
         <div className="rb-auth__content">
-          <Link className="rb-auth__brand" href="/" aria-label="RetailBooks home">
+          <Link className="rb-auth__brand" href="/dashboard" aria-label="RetailBooks home">
             <span className="rb-auth__brand-mark">
               <BookOpenCheck aria-hidden="true" />
             </span>

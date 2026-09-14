@@ -1,8 +1,8 @@
 import { z } from 'zod';
 
 const LOCAL_DEFAULTS = {
-  DATABASE_URL: 'postgresql://retailbooks:retailbooks@localhost:55432/retailbooks',
-  REDIS_URL: 'redis://localhost:56379',
+  DATABASE_URL: 'postgresql://retailbooks_app:retailbooks-app-local@localhost:55432/retailbooks',
+  REDIS_URL: 'redis://localhost:56780',
   S3_ENDPOINT: 'http://localhost:59000',
   S3_REGION: 'us-east-1',
   S3_ACCESS_KEY: 'retailbooks',
@@ -14,6 +14,7 @@ const LOCAL_DEFAULTS = {
   SMTP_HOST: '127.0.0.1',
   SMTP_PORT: '51025',
   EMAIL_FROM: 'RetailBooks <no-reply@retailbooks.local>',
+  CLAMAV_HOST: 'localhost',
 } as const;
 
 const COMMON_DEFAULTS = {
@@ -27,9 +28,26 @@ const COMMON_DEFAULTS = {
   AUTOMATION_WORKER_CONCURRENCY: '4',
   AUTOMATION_SCHEDULER_POLL_MS: '30000',
   AUTOMATION_OUTBOX_POLL_MS: '1000',
+  AI_MODE: 'off',
+  AI_REQUEST_TIMEOUT_MS: '15000',
+  AI_MAX_CONTEXT_ROWS: '50',
+  AI_MAX_RETRIES: '1',
+  AI_CIRCUIT_FAILURE_THRESHOLD: '3',
+  AI_CIRCUIT_OPEN_MS: '30000',
+  AI_REQUEST_LIMIT_PER_HOUR: '30',
+  AI_ORGANIZATION_REQUEST_LIMIT_PER_HOUR: '100',
+  AI_RUN_RETENTION_DAYS: '90',
+  AI_RETENTION_POLL_MS: '3600000',
+  CLAMAV_PORT: '53310',
+  CLAMAV_TIMEOUT_MS: '15000',
+  OCR_TIMEOUT_MS: '20000',
+  OCR_MAX_TEXT_CHARS: '20000',
+  DOCUMENT_EXTRACTION_WORKER_CONCURRENCY: '2',
+  DOCUMENT_EXTRACTION_RETRY_DELAY_MS: '2000',
 } as const;
 
 const PRODUCTION_LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
+const HOSTED_DEEPSEEK_HOSTS = new Set(['api.deepseek.com']);
 const DEFAULT_SECURITY_PEPPERS = new Set([
   LOCAL_DEFAULTS.SECURITY_PEPPER,
   'retailbooks-local-development-pepper-please-change',
@@ -63,6 +81,8 @@ const positiveInteger = z.preprocess(
 
 const booleanText = z.enum(['true', 'false']).optional();
 
+const aiMode = z.enum(['off', 'private', 'hosted_limited']);
+
 const apiEnvironmentSchema = z
   .object({
     NODE_ENV: nodeEnvSchema,
@@ -87,10 +107,72 @@ const apiEnvironmentSchema = z
     AUTOMATION_WORKER_CONCURRENCY: positiveInteger,
     AUTOMATION_SCHEDULER_POLL_MS: positiveInteger,
     AUTOMATION_OUTBOX_POLL_MS: positiveInteger,
+    AI_MODE: aiMode,
+    AI_PRIVATE_ENDPOINT: optionalConnectionUrl(['http:', 'https:']),
+    AI_PRIVATE_MODEL: optionalNonEmptyString,
+    AI_PRIVATE_API_KEY: optionalNonEmptyString,
+    AI_PRIVATE_ALLOWED_HOSTS: optionalNonEmptyString,
+    AI_HOSTED_MODEL: optionalNonEmptyString,
+    AI_HOSTED_API_KEY: optionalNonEmptyString,
+    AI_REQUEST_TIMEOUT_MS: z.preprocess(stringToNumber, z.number().int().min(1_000).max(60_000)),
+    AI_MAX_CONTEXT_ROWS: z.preprocess(stringToNumber, z.number().int().min(1).max(100)),
+    AI_MAX_RETRIES: z.preprocess(stringToNumber, z.number().int().min(0).max(2)),
+    AI_CIRCUIT_FAILURE_THRESHOLD: z.preprocess(stringToNumber, z.number().int().min(1).max(10)),
+    AI_CIRCUIT_OPEN_MS: z.preprocess(stringToNumber, z.number().int().min(1_000).max(300_000)),
+    AI_REQUEST_LIMIT_PER_HOUR: z.preprocess(stringToNumber, z.number().int().min(1).max(1_000)),
+    AI_ORGANIZATION_REQUEST_LIMIT_PER_HOUR: z.preprocess(
+      stringToNumber,
+      z.number().int().min(1).max(10_000),
+    ),
+    AI_RUN_RETENTION_DAYS: z.preprocess(stringToNumber, z.number().int().min(1).max(3_650)),
+    AI_RETENTION_POLL_MS: z.preprocess(
+      stringToNumber,
+      z.number().int().min(60_000).max(86_400_000),
+    ),
     PLATFORM_ADMIN_EMAILS: optionalNonEmptyString,
     ALLOW_DEMO_SEED: booleanText,
+    CLAMAV_HOST: nonEmptyString,
+    CLAMAV_PORT: portNumber,
+    CLAMAV_TIMEOUT_MS: z.preprocess(stringToNumber, z.number().int().min(1_000).max(60_000)),
+    OCR_TIMEOUT_MS: z.preprocess(stringToNumber, z.number().int().min(1_000).max(120_000)),
+    OCR_MAX_TEXT_CHARS: z.preprocess(stringToNumber, z.number().int().min(500).max(200_000)),
+    DOCUMENT_EXTRACTION_WORKER_CONCURRENCY: positiveInteger,
+    DOCUMENT_EXTRACTION_RETRY_DELAY_MS: positiveInteger,
   })
   .superRefine((value, context) => {
+    const privateEndpoint = urlOrNull(value.AI_PRIVATE_ENDPOINT);
+    if (value.AI_MODE === 'private') {
+      if (!value.AI_PRIVATE_ENDPOINT) {
+        context.addIssue({
+          code: 'custom',
+          path: ['AI_PRIVATE_ENDPOINT'],
+          message: 'is required when AI_MODE is private',
+        });
+      }
+      if (!value.AI_PRIVATE_MODEL) {
+        context.addIssue({
+          code: 'custom',
+          path: ['AI_PRIVATE_MODEL'],
+          message: 'is required when AI_MODE is private',
+        });
+      }
+      if (privateEndpoint && HOSTED_DEEPSEEK_HOSTS.has(privateEndpoint.hostname.toLowerCase())) {
+        context.addIssue({
+          code: 'custom',
+          path: ['AI_PRIVATE_ENDPOINT'],
+          message: 'must not use a hosted DeepSeek endpoint in private mode',
+        });
+      }
+    }
+
+    if (value.AI_MODE === 'hosted_limited' && !value.AI_HOSTED_MODEL) {
+      context.addIssue({
+        code: 'custom',
+        path: ['AI_HOSTED_MODEL'],
+        message: 'is required when AI_MODE is hosted_limited',
+      });
+    }
+
     if (value.NODE_ENV !== 'production') return;
 
     if (value.SECURITY_PEPPER.length < 32) {
@@ -111,6 +193,50 @@ const apiEnvironmentSchema = z
     rejectLocalEndpoint(context, 'DATABASE_URL', value.DATABASE_URL);
     rejectLocalEndpoint(context, 'REDIS_URL', value.REDIS_URL);
     rejectLocalEndpoint(context, 'S3_ENDPOINT', value.S3_ENDPOINT);
+    if (PRODUCTION_LOCAL_HOSTS.has(value.CLAMAV_HOST.toLowerCase())) {
+      context.addIssue({
+        code: 'custom',
+        path: ['CLAMAV_HOST'],
+        message: 'must not point at localhost in production',
+      });
+    }
+
+    if (value.AI_MODE === 'private') {
+      if (!privateEndpoint || privateEndpoint.protocol !== 'https:') {
+        context.addIssue({
+          code: 'custom',
+          path: ['AI_PRIVATE_ENDPOINT'],
+          message: 'must use https in production',
+        });
+      }
+      if (!value.AI_PRIVATE_ALLOWED_HOSTS) {
+        context.addIssue({
+          code: 'custom',
+          path: ['AI_PRIVATE_ALLOWED_HOSTS'],
+          message: 'is required when AI_MODE is private in production',
+        });
+      } else if (
+        privateEndpoint &&
+        !value.AI_PRIVATE_ALLOWED_HOSTS.split(',')
+          .map((host) => host.trim().toLowerCase())
+          .filter(Boolean)
+          .includes(privateEndpoint.hostname.toLowerCase())
+      ) {
+        context.addIssue({
+          code: 'custom',
+          path: ['AI_PRIVATE_ENDPOINT'],
+          message: 'host must be listed in AI_PRIVATE_ALLOWED_HOSTS',
+        });
+      }
+    }
+
+    if (value.AI_MODE === 'hosted_limited' && !value.AI_HOSTED_API_KEY) {
+      context.addIssue({
+        code: 'custom',
+        path: ['AI_HOSTED_API_KEY'],
+        message: 'is required when AI_MODE is hosted_limited in production',
+      });
+    }
   });
 
 export type ApiEnvironment = z.infer<typeof apiEnvironmentSchema>;
@@ -148,6 +274,36 @@ function connectionUrl(protocols: string[]) {
         { message: `must be a valid ${protocols.join('/')} URL` },
       ),
   );
+}
+
+function optionalConnectionUrl(protocols: string[]) {
+  return z.preprocess(
+    emptyStringToUndefined,
+    z
+      .string()
+      .trim()
+      .refine(
+        (value) => {
+          try {
+            const url = new URL(value);
+            return protocols.includes(url.protocol) && !url.username && !url.password;
+          } catch {
+            return false;
+          }
+        },
+        { message: `must be a valid ${protocols.join('/')} URL without credentials` },
+      )
+      .optional(),
+  );
+}
+
+function urlOrNull(value: string | undefined): URL | null {
+  if (!value) return null;
+  try {
+    return new URL(value);
+  } catch {
+    return null;
+  }
 }
 
 function emptyStringToUndefined(value: unknown): unknown {

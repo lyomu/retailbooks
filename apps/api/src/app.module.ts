@@ -5,8 +5,10 @@ import { validateApiEnvironment } from '@retailbooks/config';
 
 import { AuthModule } from './auth/auth.module.js';
 import { AutomationModule } from './automation/automation.module.js';
+import { AiModule } from './ai/ai.module.js';
 import { BankingModule } from './banking/banking.module.js';
 import { CollaborationModule } from './collaboration/collaboration.module.js';
+import { InsightsModule } from './insights/insights.module.js';
 import { ApiExceptionFilter } from './common/api-exception.filter.js';
 import { ObservabilityModule } from './common/logging/observability.module.js';
 import { DatabaseModule } from './database/database.module.js';
@@ -30,6 +32,7 @@ import { SalesModule } from './sales/sales.module.js';
     DatabaseModule,
     JobsModule,
     AutomationModule,
+    AiModule,
     AuthModule,
     OrganizationsModule,
     CollaborationModule,
@@ -41,6 +44,7 @@ import { SalesModule } from './sales/sales.module.js';
     InventoryModule,
     ProjectsModule,
     ReportingModule,
+    InsightsModule,
   ],
   controllers: [HealthController],
   providers: [

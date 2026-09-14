@@ -3,8 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DATABASE_MIGRATION_URL")
 }
 
 enum UserStatus {
@@ -337,6 +338,8 @@ model User {
   portalInvitationsAccepted        PortalInvitation[]         @relation("PortalInvitationAcceptedBy")
   commentsAuthored                 Comment[]                  @relation("CommentAuthor")
   activitiesAuthored               Activity[]                 @relation("ActivityActor")
+  aiRuns                           AiRun[]                    @relation("AiRunActor")
+  aiFeedback                       AiFeedback[]               @relation("AiFeedbackActor")
 
   @@map("users")
 }
@@ -516,6 +519,7 @@ model Organization {
   bills                         Bill[]
   billLines                     BillLine[]
   attachments                   Attachment[]
+  documentExtractions           DocumentExtraction[]
   expenseCategories             ExpenseCategory[]
   expenses                      Expense[]
   vendorCredits                 VendorCredit[]
@@ -565,6 +569,10 @@ model Organization {
   portalInvitations             PortalInvitation[]
   comments                      Comment[]
   activities                    Activity[]
+  aiRuns                        AiRun[]
+  aiSuggestions                 AiSuggestion[]
+  aiFeedback                    AiFeedback[]
+  aiEvidence                    AiEvidence[]
 
   @@index([createdByUserId])
   @@index([status])
@@ -2247,24 +2255,100 @@ enum AttachmentEntityType {
 /// one Phase 3 entity and can be reused for other attachment needs later without a new table.
 /// `StorageService` (already generic S3-compatible storage, not sales/PDF-specific) is reused as-is.
 model Attachment {
-  id               String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  organizationId   String                  @map("organization_id") @db.Uuid
-  entityType       AttachmentEntityType    @map("entity_type")
-  entityId         String                  @map("entity_id") @db.Uuid
-  filename         String                  @db.VarChar(255)
-  contentType      String                  @map("content_type") @db.VarChar(120)
-  storageKey       String                  @map("storage_key") @db.VarChar(500)
-  sizeBytes        Int                     @map("size_bytes")
-  uploadedByUserId String                  @map("uploaded_by_user_id") @db.Uuid
-  visibility       CollaborationVisibility @default(INTERNAL)
-  portalUserId     String?                 @map("portal_user_id") @db.Uuid
-  createdAt        DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
-  organization     Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  uploadedBy       User                    @relation("AttachmentUploadedBy", fields: [uploadedByUserId], references: [id], onDelete: Restrict)
-  portalUser       PortalUser?             @relation(fields: [portalUserId], references: [id], onDelete: SetNull)
+  id                 String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId     String                  @map("organization_id") @db.Uuid
+  entityType         AttachmentEntityType    @map("entity_type")
+  entityId           String                  @map("entity_id") @db.Uuid
+  filename           String                  @db.VarChar(255)
+  contentType        String                  @map("content_type") @db.VarChar(120)
+  storageKey         String                  @map("storage_key") @db.VarChar(500)
+  sizeBytes          Int                     @map("size_bytes")
+  /// sha256 of the uploaded bytes, computed once at upload time. Phase 13D's scan/OCR worker
+  /// recomputes and compares this before trusting the object it downloads from storage.
+  contentHash        String?                 @map("content_hash") @db.Char(64)
+  uploadedByUserId   String                  @map("uploaded_by_user_id") @db.Uuid
+  visibility         CollaborationVisibility @default(INTERNAL)
+  portalUserId       String?                 @map("portal_user_id") @db.Uuid
+  createdAt          DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  organization       Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  uploadedBy         User                    @relation("AttachmentUploadedBy", fields: [uploadedByUserId], references: [id], onDelete: Restrict)
+  portalUser         PortalUser?             @relation(fields: [portalUserId], references: [id], onDelete: SetNull)
+  documentExtraction DocumentExtraction?
 
   @@index([organizationId, entityType, entityId])
   @@map("attachments")
+}
+
+enum DocumentExtractionStatus {
+  PENDING
+  SCANNING
+  QUARANTINED
+  UNSUPPORTED_FOR_EXTRACTION
+  OCR_PROCESSING
+  EXTRACTING
+  READY_FOR_REVIEW
+  FAILED
+}
+
+enum DocumentExtractionDisposition {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+/// One row per Attachment produced by the Phase 13D scan/OCR/extraction worker. Candidate fields are
+/// informational only -- accepting one never creates or mutates an Expense; the reviewer still uses
+/// the existing Expense draft routes (see docs/PHASE13C_13D_HANDOFF.md). candidateVendorId/
+/// candidateCategoryId/reviewedByUserId are deliberately bare id columns, not Prisma relations --
+/// mirrors AiEvidence's own soft-reference-by-id pattern for the same reason: this table records
+/// what the worker found, not a durable foreign key the rest of the schema must keep in sync. No raw
+/// attachment bytes, OCR text, or signed URLs are stored here, matching AiRun's metadata-only
+/// discipline.
+model DocumentExtraction {
+  id                      String                        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId          String                        @map("organization_id") @db.Uuid
+  attachmentId            String                        @unique @map("attachment_id") @db.Uuid
+  entityType              AttachmentEntityType          @map("entity_type")
+  entityId                String                        @map("entity_id") @db.Uuid
+  status                  DocumentExtractionStatus      @default(PENDING)
+  failureReason           String?                       @map("failure_reason") @db.VarChar(80)
+  scanEngineVersion       String?                       @map("scan_engine_version") @db.VarChar(80)
+  scanSignature           String?                       @map("scan_signature") @db.VarChar(200)
+  contentHash             String                        @map("content_hash") @db.Char(64)
+  ocrTextHash             String?                       @map("ocr_text_hash") @db.Char(64)
+  candidateVendorName     String?                       @map("candidate_vendor_name") @db.VarChar(160)
+  candidateVendorId       String?                       @map("candidate_vendor_id") @db.Uuid
+  candidateDate           DateTime?                     @map("candidate_date") @db.Date
+  candidateCurrency       String?                       @map("candidate_currency") @db.Char(3)
+  candidateSubtotalMinor  BigInt?                       @map("candidate_subtotal_minor") @db.BigInt
+  candidateTaxMinor       BigInt?                       @map("candidate_tax_minor") @db.BigInt
+  candidateTotalMinor     BigInt?                       @map("candidate_total_minor") @db.BigInt
+  candidateCategoryId     String?                       @map("candidate_category_id") @db.Uuid
+  /// Per-field OCR line-level provenance (e.g. { "total": { "lineIndex": 12, "bbox": {...} } }),
+  /// so a reviewer can see where on the source document each candidate value came from.
+  sourceRegions           Json                          @default("{}") @map("source_regions")
+  /// Which other attachment (same organization, identical contentHash) this duplicates, if any.
+  /// Informational only -- never blocks review, matches "flag likely duplicates," not "reject."
+  duplicateOfAttachmentId String?                       @map("duplicate_of_attachment_id") @db.Uuid
+  /// Bounded (OCR_MAX_TEXT_CHARS) OCR text, kept so the Phase 13D keyword-search endpoint has
+  /// something to index. A deliberate change from this table's original metadata-only design: the
+  /// handoff's own architecture calls for a permission-filtered, versioned text/chunk store for
+  /// retrieval, not just hashes -- see `document_extractions_search_tsv_idx` in this migration for
+  /// the generated `tsvector` column this backs.
+  ocrText                 String?                       @map("ocr_text")
+  arithmeticValid         Boolean                       @default(false) @map("arithmetic_valid")
+  fieldFlags              Json                          @default("[]") @map("field_flags")
+  disposition             DocumentExtractionDisposition @default(PENDING)
+  reviewedAt              DateTime?                     @map("reviewed_at") @db.Timestamptz(6)
+  reviewedByUserId        String?                       @map("reviewed_by_user_id") @db.Uuid
+  createdAt               DateTime                      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt               DateTime                      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization            Organization                  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  attachment              Attachment                    @relation(fields: [attachmentId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, entityType, entityId])
+  @@index([organizationId, status])
+  @@map("document_extractions")
 }
 
 /// Maps a purchasing category to a chart-of-accounts entry, so an Expense picks a category rather
@@ -3816,6 +3900,122 @@ enum FeatureFlagScope {
   COUNTRY
   PLAN
   ORGANIZATION
+}
+
+enum AiRunStatus {
+  RUNNING
+  SUCCEEDED
+  FAILED
+  REJECTED
+}
+
+/// Metadata-only record of an AI request. Prompt, model response, attachment text, and generated
+/// embeddings deliberately never live here: the row makes a result reviewable without turning the
+/// audit database into a second store of sensitive financial content.
+model AiRun {
+  id             String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String         @map("organization_id") @db.Uuid
+  actorUserId    String         @map("actor_user_id") @db.Uuid
+  capability     String         @db.VarChar(80)
+  provider       String         @db.VarChar(40)
+  model          String         @db.VarChar(160)
+  modelVersion   String?        @map("model_version") @db.VarChar(160)
+  status         AiRunStatus    @default(RUNNING)
+  requestHash    String         @map("request_hash") @db.Char(64)
+  evidenceHash   String         @map("evidence_hash") @db.Char(64)
+  outputHash     String?        @map("output_hash") @db.Char(64)
+  inputTokens    Int?           @map("input_tokens")
+  outputTokens   Int?           @map("output_tokens")
+  failureCode    String?        @map("failure_code") @db.VarChar(80)
+  completedAt    DateTime?      @map("completed_at") @db.Timestamptz(6)
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  actor          User           @relation("AiRunActor", fields: [actorUserId], references: [id], onDelete: Restrict)
+  evidence       AiEvidence[]
+  suggestions    AiSuggestion[]
+
+  @@index([organizationId, createdAt])
+  @@index([organizationId, actorUserId, createdAt])
+  @@map("ai_runs")
+}
+
+/// A trusted reference to a source provided to an AI run. The reference is resolved again against
+/// the user's current permissions before it is shown; stored hrefs are internal paths, never signed
+/// object-storage URLs.
+model AiEvidence {
+  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  runId          String       @map("run_id") @db.Uuid
+  sourceType     String       @map("source_type") @db.VarChar(60)
+  sourceId       String       @map("source_id") @db.VarChar(120)
+  sourceVersion  String       @map("source_version") @db.Char(64)
+  href           String?      @db.VarChar(500)
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  run            AiRun        @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@unique([runId, sourceType, sourceId, sourceVersion])
+  @@index([organizationId, sourceType, sourceId])
+  @@map("ai_evidence")
+}
+
+enum AiSuggestionStatus {
+  PENDING
+  ACCEPTED
+  DISMISSED
+  EXPIRED
+}
+
+enum AiFeedbackKind {
+  DISMISSED
+  CORRECTED
+}
+
+/// Phase 13E: a typed, reviewable candidate -- categorization, a variance/anomaly signal, or draft
+/// text -- never a direct mutation. `payload` carries only small, capability-specific structured
+/// values (never raw prompts/OCR text/secrets), the same discipline `AiRun` already keeps. Accepting
+/// one only ever means "the reviewer chose to act on this"; the actual financial/workflow mutation,
+/// if any, still goes through its own existing authorized route.
+model AiSuggestion {
+  id               String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId   String             @map("organization_id") @db.Uuid
+  runId            String?            @map("run_id") @db.Uuid
+  /// e.g. 'EXPENSE_CATEGORIZATION', 'VARIANCE_INSIGHT', 'DRAFT_NOTE'.
+  capability       String             @db.VarChar(80)
+  entityType       String?            @map("entity_type") @db.VarChar(60)
+  entityId         String?            @map("entity_id") @db.Uuid
+  payload          Json
+  reason           String?            @db.VarChar(400)
+  status           AiSuggestionStatus @default(PENDING)
+  expiresAt        DateTime?          @map("expires_at") @db.Timestamptz(6)
+  reviewedAt       DateTime?          @map("reviewed_at") @db.Timestamptz(6)
+  reviewedByUserId String?            @map("reviewed_by_user_id") @db.Uuid
+  createdAt        DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  organization     Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  run              AiRun?             @relation(fields: [runId], references: [id], onDelete: SetNull)
+  feedback         AiFeedback[]
+
+  @@index([organizationId, capability, status])
+  @@index([organizationId, entityType, entityId])
+  @@map("ai_suggestions")
+}
+
+/// Correction/dismissal feedback on one suggestion -- deliberately never used to train or fine-tune
+/// a model by default; it exists so false-positive/correction rates can be monitored per capability.
+model AiFeedback {
+  id             String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String         @map("organization_id") @db.Uuid
+  suggestionId   String         @map("suggestion_id") @db.Uuid
+  actorUserId    String         @map("actor_user_id") @db.Uuid
+  kind           AiFeedbackKind
+  note           String?        @db.VarChar(400)
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  suggestion     AiSuggestion   @relation(fields: [suggestionId], references: [id], onDelete: Cascade)
+  actor          User           @relation("AiFeedbackActor", fields: [actorUserId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, suggestionId])
+  @@map("ai_feedback")
 }
 
 model FeatureFlag {

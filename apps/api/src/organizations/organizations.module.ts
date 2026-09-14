@@ -1,6 +1,7 @@
-﻿import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 
 import { AuthModule } from '../auth/auth.module.js';
+import { AutomationModule } from '../automation/automation.module.js';
 import { DomainEventsModule } from '../automation/domain-events.module.js';
 import { PlatformAccessModule } from '../platform/platform-access.module.js';
 import { PostingRulesService } from '../posting-rules/posting-rules.service.js';
@@ -36,7 +37,12 @@ import { TaxController } from './tax.controller.js';
 import { TaxService } from './tax.service.js';
 
 @Module({
-  imports: [AuthModule, DomainEventsModule, PlatformAccessModule],
+  imports: [
+    AuthModule,
+    DomainEventsModule,
+    PlatformAccessModule,
+    forwardRef(() => AutomationModule),
+  ],
   controllers: [
     OrganizationsController,
     InvitationsController,

@@ -24,27 +24,55 @@ import {
 import { AuthService } from '../auth/auth.service.js';
 import { requestMetadata } from '../auth/request-context.js';
 import { SessionGuard } from '../auth/session.guard.js';
+import { DocumentDiscrepancyService } from '../documents/document-discrepancy.service.js';
+import { DocumentExtractionQueueService } from '../documents/document-extraction-queue.service.js';
+import { DocumentExtractionReviewService } from '../documents/document-extraction-review.service.js';
 import {
   RequirePermission,
   type OrganizationRequest,
 } from '../organizations/organization-context.js';
 import { OrganizationGuard } from '../organizations/organization.guard.js';
+import { EntitlementsService } from '../platform/entitlements.service.js';
+import { FeatureFlagGuard, RequireFeatureFlag } from '../platform/feature-flag.guard.js';
+import { PHASE13_FEATURE_FLAGS } from '../platform/phase13-feature-flags.js';
+import { CategorizationSuggestionService } from './categorization-suggestion.service.js';
+import { DraftNoteService } from './draft-note.service.js';
 import { CreateExpenseDto, ListExpensesQueryDto, UpdateExpenseDto } from './expenses.dto.js';
 import { ExpensesService } from './expenses.service.js';
 
 @Controller('organizations/:organizationId/expenses')
-@UseGuards(SessionGuard, OrganizationGuard)
+@UseGuards(SessionGuard, OrganizationGuard, FeatureFlagGuard)
 export class ExpensesController {
   constructor(
     private readonly expenses: ExpensesService,
     private readonly attachments: AttachmentsService,
     private readonly auth: AuthService,
+    private readonly extractionQueue: DocumentExtractionQueueService,
+    private readonly extractionReview: DocumentExtractionReviewService,
+    private readonly categorization: CategorizationSuggestionService,
+    private readonly draftNote: DraftNoteService,
+    private readonly discrepancies: DocumentDiscrepancyService,
+    private readonly entitlements: EntitlementsService,
   ) {}
 
   @Get()
   @RequirePermission('purchases.expenses.view')
   async list(@Query() query: ListExpensesQueryDto, @Req() request: OrganizationRequest) {
     return { data: await this.expenses.list(request.organization.id, query.status) };
+  }
+
+  // Registered before the generic :expenseId route below so 'categorization-suggestion' is never
+  // matched as an expenseId value.
+  @Get('categorization-suggestion')
+  @RequirePermission('purchases.expenses.view')
+  @RequireFeatureFlag(PHASE13_FEATURE_FLAGS.AI_SUGGESTIONS)
+  async categorizationSuggestion(
+    @Query('vendorId', new ParseUUIDPipe()) vendorId: string,
+    @Req() request: OrganizationRequest,
+  ) {
+    return {
+      data: await this.categorization.suggestForVendor(request.organization.id, vendorId),
+    };
   }
 
   @Get(':expenseId')
@@ -222,15 +250,91 @@ export class ExpensesController {
     @Req() request: OrganizationRequest,
   ) {
     const metadata = requestMetadata(request, this.auth.pepper);
+    const uploaded = await this.attachments.upload(
+      request.organization,
+      request.auth.user,
+      'EXPENSE',
+      expenseId,
+      file,
+      metadata,
+    );
+    // Every Expense attachment is scanned, regardless of type; only image types go on to OCR. The
+    // worker itself decides that branch -- this route just starts the pipeline. Upload itself is
+    // not behind a flag (it predates Phase 13D); only the extraction pipeline it kicks off is.
+    if (
+      await this.entitlements.isFlagEnabled(
+        request.organization.id,
+        PHASE13_FEATURE_FLAGS.DOCUMENT_EXTRACTION,
+      )
+    ) {
+      await this.extractionQueue.enqueue(uploaded.id);
+    }
+    return { data: uploaded };
+  }
+
+  @Get(':expenseId/attachments/:attachmentId/extraction')
+  @RequirePermission('purchases.expenses.view')
+  @RequireFeatureFlag(PHASE13_FEATURE_FLAGS.DOCUMENT_EXTRACTION)
+  async getExtraction(
+    @Param('attachmentId', new ParseUUIDPipe()) attachmentId: string,
+    @Req() request: OrganizationRequest,
+  ) {
+    return { data: await this.extractionReview.get(request.organization.id, attachmentId) };
+  }
+
+  @Post(':expenseId/attachments/:attachmentId/extraction/accept')
+  @RequirePermission('purchases.expenses.manage')
+  @RequireFeatureFlag(PHASE13_FEATURE_FLAGS.DOCUMENT_EXTRACTION)
+  async acceptExtraction(
+    @Param('attachmentId', new ParseUUIDPipe()) attachmentId: string,
+    @Req() request: OrganizationRequest,
+  ) {
+    const metadata = requestMetadata(request, this.auth.pepper);
     return {
-      data: await this.attachments.upload(
-        request.organization,
+      data: await this.extractionReview.accept(
+        request.organization.id,
+        attachmentId,
         request.auth.user,
-        'EXPENSE',
-        expenseId,
-        file,
         metadata,
       ),
     };
+  }
+
+  @Post(':expenseId/attachments/:attachmentId/extraction/reject')
+  @RequirePermission('purchases.expenses.manage')
+  @RequireFeatureFlag(PHASE13_FEATURE_FLAGS.DOCUMENT_EXTRACTION)
+  async rejectExtraction(
+    @Param('attachmentId', new ParseUUIDPipe()) attachmentId: string,
+    @Req() request: OrganizationRequest,
+  ) {
+    const metadata = requestMetadata(request, this.auth.pepper);
+    return {
+      data: await this.extractionReview.reject(
+        request.organization.id,
+        attachmentId,
+        request.auth.user,
+        metadata,
+      ),
+    };
+  }
+
+  @Get(':expenseId/draft-note')
+  @RequirePermission('purchases.expenses.view')
+  @RequireFeatureFlag(PHASE13_FEATURE_FLAGS.AI_SUGGESTIONS)
+  async draftNoteForExpense(
+    @Param('expenseId', new ParseUUIDPipe()) expenseId: string,
+    @Req() request: OrganizationRequest,
+  ) {
+    return { data: await this.draftNote.draftForExpense(request.organization.id, expenseId) };
+  }
+
+  @Get(':expenseId/discrepancies')
+  @RequirePermission('purchases.expenses.view')
+  @RequireFeatureFlag(PHASE13_FEATURE_FLAGS.APPROVAL_AUTOMATION)
+  async discrepanciesForExpense(
+    @Param('expenseId', new ParseUUIDPipe()) expenseId: string,
+    @Req() request: OrganizationRequest,
+  ) {
+    return { data: await this.discrepancies.forExpense(request.organization.id, expenseId) };
   }
 }

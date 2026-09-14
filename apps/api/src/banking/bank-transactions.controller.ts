@@ -20,6 +20,9 @@ import {
   type OrganizationRequest,
 } from '../organizations/organization-context.js';
 import { OrganizationGuard } from '../organizations/organization.guard.js';
+import { FeatureFlagGuard, RequireFeatureFlag } from '../platform/feature-flag.guard.js';
+import { PHASE13_FEATURE_FLAGS } from '../platform/phase13-feature-flags.js';
+import { BankMatchProposalService } from './bank-match-proposal.service.js';
 import { BankTransactionsService } from './bank-transactions.service.js';
 import {
   CategorizeBankTransactionDto,
@@ -29,11 +32,12 @@ import {
 } from './bank-transactions.dto.js';
 
 @Controller('organizations/:organizationId/bank-transactions')
-@UseGuards(SessionGuard, OrganizationGuard)
+@UseGuards(SessionGuard, OrganizationGuard, FeatureFlagGuard)
 export class BankTransactionsController {
   constructor(
     private readonly transactions: BankTransactionsService,
     private readonly auth: AuthService,
+    private readonly matchProposals: BankMatchProposalService,
   ) {}
 
   @Get()
@@ -55,6 +59,18 @@ export class BankTransactionsController {
     @Req() request: OrganizationRequest,
   ) {
     return { data: await this.transactions.detail(request.organization.id, bankTransactionId) };
+  }
+
+  @Get(':bankTransactionId/match-proposals')
+  @RequirePermission('banking.transactions.view')
+  @RequireFeatureFlag(PHASE13_FEATURE_FLAGS.APPROVAL_AUTOMATION)
+  async matchProposalsFor(
+    @Param('bankTransactionId', new ParseUUIDPipe()) bankTransactionId: string,
+    @Req() request: OrganizationRequest,
+  ) {
+    return {
+      data: await this.matchProposals.propose(request.organization.id, bankTransactionId),
+    };
   }
 
   @Post(':bankTransactionId/categorize')

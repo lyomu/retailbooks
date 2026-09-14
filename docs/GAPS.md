@@ -100,9 +100,12 @@ All in `docs/PHASE10_TODO.md`, each honestly annotated "partial" or "not done":
       discriminated unions (workflow actions, approval conditions, schedule definitions,
       notifications) were already present and are now covered by the contract test suite
       (`apps/api/test/automation-contracts.test.ts`, 28 tests).
-- [ ] 19. **10B/10E** (`:272`, `:286`) — `runDueTemplates` still public; each recurring template
-      advances its own `nextRunDate` through a separate calendar implementation, a second source
-      of truth alongside the scheduler
+- [x] 19. **10B/10E** (`:272`, `:286`) — `runDueTemplates` now acts as a scheduler
+      compatibility adapter for recurring invoices, bills, expenses, and journals. Template
+      schedules are mirrored into `ScheduledJob`, legacy routes claim through
+      `SchedulerService#findAndClaimDueRecurringJobs`, and worker execution runs only the source
+      template. Proven by `apps/api/test/recurring-*.int.test.ts` and
+      `apps/api/test/scheduler-sweep.int.test.ts`.
 - [x] 20. **10C** (`:180`) — `submitter role` criteria condition.
       Added `submitterRoles` to `approvalConditionsSchema` in `packages/contracts/src/index.ts`.
       The `matchesConditions` evaluator in `apps/api/src/automation/approvals.service.ts` now
@@ -110,8 +113,10 @@ All in `docs/PHASE10_TODO.md`, each honestly annotated "partial" or "not done":
       when the submitter's role is not in the allowed list. Verified by the integration test
       suite (`apps/api/test/submitter-role.int.test.ts`, 4 tests).
 - [ ] 21. **10C** (`:190`) — no per-type state-machine documentation for the nine approval targets
-- [ ] 22. **10C** (`:206`) — Quote's bespoke `sales.quotes.approve` flow runs fully independently
-      of the policy engine, not as an adapter into it
+- [x] 22. **10C** (`:206`) — Quote's module-specific approval route is now a compatibility
+      adapter: submit freezes a generic `QUOTE` approval request when a policy applies, and
+      `sales.quotes.approve` refuses to finalize until that request is approved. Proven by
+      `apps/api/test/approval-gates.int.test.ts`.
 - [ ] 23. **10D** (`:231`) — registered non-financial field-update action (partial)
 - [ ] 24. **10F** (`:312`) — `ReportArtifactService#generate` still buffers the whole artifact; no
       transport-neutral stream interface

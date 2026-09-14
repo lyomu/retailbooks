@@ -1,0 +1,819 @@
+{
+  "seed": 130914,
+  "generatedAt": "2026-09-14",
+  "totalCases": 115,
+  "devCount": 79,
+  "holdoutCount": 36,
+  "note": "This baseline is a trivial keyword classifier, not a model -- it exists so a real model (once AI_MODE is private or hosted_limited for a reviewed tenant) has a non-empty floor to beat on category identification, per the Quality gate's \"model-independent baselines\" requirement. It says nothing about actual answer quality, abstention correctness, or citation grounding, which need a real model run and a human/LLM-judge scoring pass -- not yet done, see eval/README.md.",
+  "categoryAccuracy": {
+    "dev": 1,
+    "holdout": 1
+  },
+  "perCase": [
+    {
+      "id": "qa-001",
+      "split": "dev",
+      "trueCategory": "report",
+      "predictedCategory": "report",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-002",
+      "split": "dev",
+      "trueCategory": "report",
+      "predictedCategory": "report",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-003",
+      "split": "dev",
+      "trueCategory": "report",
+      "predictedCategory": "report",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-004",
+      "split": "dev",
+      "trueCategory": "report",
+      "predictedCategory": "report",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-005",
+      "split": "dev",
+      "trueCategory": "report",
+      "predictedCategory": "report",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-006",
+      "split": "dev",
+      "trueCategory": "report",
+      "predictedCategory": "report",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-007",
+      "split": "holdout",
+      "trueCategory": "report",
+      "predictedCategory": "report",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-008",
+      "split": "dev",
+      "trueCategory": "report",
+      "predictedCategory": "report",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-009",
+      "split": "dev",
+      "trueCategory": "report",
+      "predictedCategory": "report",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-010",
+      "split": "holdout",
+      "trueCategory": "report",
+      "predictedCategory": "report",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-011",
+      "split": "dev",
+      "trueCategory": "report",
+      "predictedCategory": "report",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-012",
+      "split": "holdout",
+      "trueCategory": "report",
+      "predictedCategory": "report",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-013",
+      "split": "holdout",
+      "trueCategory": "report",
+      "predictedCategory": "report",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-014",
+      "split": "dev",
+      "trueCategory": "report",
+      "predictedCategory": "report",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-015",
+      "split": "dev",
+      "trueCategory": "report",
+      "predictedCategory": "report",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-016",
+      "split": "dev",
+      "trueCategory": "report",
+      "predictedCategory": "report",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-017",
+      "split": "dev",
+      "trueCategory": "report",
+      "predictedCategory": "report",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-018",
+      "split": "holdout",
+      "trueCategory": "report",
+      "predictedCategory": "report",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-019",
+      "split": "holdout",
+      "trueCategory": "report",
+      "predictedCategory": "report",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-020",
+      "split": "dev",
+      "trueCategory": "report",
+      "predictedCategory": "report",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-021",
+      "split": "holdout",
+      "trueCategory": "report",
+      "predictedCategory": "report",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-022",
+      "split": "dev",
+      "trueCategory": "report",
+      "predictedCategory": "report",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-023",
+      "split": "dev",
+      "trueCategory": "retrieval",
+      "predictedCategory": "retrieval",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-024",
+      "split": "dev",
+      "trueCategory": "retrieval",
+      "predictedCategory": "retrieval",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-025",
+      "split": "dev",
+      "trueCategory": "retrieval",
+      "predictedCategory": "retrieval",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-026",
+      "split": "holdout",
+      "trueCategory": "retrieval",
+      "predictedCategory": "retrieval",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-027",
+      "split": "holdout",
+      "trueCategory": "retrieval",
+      "predictedCategory": "retrieval",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-028",
+      "split": "holdout",
+      "trueCategory": "retrieval",
+      "predictedCategory": "retrieval",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-029",
+      "split": "holdout",
+      "trueCategory": "retrieval",
+      "predictedCategory": "retrieval",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-030",
+      "split": "dev",
+      "trueCategory": "retrieval",
+      "predictedCategory": "retrieval",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-031",
+      "split": "dev",
+      "trueCategory": "retrieval",
+      "predictedCategory": "retrieval",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-032",
+      "split": "dev",
+      "trueCategory": "retrieval",
+      "predictedCategory": "retrieval",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-033",
+      "split": "dev",
+      "trueCategory": "retrieval",
+      "predictedCategory": "retrieval",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-034",
+      "split": "holdout",
+      "trueCategory": "retrieval",
+      "predictedCategory": "retrieval",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-035",
+      "split": "dev",
+      "trueCategory": "retrieval",
+      "predictedCategory": "retrieval",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-036",
+      "split": "dev",
+      "trueCategory": "retrieval",
+      "predictedCategory": "retrieval",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-037",
+      "split": "dev",
+      "trueCategory": "retrieval",
+      "predictedCategory": "retrieval",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-038",
+      "split": "dev",
+      "trueCategory": "retrieval",
+      "predictedCategory": "retrieval",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-039",
+      "split": "dev",
+      "trueCategory": "retrieval",
+      "predictedCategory": "retrieval",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-040",
+      "split": "dev",
+      "trueCategory": "retrieval",
+      "predictedCategory": "retrieval",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-041",
+      "split": "dev",
+      "trueCategory": "retrieval",
+      "predictedCategory": "retrieval",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-042",
+      "split": "dev",
+      "trueCategory": "retrieval",
+      "predictedCategory": "retrieval",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-043",
+      "split": "dev",
+      "trueCategory": "retrieval",
+      "predictedCategory": "retrieval",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-044",
+      "split": "holdout",
+      "trueCategory": "retrieval",
+      "predictedCategory": "retrieval",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-045",
+      "split": "holdout",
+      "trueCategory": "ambiguous",
+      "predictedCategory": "ambiguous",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-046",
+      "split": "dev",
+      "trueCategory": "ambiguous",
+      "predictedCategory": "ambiguous",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-047",
+      "split": "dev",
+      "trueCategory": "ambiguous",
+      "predictedCategory": "ambiguous",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-048",
+      "split": "dev",
+      "trueCategory": "ambiguous",
+      "predictedCategory": "ambiguous",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-049",
+      "split": "dev",
+      "trueCategory": "ambiguous",
+      "predictedCategory": "ambiguous",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-050",
+      "split": "holdout",
+      "trueCategory": "ambiguous",
+      "predictedCategory": "ambiguous",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-051",
+      "split": "holdout",
+      "trueCategory": "ambiguous",
+      "predictedCategory": "ambiguous",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-052",
+      "split": "dev",
+      "trueCategory": "ambiguous",
+      "predictedCategory": "ambiguous",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-053",
+      "split": "dev",
+      "trueCategory": "ambiguous",
+      "predictedCategory": "ambiguous",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-054",
+      "split": "dev",
+      "trueCategory": "ambiguous",
+      "predictedCategory": "ambiguous",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-055",
+      "split": "dev",
+      "trueCategory": "ambiguous",
+      "predictedCategory": "ambiguous",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-056",
+      "split": "holdout",
+      "trueCategory": "ambiguous",
+      "predictedCategory": "ambiguous",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-057",
+      "split": "dev",
+      "trueCategory": "ambiguous",
+      "predictedCategory": "ambiguous",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-058",
+      "split": "dev",
+      "trueCategory": "ambiguous",
+      "predictedCategory": "ambiguous",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-059",
+      "split": "dev",
+      "trueCategory": "ambiguous",
+      "predictedCategory": "ambiguous",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-060",
+      "split": "holdout",
+      "trueCategory": "ambiguous",
+      "predictedCategory": "ambiguous",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-061",
+      "split": "holdout",
+      "trueCategory": "ambiguous",
+      "predictedCategory": "ambiguous",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-062",
+      "split": "dev",
+      "trueCategory": "ambiguous",
+      "predictedCategory": "ambiguous",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-063",
+      "split": "holdout",
+      "trueCategory": "ambiguous",
+      "predictedCategory": "ambiguous",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-064",
+      "split": "dev",
+      "trueCategory": "ambiguous",
+      "predictedCategory": "ambiguous",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-065",
+      "split": "dev",
+      "trueCategory": "ambiguous",
+      "predictedCategory": "ambiguous",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-066",
+      "split": "dev",
+      "trueCategory": "ambiguous",
+      "predictedCategory": "ambiguous",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-067",
+      "split": "dev",
+      "trueCategory": "missing_evidence",
+      "predictedCategory": "missing_evidence",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-068",
+      "split": "dev",
+      "trueCategory": "missing_evidence",
+      "predictedCategory": "missing_evidence",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-069",
+      "split": "dev",
+      "trueCategory": "missing_evidence",
+      "predictedCategory": "missing_evidence",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-070",
+      "split": "dev",
+      "trueCategory": "missing_evidence",
+      "predictedCategory": "missing_evidence",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-071",
+      "split": "dev",
+      "trueCategory": "missing_evidence",
+      "predictedCategory": "missing_evidence",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-072",
+      "split": "dev",
+      "trueCategory": "missing_evidence",
+      "predictedCategory": "missing_evidence",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-073",
+      "split": "dev",
+      "trueCategory": "missing_evidence",
+      "predictedCategory": "missing_evidence",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-074",
+      "split": "dev",
+      "trueCategory": "missing_evidence",
+      "predictedCategory": "missing_evidence",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-075",
+      "split": "dev",
+      "trueCategory": "missing_evidence",
+      "predictedCategory": "missing_evidence",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-076",
+      "split": "holdout",
+      "trueCategory": "missing_evidence",
+      "predictedCategory": "missing_evidence",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-077",
+      "split": "holdout",
+      "trueCategory": "missing_evidence",
+      "predictedCategory": "missing_evidence",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-078",
+      "split": "holdout",
+      "trueCategory": "missing_evidence",
+      "predictedCategory": "missing_evidence",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-079",
+      "split": "dev",
+      "trueCategory": "missing_evidence",
+      "predictedCategory": "missing_evidence",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-080",
+      "split": "dev",
+      "trueCategory": "missing_evidence",
+      "predictedCategory": "missing_evidence",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-081",
+      "split": "holdout",
+      "trueCategory": "missing_evidence",
+      "predictedCategory": "missing_evidence",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-082",
+      "split": "holdout",
+      "trueCategory": "missing_evidence",
+      "predictedCategory": "missing_evidence",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-083",
+      "split": "holdout",
+      "trueCategory": "missing_evidence",
+      "predictedCategory": "missing_evidence",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-084",
+      "split": "dev",
+      "trueCategory": "missing_evidence",
+      "predictedCategory": "missing_evidence",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-085",
+      "split": "dev",
+      "trueCategory": "missing_evidence",
+      "predictedCategory": "missing_evidence",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-086",
+      "split": "dev",
+      "trueCategory": "missing_evidence",
+      "predictedCategory": "missing_evidence",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-087",
+      "split": "dev",
+      "trueCategory": "missing_evidence",
+      "predictedCategory": "missing_evidence",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-088",
+      "split": "dev",
+      "trueCategory": "missing_evidence",
+      "predictedCategory": "missing_evidence",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-089",
+      "split": "dev",
+      "trueCategory": "adversarial",
+      "predictedCategory": "adversarial",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-090",
+      "split": "dev",
+      "trueCategory": "adversarial",
+      "predictedCategory": "adversarial",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-091",
+      "split": "dev",
+      "trueCategory": "adversarial",
+      "predictedCategory": "adversarial",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-092",
+      "split": "dev",
+      "trueCategory": "adversarial",
+      "predictedCategory": "adversarial",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-093",
+      "split": "dev",
+      "trueCategory": "adversarial",
+      "predictedCategory": "adversarial",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-094",
+      "split": "holdout",
+      "trueCategory": "adversarial",
+      "predictedCategory": "adversarial",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-095",
+      "split": "dev",
+      "trueCategory": "adversarial",
+      "predictedCategory": "adversarial",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-096",
+      "split": "holdout",
+      "trueCategory": "adversarial",
+      "predictedCategory": "adversarial",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-097",
+      "split": "holdout",
+      "trueCategory": "adversarial",
+      "predictedCategory": "adversarial",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-098",
+      "split": "dev",
+      "trueCategory": "adversarial",
+      "predictedCategory": "adversarial",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-099",
+      "split": "dev",
+      "trueCategory": "adversarial",
+      "predictedCategory": "adversarial",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-100",
+      "split": "holdout",
+      "trueCategory": "adversarial",
+      "predictedCategory": "adversarial",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-101",
+      "split": "dev",
+      "trueCategory": "adversarial",
+      "predictedCategory": "adversarial",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-102",
+      "split": "holdout",
+      "trueCategory": "adversarial",
+      "predictedCategory": "adversarial",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-103",
+      "split": "holdout",
+      "trueCategory": "adversarial",
+      "predictedCategory": "adversarial",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-104",
+      "split": "dev",
+      "trueCategory": "adversarial",
+      "predictedCategory": "adversarial",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-105",
+      "split": "dev",
+      "trueCategory": "adversarial",
+      "predictedCategory": "adversarial",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-106",
+      "split": "dev",
+      "trueCategory": "adversarial",
+      "predictedCategory": "adversarial",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-107",
+      "split": "dev",
+      "trueCategory": "adversarial",
+      "predictedCategory": "adversarial",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-108",
+      "split": "holdout",
+      "trueCategory": "adversarial",
+      "predictedCategory": "adversarial",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-109",
+      "split": "holdout",
+      "trueCategory": "adversarial",
+      "predictedCategory": "adversarial",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-110",
+      "split": "holdout",
+      "trueCategory": "adversarial",
+      "predictedCategory": "adversarial",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-111",
+      "split": "holdout",
+      "trueCategory": "report",
+      "predictedCategory": "report",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-112",
+      "split": "dev",
+      "trueCategory": "report",
+      "predictedCategory": "report",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-113",
+      "split": "dev",
+      "trueCategory": "report",
+      "predictedCategory": "report",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-114",
+      "split": "dev",
+      "trueCategory": "report",
+      "predictedCategory": "report",
+      "categoryCorrect": true
+    },
+    {
+      "id": "qa-115",
+      "split": "dev",
+      "trueCategory": "report",
+      "predictedCategory": "report",
+      "categoryCorrect": true
+    }
+  ]
+}

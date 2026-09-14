@@ -30,6 +30,17 @@ const metadata = {
 };
 
 const ENDPOINTS: readonly EndpointCase[] = [
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/ai/settings',
+    permission: 'ai.settings.manage',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/ai/ask',
+    permission: 'ai.assistant.ask',
+    body: {},
+  },
   { method: 'get', path: 'organizations/:organizationId', permission: 'organization.view' },
   {
     method: 'patch',
@@ -1736,6 +1747,143 @@ const ENDPOINTS: readonly EndpointCase[] = [
     method: 'get',
     path: 'organizations/:organizationId/expenses/:expenseId/attachments/:attachmentId/download',
     permission: 'purchases.expenses.view',
+  },
+  // Phase 13C-13G: every route below also sits behind FeatureFlagGuard/@RequireFeatureFlag, which
+  // discoverOrganizationEndpoints() does not (and need not) reflect -- the flags are seeded
+  // default-enabled for every organization in this harness (see seedPhase13FeatureFlags in
+  // test/support/app.ts), so their presence never changes the permission-boundary behavior these
+  // cases check.
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/reports/:reportKey/rows/:rowId/drill-down',
+    permission: 'reports.view',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/ai/explain-number',
+    permission: 'ai.assistant.ask',
+    body: {},
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/ai/suggestions',
+    permission: 'ai.suggestions.view',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/ai/suggestions/:suggestionId/accept',
+    permission: 'ai.suggestions.manage',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/ai/suggestions/:suggestionId/dismiss',
+    permission: 'ai.suggestions.manage',
+    body: {},
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/ai/suggestions/:suggestionId/correct',
+    permission: 'ai.suggestions.manage',
+    body: {},
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/expenses/categorization-suggestion',
+    permission: 'purchases.expenses.view',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/expenses/:expenseId/draft-note',
+    permission: 'purchases.expenses.view',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/expenses/:expenseId/discrepancies',
+    permission: 'purchases.expenses.view',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/expenses/:expenseId/attachments/:attachmentId/extraction',
+    permission: 'purchases.expenses.view',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/expenses/:expenseId/attachments/:attachmentId/extraction/accept',
+    permission: 'purchases.expenses.manage',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/expenses/:expenseId/attachments/:attachmentId/extraction/reject',
+    permission: 'purchases.expenses.manage',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/bills/:billId/attachments/:attachmentId/extraction',
+    permission: 'purchases.bills.view',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/bills/:billId/attachments/:attachmentId/extraction/accept',
+    permission: 'purchases.bills.manage',
+  },
+  {
+    method: 'post',
+    path: 'organizations/:organizationId/bills/:billId/attachments/:attachmentId/extraction/reject',
+    permission: 'purchases.bills.manage',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/documents/search',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/bank-transactions/:bankTransactionId/match-proposals',
+    permission: 'banking.transactions.view',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/automation/approval-policies/requests/:requestId/briefing',
+    permission: 'automation.approvals.view',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/insights/variance',
+    permission: 'reports.view',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/insights/close-checklist',
+    permission: 'reports.view',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/insights/cash-flow',
+    permission: 'insights.cash_flow.view',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/insights/collections',
+    permission: 'insights.collections.view',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/insights/inventory-purchasing',
+    permission: 'insights.inventory.view',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/insights/project-margins',
+    permission: 'insights.project_margin.view',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/insights/policy-qa',
+    permission: 'insights.policy_qa.view',
+  },
+  {
+    method: 'get',
+    path: 'organizations/:organizationId/insights/audit-evidence-pack',
+    permission: 'insights.evidence_packs.view',
   },
 ];
 

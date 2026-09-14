@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { AuditAction, type AttachmentEntityType } from '@prisma/client';
@@ -55,6 +55,7 @@ export class AttachmentsService {
     validateAttachment(file);
     const visibility = options?.portalUserId ? 'CUSTOMER' : (options?.visibility ?? 'INTERNAL');
     const storageKey = `${context.id}/${entityType.toLowerCase()}/${entityId}/${randomUUID()}-${safeKeySegment(file.originalname)}`;
+    const contentHash = createHash('sha256').update(file.buffer).digest('hex');
 
     await this.storage.ensureBucket();
     await this.storage.upload(storageKey, file.buffer, file.mimetype);
@@ -69,6 +70,7 @@ export class AttachmentsService {
           contentType: file.mimetype,
           storageKey,
           sizeBytes: file.size,
+          contentHash,
           uploadedByUserId: user.id,
           visibility,
           portalUserId: options?.portalUserId ?? null,
@@ -196,7 +198,9 @@ const SUPPORTED_TYPES: Record<string, readonly string[]> = {
   txt: ['text/plain'],
 };
 
-function validateAttachment(file: UploadedFileLike): void {
+/** Exported for direct unit testing of the type/signature/zip-bomb checks below (adversarial cases
+ * don't need a real database or object store to exercise). */
+export function validateAttachment(file: UploadedFileLike): void {
   const extension = file.originalname.split('.').pop()?.toLowerCase();
   if (!extension || !SUPPORTED_TYPES[extension]?.includes(file.mimetype)) {
     throw new BadRequestException(
@@ -214,6 +218,13 @@ function validateAttachment(file: UploadedFileLike): void {
     (extension === 'csv' && isText(bytes)) ||
     (extension === 'txt' && isText(bytes));
   if (!valid) throw new BadRequestException('The file contents do not match its declared type.');
+
+  if (extension === 'pdf' && bytes.includes(Buffer.from('/Encrypt'))) {
+    throw new BadRequestException('Encrypted PDFs are not supported.');
+  }
+  if ((extension === 'xlsx' || extension === 'docx') && zip) {
+    validateZipEntries(bytes);
+  }
 }
 
 function isText(bytes: Buffer): boolean {
@@ -222,4 +233,60 @@ function isText(bytes: Buffer): boolean {
     !sample.includes(0) &&
     sample.every((byte) => byte === 9 || byte === 10 || byte === 13 || byte >= 32)
   );
+}
+
+const ZIP_MAX_ENTRIES = 2_000;
+const ZIP_MAX_TOTAL_UNCOMPRESSED_BYTES = 200 * 1024 * 1024;
+const ZIP_MAX_RATIO = 200;
+const ZIP_RATIO_CHECK_FLOOR_BYTES = 1024 * 1024;
+
+/**
+ * Reads only the ZIP central directory (declared sizes, never inflates entry data) to reject a
+ * decompression bomb before it is stored or handed to anything that might later open it -- a
+ * malware scanner, a future XLSX/DOCX parser -- rather than trusting the container's own claims at
+ * the point something finally decompresses it.
+ */
+function validateZipEntries(bytes: Buffer): void {
+  const eocdSignature = Buffer.from([0x50, 0x4b, 0x05, 0x06]);
+  const searchStart = Math.max(0, bytes.length - 22 - 65_535);
+  const eocdOffset = bytes.lastIndexOf(eocdSignature);
+  if (eocdOffset === -1 || eocdOffset < searchStart || eocdOffset + 22 > bytes.length) {
+    throw new BadRequestException('The file contents do not match its declared type.');
+  }
+
+  const totalEntries = bytes.readUInt16LE(eocdOffset + 10);
+  const centralDirSize = bytes.readUInt32LE(eocdOffset + 12);
+  const centralDirOffset = bytes.readUInt32LE(eocdOffset + 16);
+  if (totalEntries > ZIP_MAX_ENTRIES) {
+    throw new BadRequestException('The archive contains too many entries to process safely.');
+  }
+  if (centralDirOffset + centralDirSize > bytes.length) {
+    throw new BadRequestException('The file contents do not match its declared type.');
+  }
+
+  const centralFileHeaderSignature = 0x02014b50;
+  let cursor = centralDirOffset;
+  let totalUncompressed = 0;
+  for (let entry = 0; entry < totalEntries; entry += 1) {
+    if (cursor + 46 > bytes.length || bytes.readUInt32LE(cursor) !== centralFileHeaderSignature) {
+      throw new BadRequestException('The file contents do not match its declared type.');
+    }
+    const compressedSize = bytes.readUInt32LE(cursor + 20);
+    const uncompressedSize = bytes.readUInt32LE(cursor + 24);
+    const filenameLength = bytes.readUInt16LE(cursor + 28);
+    const extraLength = bytes.readUInt16LE(cursor + 30);
+    const commentLength = bytes.readUInt16LE(cursor + 32);
+
+    totalUncompressed += uncompressedSize;
+    if (totalUncompressed > ZIP_MAX_TOTAL_UNCOMPRESSED_BYTES) {
+      throw new BadRequestException('The archive expands to more data than is allowed.');
+    }
+    if (
+      uncompressedSize > ZIP_RATIO_CHECK_FLOOR_BYTES &&
+      uncompressedSize > compressedSize * ZIP_MAX_RATIO
+    ) {
+      throw new BadRequestException('The archive contains a suspiciously compressed entry.');
+    }
+    cursor += 46 + filenameLength + extraLength + commentLength;
+  }
 }

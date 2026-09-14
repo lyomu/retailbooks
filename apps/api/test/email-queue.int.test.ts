@@ -9,7 +9,7 @@ import { EMAIL_JOB_NAMES, EMAIL_QUEUE_NAME } from '../src/jobs/email-job';
 import { EmailWorker } from '../src/jobs/email.worker';
 import { producerConnection } from '../src/jobs/redis-connection';
 
-const redisUrl = process.env.REDIS_URL ?? 'redis://localhost:56379';
+const redisUrl = process.env.REDIS_URL ?? 'redis://localhost:56780';
 
 describe('email queue against Redis', () => {
   const closeables: Array<{ close: () => Promise<unknown> }> = [];

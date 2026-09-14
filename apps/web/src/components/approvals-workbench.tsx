@@ -2,6 +2,7 @@
 
 import type { OrganizationMember } from '@retailbooks/contracts';
 import {
+  Badge,
   Button,
   Card,
   DataTable,
@@ -98,6 +99,21 @@ type ApprovalRequestDetail = Omit<ApprovalRequest, 'steps'> & {
   policy: ApprovalPolicy;
   steps: (ApprovalRequestStep & { decisions: ApprovalDecision[] })[];
 };
+
+interface ApprovalBriefing {
+  targetType: string;
+  targetId: string;
+  documentNumber: string | null;
+  amountMinor: string | null;
+  currency: string | null;
+  counterparty: string | null;
+  policyName: string;
+  policyConditions: string[];
+  changedSinceSubmission: string[];
+  changedFieldDetail: { before: Record<string, unknown>; after: Record<string, unknown> } | null;
+  targetStillExists: boolean;
+  href: string;
+}
 
 type ApprovalInboxItem = ApprovalRequestStep & {
   request: ApprovalRequest & { policy: ApprovalPolicy };
@@ -737,6 +753,7 @@ function RequestDetailPanel({
   onClose: () => void;
 }) {
   const [detail, setDetail] = useState<ApprovalRequestDetail | null>(null);
+  const [briefing, setBriefing] = useState<ApprovalBriefing | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -749,6 +766,15 @@ function RequestDetailPanel({
       })
       .catch((caught: unknown) => {
         if (!cancelled) setError(message(caught, 'This request could not be loaded.'));
+      });
+    apiRequest<{ data: ApprovalBriefing }>(
+      `/organizations/${organizationId}/automation/approval-policies/requests/${requestId}/briefing`,
+    )
+      .then((response) => {
+        if (!cancelled) setBriefing(response.data);
+      })
+      .catch(() => {
+        // Non-fatal: the briefing is a deterministic summary, not required to review the request.
       });
     return () => {
       cancelled = true;
@@ -772,6 +798,30 @@ function RequestDetailPanel({
       >
         {error ? <Messages error={error} /> : null}
         {!detail && !error ? <Skeleton /> : null}
+        {briefing ? (
+          <div className="rb-explain-panel">
+            <strong>Briefing</strong>
+            {!briefing.targetStillExists ? (
+              <Badge tone="danger">The underlying record could not be found</Badge>
+            ) : null}
+            {briefing.changedSinceSubmission.length > 0 ? (
+              <p className="rb-muted">
+                Changed since submission: {briefing.changedSinceSubmission.join(', ')}
+              </p>
+            ) : (
+              <p className="rb-muted">Unchanged since submission.</p>
+            )}
+            {briefing.policyConditions.length > 0 ? (
+              <ul className="rb-attachment-list">
+                {briefing.policyConditions.map((condition) => (
+                  <li key={condition}>
+                    <span>{condition}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+        ) : null}
         {detail ? (
           <ol className="rb-timeline">
             {detail.steps.map((step) => (

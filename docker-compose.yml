@@ -23,7 +23,7 @@ services:
     image: redis:7.4-alpine
     command: ['redis-server', '--appendonly', 'yes']
     ports:
-      - '${REDIS_PORT:-56379}:6379'
+      - '${REDIS_PORT:-56780}:6379'
     volumes:
       - redis_data:/data
     healthcheck:
@@ -61,7 +61,24 @@ services:
       MP_SMTP_AUTH_ALLOW_INSECURE: '1'
     restart: unless-stopped
 
+  clamav:
+    image: clamav/clamav:1.4
+    ports:
+      - '${CLAMAV_PORT:-53310}:3310'
+    volumes:
+      - clamav_data:/var/lib/clamav
+    healthcheck:
+      # Freshclam takes a while to pull virus definitions on first start; clamd refuses INSTREAM
+      # until it has a database, so a plain port-open check is not enough here.
+      test: ['CMD-SHELL', 'clamdcheck.sh']
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 120s
+    restart: unless-stopped
+
 volumes:
   postgres_data:
   redis_data:
   minio_data:
+  clamav_data:

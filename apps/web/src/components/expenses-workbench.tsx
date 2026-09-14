@@ -33,6 +33,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { ApiError, apiRequest, apiUpload } from '../lib/api';
 import { hasPermission, useWorkspace } from '../lib/workspace';
+import { DocumentExtractionPanel, type ExtractionCandidate } from './document-extraction-panel';
 import { TransactionCollaboration } from './transaction-collaboration';
 
 type ExpenseListResponse = { data: Expense[] };
@@ -45,6 +46,20 @@ type ExpenseCategoryListResponse = { data: ExpenseCategory[] };
 // The listing no longer carries a signed URL: the link is issued by a separate, re-authorized
 // download endpoint, so a stale list can never hand out a live link to bytes.
 type AttachmentRow = Omit<AttachmentListResponse['data'][number], 'downloadUrl'>;
+interface CategorizationSuggestion {
+  suggestionId: string;
+  categoryId: string;
+  categoryName: string;
+  occurrences: number;
+  totalObserved: number;
+  reason: string;
+}
+interface DocumentDiscrepancy {
+  attachmentId: string;
+  filename: string;
+  kind: 'AMOUNT_MISMATCH' | 'CURRENCY_MISMATCH' | 'DATE_MISMATCH' | 'POSSIBLE_DUPLICATE';
+  detail: string;
+}
 
 const statusOptions: readonly ExpenseStatus[] = [
   'DRAFT',
@@ -227,7 +242,26 @@ export function ExpenseEditorPage({ expenseId }: { expenseId?: string }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [reviewAttachment, setReviewAttachment] = useState<{ id: string; filename: string } | null>(
+    null,
+  );
+  const [categorySuggestion, setCategorySuggestion] = useState<CategorizationSuggestion | null>(
+    null,
+  );
+  const [discrepancies, setDiscrepancies] = useState<DocumentDiscrepancy[]>([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const loadDiscrepancies = useCallback(async () => {
+    if (!organizationId || !expenseId) return;
+    try {
+      const response = await apiRequest<{ data: DocumentDiscrepancy[] }>(
+        `/organizations/${organizationId}/expenses/${expenseId}/discrepancies`,
+      );
+      setDiscrepancies(response.data);
+    } catch {
+      // Non-fatal.
+    }
+  }, [organizationId, expenseId]);
 
   const loadAttachments = useCallback(async () => {
     if (!organizationId || !expenseId) return;
@@ -296,7 +330,8 @@ export function ExpenseEditorPage({ expenseId }: { expenseId?: string }) {
 
   useEffect(() => {
     void loadAttachments();
-  }, [loadAttachments]);
+    void loadDiscrepancies();
+  }, [loadAttachments, loadDiscrepancies]);
 
   useEffect(() => {
     const flash = window.sessionStorage.getItem(EXPENSE_FLASH_NOTICE_KEY);
@@ -304,6 +339,38 @@ export function ExpenseEditorPage({ expenseId }: { expenseId?: string }) {
     window.sessionStorage.removeItem(EXPENSE_FLASH_NOTICE_KEY);
     setNotice(flash);
   }, [expenseId]);
+
+  useEffect(() => {
+    setCategorySuggestion(null);
+    if (!organizationId || !payeeVendorId) return;
+    let cancelled = false;
+    apiRequest<{ data: CategorizationSuggestion | null }>(
+      `/organizations/${organizationId}/expenses/categorization-suggestion?vendorId=${payeeVendorId}`,
+    )
+      .then((response) => {
+        if (!cancelled) setCategorySuggestion(response.data);
+      })
+      .catch(() => {
+        // Non-fatal: a missing suggestion never blocks recording the expense.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [organizationId, payeeVendorId]);
+
+  async function decideCategorySuggestion(action: 'accept' | 'dismiss') {
+    if (!organizationId || !categorySuggestion) return;
+    try {
+      await apiRequest(
+        `/organizations/${organizationId}/ai/suggestions/${categorySuggestion.suggestionId}/${action}`,
+        { method: 'POST' },
+      );
+      if (action === 'accept') setCategoryId(categorySuggestion.categoryId);
+      setCategorySuggestion(null);
+    } catch {
+      // Non-fatal.
+    }
+  }
 
   const currency = expense?.currency ?? organization?.baseCurrency ?? 'KES';
   const editable = (expense ? expense.status === 'DRAFT' : true) && canManage;
@@ -379,6 +446,18 @@ export function ExpenseEditorPage({ expenseId }: { expenseId?: string }) {
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : 'The attachment could not be opened.');
     }
+  }
+
+  /** Copies a reviewed candidate's values into the draft form. The user still must click Save
+   * draft (the existing route) themselves -- this never submits anything on its own. */
+  function applyCandidate(candidate: ExtractionCandidate) {
+    if (candidate.vendorId) setPayeeVendorId(candidate.vendorId);
+    else if (candidate.vendorName) setPayeeName(candidate.vendorName);
+    if (candidate.date) setExpenseDate(candidate.date);
+    if (candidate.categoryId) setCategoryId(candidate.categoryId);
+    if (candidate.subtotalMinor) setAmount(minorToDecimal(candidate.subtotalMinor));
+    else if (candidate.totalMinor) setAmount(minorToDecimal(candidate.totalMinor));
+    setNotice('Candidate values copied into the draft. Review them, then save.');
   }
 
   async function uploadAttachment(file: File) {
@@ -494,6 +573,28 @@ export function ExpenseEditorPage({ expenseId }: { expenseId?: string }) {
                   </option>
                 ))}
               </Select>
+              {categorySuggestion && categorySuggestion.categoryId !== categoryId && editable ? (
+                <div className="rb-explain-unavailable">
+                  <Badge tone="neutral">Suggested: {categorySuggestion.categoryName}</Badge>
+                  <p className="rb-muted">{categorySuggestion.reason}</p>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => void decideCategorySuggestion('accept')}
+                  >
+                    Use this category
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => void decideCategorySuggestion('dismiss')}
+                  >
+                    Dismiss
+                  </Button>
+                </div>
+              ) : null}
             </div>
             <div className="rb-field">
               <Label htmlFor="expense-project">Project</Label>
@@ -677,12 +778,35 @@ export function ExpenseEditorPage({ expenseId }: { expenseId?: string }) {
                     <span className="rb-table-secondary">
                       {(attachment.sizeBytes / 1024).toFixed(0)} KB
                     </span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() =>
+                        setReviewAttachment({ id: attachment.id, filename: attachment.filename })
+                      }
+                    >
+                      Review
+                    </Button>
                   </li>
                 ))}
               </ul>
             ) : (
               <span className="rb-table-secondary">No receipt uploaded yet.</span>
             )}
+          </Card>
+        ) : null}
+        {discrepancies.length > 0 ? (
+          <Card className="rb-explain-unavailable" role="alert">
+            <strong>Document discrepancies</strong>
+            <ul className="rb-attachment-list">
+              {discrepancies.map((discrepancy, index) => (
+                <li key={`${discrepancy.attachmentId}-${discrepancy.kind}-${index}`}>
+                  <span>{discrepancy.filename}</span>
+                  <span className="rb-table-secondary">{discrepancy.detail}</span>
+                </li>
+              ))}
+            </ul>
           </Card>
         ) : null}
         {organizationId && expenseId ? (
@@ -695,6 +819,16 @@ export function ExpenseEditorPage({ expenseId }: { expenseId?: string }) {
               hasPermission(organization, 'collaboration.attachments.upload') &&
               hasPermission(organization, 'purchases.expenses.manage')
             }
+          />
+        ) : null}
+        {reviewAttachment && organizationId && expense ? (
+          <DocumentExtractionPanel
+            basePath={`/organizations/${organizationId}/expenses/${expense.id}`}
+            attachmentId={reviewAttachment.id}
+            filename={reviewAttachment.filename}
+            canManage={canManage}
+            onApply={applyCandidate}
+            onClose={() => setReviewAttachment(null)}
           />
         ) : null}
       </div>

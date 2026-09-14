@@ -666,10 +666,9 @@ sequencing, migration strategy, and acceptance gates are in `docs/PHASE10_TODO.m
 `docs/EXECUTION_PLAN.md` Stage 8. The full gate is green: format, lint, typecheck, 117 unit + 335
 integration tests, zero migration drift in both directions plus shadow-database migration replay,
 and both production builds. Carried forward as tracked debt, following the Phase 1 precedent: the
-Quote bespoke approval route is not yet an adapter into the policy engine; the 10H approval
-edge-case tests (multi-level ordering, criteria boundaries, concurrent decisions, mid-flight policy
-edits, revoked permissions); the two deliberately-deferred 10F refactors (export streaming, async
-`202` oversized-PDF export); the 10E `runDueTemplates` unification; and the 10I operator-facing docs.
+the 10H approval edge-case tests (multi-level ordering, criteria boundaries, concurrent decisions,
+mid-flight policy edits, revoked permissions); the two deliberately-deferred 10F refactors (export
+streaming, async `202` oversized-PDF export); and the 10I operator-facing docs.
 (The two 10A contract schemas — ReminderPolicy and ScheduledJobExecution — and the 10C
 `submitter role` condition are now complete and verified; see `apps/api/test/automation-contracts.test.ts`
 and `apps/api/test/submitter-role.int.test.ts`.)
@@ -698,8 +697,8 @@ Build spec §12; blueprint §13.
 - [x] Reminders: before-due/on-due/overdue schedules; email template; stop when paid/void
 - [x] Recurring engine: shared implementation consumed by invoices, bills, expenses, journals, with
       idempotent occurrence keys (consolidate the per-module recurring logic sketched in Phases 2–4)
-      (handlers run through the shared scheduler with idempotent occurrence keys; the four modules'
-      own due-sweep route remains a second entry point — see `docs/PHASE10_TODO.md` 10E)
+      (handlers and legacy due-sweep routes now claim through the shared scheduler; worker execution
+      runs only the scheduled source template)
 - [x] Notifications: in-app + email preference matrix
 - [x] Scheduled reports: report + recipients + cadence + format (integrates with Phase 9)
 - [x] Failed-job dashboard and retry controls for administrators

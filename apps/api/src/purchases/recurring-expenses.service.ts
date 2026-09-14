@@ -4,11 +4,17 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { AuditAction, type Prisma, type RecurringCadence } from '@prisma/client';
+import {
+  AuditAction,
+  ScheduledJobMisfirePolicy,
+  ScheduledJobStatus,
+  type Prisma,
+  type RecurringCadence,
+} from '@prisma/client';
 
 import type { PublicUser } from '../auth/auth.service.js';
 import type { RequestMetadata } from '../auth/request-context.js';
-import { advanceCadence } from '../common/cadence.js';
+import { SchedulerService } from '../automation/scheduler.service.js';
 import { PrismaService } from '../database/prisma.service.js';
 import { writeAuditEvent } from '../organizations/audit-event.js';
 import type { OrganizationContext } from '../organizations/organization-context.js';
@@ -40,6 +46,7 @@ export class RecurringExpensesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly expenses: ExpensesService,
+    private readonly scheduler: SchedulerService,
   ) {}
 
   async list(organizationId: string, active?: string) {
@@ -136,6 +143,16 @@ export class RecurringExpensesService {
         after: { amountMinor: amountMinor.toString(), cadence: template.cadence },
         ipHash: metadata.ipHash,
       });
+      await this.upsertScheduledJob(
+        tx,
+        context.id,
+        user.id,
+        template.id,
+        template.cadence,
+        template.nextRunDate,
+        template.endDate,
+        template.active,
+      );
 
       return template;
     });
@@ -206,6 +223,16 @@ export class RecurringExpensesService {
         action: AuditAction.UPDATE,
         ipHash: metadata.ipHash,
       });
+      await this.upsertScheduledJob(
+        tx,
+        context.id,
+        template.createdByUserId,
+        template.id,
+        template.cadence,
+        template.nextRunDate,
+        template.endDate,
+        template.active,
+      );
 
       return template;
     });
@@ -232,69 +259,97 @@ export class RecurringExpensesService {
   }
 
   async runDueTemplates(context: OrganizationContext, user: PublicUser, metadata: RequestMetadata) {
-    const today = isoDate(dateOnly(new Date()));
-    const due = await this.prisma.recurringExpenseTemplate.findMany({
-      where: { organizationId: context.id, active: true, nextRunDate: { lte: today } },
-      include: templateDetailInclude,
-      orderBy: [{ nextRunDate: 'asc' }],
-    });
-
+    if (!this.scheduler.beginRecurringCompatibilityRun(context.id, 'recurring.expense')) return [];
     const results: Array<{ templateId: string; expenseId: string | null }> = [];
-
-    for (const template of due) {
-      const occurrenceDate = dateOnly(template.nextRunDate);
-      const claimed = await this.claimOccurrence(context.id, template.id, occurrenceDate);
-      if (!claimed) continue;
-
-      const expense = await this.expenses.createDraft(
-        context,
-        user,
-        {
-          payeeVendorId: template.payeeVendorId ?? undefined,
-          payeeName: template.payeeVendorId ? undefined : (template.payeeName ?? undefined),
-          expenseDate: occurrenceDate,
-          paidThroughAccountId: template.paidThroughAccountId,
-          categoryId: template.categoryId ?? undefined,
-          currency: template.currency,
-          amountMinor: template.amountMinor.toString(),
-          taxCodeId: template.taxCodeId ?? undefined,
-        },
-        metadata,
+    try {
+      const claims = await this.scheduler.findAndClaimDueRecurringJobs(
+        context.id,
+        'recurring.expense',
       );
-      const expenseId: string = expense.id;
-
-      if (template.autoCreate) {
-        await this.expenses.post(context, user, expense.id, metadata);
+      for (const claim of claims) {
+        try {
+          const result = await this.claimAndRunDueTemplates(context, user, metadata, claim.job);
+          await this.scheduler.completeExecution(claim.execution.id, result);
+          results.push(result);
+        } catch (error) {
+          await this.scheduler.failExecution(claim.execution.id, error);
+          throw error;
+        }
       }
+      return results;
+    } finally {
+      this.scheduler.endRecurringCompatibilityRun(context.id, 'recurring.expense');
+    }
+  }
 
-      const nextOccurrence = advanceCadence(template.nextRunDate, template.cadence);
-      const stillActive = template.endDate ? nextOccurrence <= template.endDate : true;
+  claimAndRunDueTemplates(
+    context: OrganizationContext,
+    user: PublicUser,
+    metadata: RequestMetadata,
+    job: ScheduledRecurringJob,
+  ) {
+    return this.runScheduledTemplate(context, user, metadata, job);
+  }
 
-      await this.prisma.$transaction(async (tx) => {
-        await tx.recurringExpenseTemplate.update({
-          where: { id: template.id },
-          data: {
-            nextRunDate: nextOccurrence,
-            lastRunOccurrenceKey: occurrenceDate,
-            active: stillActive,
-          },
-        });
-        await writeAuditEvent(tx, {
-          organizationId: context.id,
-          actorUserId: user.id,
-          eventKey: 'purchases.recurring_expense_generated',
-          entityType: 'recurring_expense_template',
-          entityId: template.id,
-          action: AuditAction.UPDATE,
-          after: { expenseId, occurrenceDate },
-          ipHash: metadata.ipHash,
-        });
-      });
+  private async runScheduledTemplate(
+    context: OrganizationContext,
+    user: PublicUser,
+    metadata: RequestMetadata,
+    job: ScheduledRecurringJob,
+  ) {
+    const template = await this.findOrThrow(context.id, job.sourceId);
+    const occurrenceDate = job.lastRunAt ? dateOnly(job.lastRunAt) : dateOnly(template.nextRunDate);
+    const claimed = await this.claimOccurrence(context.id, template.id, occurrenceDate);
+    if (!claimed) return { templateId: template.id, expenseId: null };
 
-      results.push({ templateId: template.id, expenseId });
+    const expense = await this.expenses.createDraft(
+      context,
+      user,
+      {
+        payeeVendorId: template.payeeVendorId ?? undefined,
+        payeeName: template.payeeVendorId ? undefined : (template.payeeName ?? undefined),
+        expenseDate: occurrenceDate,
+        paidThroughAccountId: template.paidThroughAccountId,
+        categoryId: template.categoryId ?? undefined,
+        currency: template.currency,
+        amountMinor: template.amountMinor.toString(),
+        taxCodeId: template.taxCodeId ?? undefined,
+      },
+      metadata,
+    );
+
+    if (template.autoCreate) {
+      await this.expenses.post(context, user, expense.id, metadata);
     }
 
-    return results;
+    const nextOccurrence = isoDate(
+      this.scheduler.templateDateForOccurrence(job.nextRunAt, job.timeZone),
+    );
+    const stillActive =
+      job.status === 'ACTIVE' && (template.endDate ? nextOccurrence <= template.endDate : true);
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.recurringExpenseTemplate.update({
+        where: { id: template.id },
+        data: {
+          nextRunDate: nextOccurrence,
+          lastRunOccurrenceKey: occurrenceDate,
+          active: stillActive,
+        },
+      });
+      await writeAuditEvent(tx, {
+        organizationId: context.id,
+        actorUserId: user.id,
+        eventKey: 'purchases.recurring_expense_generated',
+        entityType: 'recurring_expense_template',
+        entityId: template.id,
+        action: AuditAction.UPDATE,
+        after: { expenseId: expense.id, occurrenceDate },
+        ipHash: metadata.ipHash,
+      });
+    });
+
+    return { templateId: template.id, expenseId: expense.id };
   }
 
   private async claimOccurrence(
@@ -345,6 +400,16 @@ export class RecurringExpensesService {
         data: { active },
         include: templateDetailInclude,
       });
+      await this.upsertScheduledJob(
+        tx,
+        context.id,
+        template.createdByUserId,
+        template.id,
+        template.cadence,
+        template.nextRunDate,
+        template.endDate,
+        active,
+      );
       await writeAuditEvent(tx, {
         organizationId: context.id,
         actorUserId: user.id,
@@ -361,6 +426,57 @@ export class RecurringExpensesService {
       return template;
     });
     return summarizeTemplate(updated);
+  }
+
+  private async upsertScheduledJob(
+    tx: Prisma.TransactionClient,
+    organizationId: string,
+    createdByUserId: string,
+    templateId: string,
+    cadence: RecurringCadence,
+    nextRunDate: Date,
+    endDate: Date | null,
+    active: boolean,
+  ) {
+    const organization = await tx.organization.findUniqueOrThrow({
+      where: { id: organizationId },
+      select: { timeZone: true },
+    });
+    await tx.scheduledJob.upsert({
+      where: {
+        organizationId_handler_sourceType_sourceId: {
+          organizationId,
+          handler: 'recurring.expense',
+          sourceType: 'RECURRING_EXPENSE_TEMPLATE',
+          sourceId: templateId,
+        },
+      },
+      create: {
+        organizationId,
+        createdByUserId,
+        handler: 'recurring.expense',
+        sourceType: 'RECURRING_EXPENSE_TEMPLATE',
+        sourceId: templateId,
+        payload: {},
+        schedule: {
+          cadence,
+          ...(endDate ? { endDate: dateOnly(endDate) } : {}),
+        },
+        timeZone: organization.timeZone,
+        misfirePolicy: ScheduledJobMisfirePolicy.CATCH_UP,
+        status: active ? ScheduledJobStatus.ACTIVE : ScheduledJobStatus.PAUSED,
+        nextRunAt: nextRunDate,
+      },
+      update: {
+        schedule: {
+          cadence,
+          ...(endDate ? { endDate: dateOnly(endDate) } : {}),
+        },
+        status: active ? ScheduledJobStatus.ACTIVE : ScheduledJobStatus.PAUSED,
+        nextRunAt: nextRunDate,
+        timeZone: organization.timeZone,
+      },
+    });
   }
 
   private async findOrThrow(organizationId: string, templateId: string) {
@@ -404,3 +520,11 @@ function dateOnly(date: Date): string {
 function isoDate(value: string): Date {
   return new Date(`${value.slice(0, 10)}T00:00:00.000Z`);
 }
+
+type ScheduledRecurringJob = {
+  sourceId: string;
+  lastRunAt: Date | null;
+  nextRunAt: Date;
+  timeZone: string;
+  status: string;
+};

@@ -12,7 +12,7 @@ async function signIn(page: Page, email: string, destination: RegExp): Promise<v
   await expect(page).toHaveURL(destination);
 }
 
-const E2E_REDIS_URL = 'redis://127.0.0.1:56379';
+const E2E_REDIS_URL = 'redis://127.0.0.1:56780';
 
 /**
  * The API rate-limits logins per account (8/15 min); the portal describe signs the demo

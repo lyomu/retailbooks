@@ -25,6 +25,7 @@ const productionEnvironment = {
   AUTOMATION_WORKER_CONCURRENCY: '4',
   AUTOMATION_SCHEDULER_POLL_MS: '30000',
   AUTOMATION_OUTBOX_POLL_MS: '1000',
+  CLAMAV_HOST: 'clamav.internal',
 };
 
 describe('validateApiEnvironment', () => {
@@ -32,9 +33,9 @@ describe('validateApiEnvironment', () => {
     const env = validateApiEnvironment({ NODE_ENV: 'test' });
 
     expect(env.DATABASE_URL).toBe(
-      'postgresql://retailbooks:retailbooks@localhost:55432/retailbooks',
+      'postgresql://retailbooks_app:retailbooks-app-local@localhost:55432/retailbooks',
     );
-    expect(env.REDIS_URL).toBe('redis://localhost:56379');
+    expect(env.REDIS_URL).toBe('redis://localhost:56780');
     expect(env.S3_BUCKET).toBe('retailbooks-local');
     expect(env.API_PORT).toBe(3001);
   });
@@ -63,5 +64,102 @@ describe('validateApiEnvironment', () => {
       API_PORT: 3001,
       SMTP_PORT: 587,
     });
+  });
+
+  it('keeps AI disabled unless a private endpoint is explicitly configured', () => {
+    expect(validateApiEnvironment({ NODE_ENV: 'test' })).toMatchObject({
+      AI_MODE: 'off',
+      AI_MAX_CONTEXT_ROWS: 50,
+    });
+
+    expect(() => validateApiEnvironment({ NODE_ENV: 'test', AI_MODE: 'private' })).toThrow(
+      /AI_PRIVATE_ENDPOINT is required.*AI_PRIVATE_MODEL is required/,
+    );
+  });
+
+  it('uses a bounded AI retention policy and rejects non-positive retention', () => {
+    expect(validateApiEnvironment({ NODE_ENV: 'test' })).toMatchObject({
+      AI_RUN_RETENTION_DAYS: 90,
+      AI_RETENTION_POLL_MS: 3_600_000,
+    });
+    expect(() => validateApiEnvironment({ NODE_ENV: 'test', AI_RUN_RETENTION_DAYS: '0' })).toThrow(
+      /AI_RUN_RETENTION_DAYS/,
+    );
+  });
+
+  it('requires an allowlisted HTTPS private endpoint in production', () => {
+    expect(() =>
+      validateApiEnvironment({
+        ...productionEnvironment,
+        AI_MODE: 'private',
+        AI_PRIVATE_ENDPOINT: 'https://model.internal/v1',
+        AI_PRIVATE_MODEL: 'deepseek-local',
+      }),
+    ).toThrow(/AI_PRIVATE_ALLOWED_HOSTS is required/);
+
+    expect(
+      validateApiEnvironment({
+        ...productionEnvironment,
+        AI_MODE: 'private',
+        AI_PRIVATE_ENDPOINT: 'https://model.internal/v1',
+        AI_PRIVATE_MODEL: 'deepseek-local',
+        AI_PRIVATE_ALLOWED_HOSTS: 'model.internal',
+      }),
+    ).toMatchObject({ AI_MODE: 'private', AI_PRIVATE_MODEL: 'deepseek-local' });
+  });
+
+  it('does not allow the public DeepSeek endpoint to masquerade as private inference', () => {
+    expect(() =>
+      validateApiEnvironment({
+        NODE_ENV: 'test',
+        AI_MODE: 'private',
+        AI_PRIVATE_ENDPOINT: 'https://api.deepseek.com/v1',
+        AI_PRIVATE_MODEL: 'deepseek-chat',
+      }),
+    ).toThrow(/must not use a hosted DeepSeek endpoint in private mode/);
+  });
+
+  it('reports invalid private endpoints as configuration errors', () => {
+    expect(() =>
+      validateApiEnvironment({
+        NODE_ENV: 'test',
+        AI_MODE: 'private',
+        AI_PRIVATE_ENDPOINT: 'not-a-url',
+        AI_PRIVATE_MODEL: 'deepseek-local',
+      }),
+    ).toThrow(/AI_PRIVATE_ENDPOINT must be a valid http:\/https: URL without credentials/);
+  });
+
+  it('requires AI_HOSTED_MODEL when AI_MODE is hosted_limited', () => {
+    expect(() =>
+      validateApiEnvironment({ NODE_ENV: 'test', AI_MODE: 'hosted_limited' }),
+    ).toThrow(/AI_HOSTED_MODEL is required/);
+
+    expect(
+      validateApiEnvironment({
+        NODE_ENV: 'test',
+        AI_MODE: 'hosted_limited',
+        AI_HOSTED_MODEL: 'deepseek-chat',
+      }),
+    ).toMatchObject({ AI_MODE: 'hosted_limited', AI_HOSTED_MODEL: 'deepseek-chat' });
+  });
+
+  it('requires AI_HOSTED_API_KEY when AI_MODE is hosted_limited in production', () => {
+    expect(() =>
+      validateApiEnvironment({
+        ...productionEnvironment,
+        AI_MODE: 'hosted_limited',
+        AI_HOSTED_MODEL: 'deepseek-chat',
+      }),
+    ).toThrow(/AI_HOSTED_API_KEY is required/);
+
+    expect(
+      validateApiEnvironment({
+        ...productionEnvironment,
+        AI_MODE: 'hosted_limited',
+        AI_HOSTED_MODEL: 'deepseek-chat',
+        AI_HOSTED_API_KEY: 'hosted-api-key',
+      }),
+    ).toMatchObject({ AI_MODE: 'hosted_limited', AI_HOSTED_MODEL: 'deepseek-chat' });
   });
 });

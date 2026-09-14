@@ -35,13 +35,13 @@ export class RecurringScheduleRunnerService {
       const user = await this.publicUser(job.createdByUserId);
       const metadata = { ipHash: 'automation-worker', userAgent: 'automation-worker' };
       if (job.handler === 'recurring.invoice') {
-        await this.invoices.runDueTemplates(context, user, metadata);
+        await this.invoices.claimAndRunDueTemplates(context, user, metadata, job);
       } else if (job.handler === 'recurring.bill') {
-        await this.bills.runDueTemplates(context, user, metadata);
+        await this.bills.claimAndRunDueTemplates(context, user, metadata, job);
       } else if (job.handler === 'recurring.expense') {
-        await this.expenses.runDueTemplates(context, user, metadata);
+        await this.expenses.claimAndRunDueTemplates(context, user, metadata, job);
       } else if (job.handler === 'recurring.journal') {
-        await this.journals.runDueTemplates(context, user, metadata);
+        await this.journals.claimAndRunDueTemplates(context, user, metadata, job);
       } else {
         throw new Error(`Unsupported recurring handler ${job.handler}.`);
       }

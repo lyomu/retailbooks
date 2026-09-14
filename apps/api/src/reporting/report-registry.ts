@@ -9,7 +9,12 @@ const status = (key: string, label: string) => ({ key, label, type: 'status' as 
 
 type DefinitionInput = Omit<
   ReportDefinition,
-  'description' | 'supportedBasis' | 'supportedCurrencyModes' | 'supportsProject' | 'supportsTag'
+  | 'description'
+  | 'supportedBasis'
+  | 'supportedCurrencyModes'
+  | 'supportsProject'
+  | 'supportsTag'
+  | 'supportsDrillDown'
 > &
   Partial<
     Pick<
@@ -19,6 +24,7 @@ type DefinitionInput = Omit<
       | 'supportedCurrencyModes'
       | 'supportsProject'
       | 'supportsTag'
+      | 'supportsDrillDown'
     >
   >;
 
@@ -29,6 +35,7 @@ function definition(input: DefinitionInput): ReportDefinition {
     supportedCurrencyModes: ['BASE'],
     supportsProject: false,
     supportsTag: false,
+    supportsDrillDown: false,
     ...input,
   };
 }
@@ -53,6 +60,7 @@ export const REPORT_DEFINITIONS: readonly ReportDefinition[] = Object.freeze([
     ],
     supportsProject: true,
     supportsTag: true,
+    supportsDrillDown: true,
   }),
   definition({
     key: 'financial.balance-sheet',
@@ -69,6 +77,7 @@ export const REPORT_DEFINITIONS: readonly ReportDefinition[] = Object.freeze([
     ],
     supportsProject: true,
     supportsTag: true,
+    supportsDrillDown: true,
   }),
   definition({
     key: 'financial.cash-flow',
@@ -96,6 +105,7 @@ export const REPORT_DEFINITIONS: readonly ReportDefinition[] = Object.freeze([
     ],
     supportsProject: true,
     supportsTag: true,
+    supportsDrillDown: true,
   }),
   definition({
     key: 'financial.general-ledger',

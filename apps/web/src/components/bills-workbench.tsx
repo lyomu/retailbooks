@@ -33,6 +33,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { ApiError, apiRequest, apiUpload } from '../lib/api';
 import { hasPermission, useWorkspace } from '../lib/workspace';
+import { DocumentExtractionPanel } from './document-extraction-panel';
 import { TransactionCollaboration } from './transaction-collaboration';
 
 type BillListResponse = { data: Bill[] };
@@ -243,6 +244,9 @@ export function BillEditorPage({ billId }: { billId?: string }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [reviewAttachment, setReviewAttachment] = useState<{ id: string; filename: string } | null>(
+    null,
+  );
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const loadAttachments = useCallback(async () => {
@@ -782,6 +786,16 @@ export function BillEditorPage({ billId }: { billId?: string }) {
                     <span className="rb-table-secondary">
                       {(attachment.sizeBytes / 1024).toFixed(0)} KB
                     </span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() =>
+                        setReviewAttachment({ id: attachment.id, filename: attachment.filename })
+                      }
+                    >
+                      Review
+                    </Button>
                   </li>
                 ))}
               </ul>
@@ -800,6 +814,15 @@ export function BillEditorPage({ billId }: { billId?: string }) {
               hasPermission(organization, 'collaboration.attachments.upload') &&
               hasPermission(organization, 'purchases.bills.manage')
             }
+          />
+        ) : null}
+        {reviewAttachment && organizationId && bill ? (
+          <DocumentExtractionPanel
+            basePath={`/organizations/${organizationId}/bills/${bill.id}`}
+            attachmentId={reviewAttachment.id}
+            filename={reviewAttachment.filename}
+            canManage={canManage}
+            onClose={() => setReviewAttachment(null)}
           />
         ) : null}
       </div>

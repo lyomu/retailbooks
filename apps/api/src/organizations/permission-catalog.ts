@@ -51,6 +51,16 @@ export const PERMISSION_KEYS = [
   'journals.recurring.manage',
   'reports.view',
   'reports.manage',
+  'ai.assistant.ask',
+  'ai.suggestions.view',
+  'ai.suggestions.manage',
+  'ai.settings.manage',
+  'insights.cash_flow.view',
+  'insights.collections.view',
+  'insights.inventory.view',
+  'insights.project_margin.view',
+  'insights.policy_qa.view',
+  'insights.evidence_packs.view',
   'tax.codes.view',
   'tax.codes.manage',
   'audit.view',
@@ -183,6 +193,8 @@ export interface PermissionDefinition {
     | 'Accounts'
     | 'Journals'
     | 'Reports'
+    | 'AI'
+    | 'Insights'
     | 'Tax'
     | 'Audit'
     | 'Security'
@@ -507,6 +519,76 @@ export const PERMISSION_CATALOG: readonly PermissionDefinition[] = Object.freeze
     label: 'Manage saved reports',
     description: 'Create, rename, update, and delete saved report configurations.',
     group: 'Reports',
+    protected: false,
+  },
+  {
+    key: 'ai.assistant.ask',
+    label: 'Ask the AI assistant',
+    description: 'Ask grounded questions over financial reports the user may already view.',
+    group: 'AI',
+    protected: false,
+  },
+  {
+    key: 'ai.suggestions.view',
+    label: 'View AI suggestions',
+    description: 'View attributable AI suggestions and their supporting evidence.',
+    group: 'AI',
+    protected: false,
+  },
+  {
+    key: 'ai.suggestions.manage',
+    label: 'Review AI suggestions',
+    description: 'Accept, correct, or dismiss AI suggestions through authorized workflows.',
+    group: 'AI',
+    protected: false,
+  },
+  {
+    key: 'ai.settings.manage',
+    label: 'Manage AI settings',
+    description: 'View and manage organization-level AI availability settings.',
+    group: 'AI',
+    protected: false,
+  },
+  {
+    key: 'insights.cash_flow.view',
+    label: 'View cash-flow scenarios',
+    description: 'View deterministic cash-flow scenario projections.',
+    group: 'Insights',
+    protected: false,
+  },
+  {
+    key: 'insights.collections.view',
+    label: 'View collections prioritization',
+    description: 'View the deterministic overdue-invoice collections priority list.',
+    group: 'Insights',
+    protected: false,
+  },
+  {
+    key: 'insights.inventory.view',
+    label: 'View inventory purchasing advice',
+    description: 'View deterministic inventory purchasing and reorder advice.',
+    group: 'Insights',
+    protected: false,
+  },
+  {
+    key: 'insights.project_margin.view',
+    label: 'View project margin advice',
+    description: 'View deterministic project margin analysis.',
+    group: 'Insights',
+    protected: false,
+  },
+  {
+    key: 'insights.policy_qa.view',
+    label: 'View policy Q&A',
+    description: 'Search country and tax pack policy content.',
+    group: 'Insights',
+    protected: false,
+  },
+  {
+    key: 'insights.evidence_packs.view',
+    label: 'View audit evidence packs',
+    description: 'Assemble deterministic audit evidence packs for a source record.',
+    group: 'Insights',
     protected: false,
   },
   {
